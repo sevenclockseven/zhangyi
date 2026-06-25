@@ -2,6 +2,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('../views/Login.vue'),
+    meta: { title: '登录', public: true }
+  },
+  {
     path: '/',
     name: 'Dashboard',
     component: () => import('../views/Dashboard.vue'),
@@ -48,6 +54,18 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// 路由守卫
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  if (!to.meta.public && !token) {
+    next('/login')
+  } else if (to.path === '/login' && token) {
+    next('/')
+  } else {
+    next()
+  }
 })
 
 export default router

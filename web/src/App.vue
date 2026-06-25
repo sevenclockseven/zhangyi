@@ -1,10 +1,29 @@
 <template>
-  <el-container class="app-container">
+  <el-container class="app-container" v-if="!isLoginPage">
     <!-- Sidebar -->
     <el-aside width="220px" class="app-aside">
       <div class="logo">
-        <h2>📊 账易</h2>
-        <span>代理记账系统</span>
+        <svg viewBox="0 0 120 120" width="40" height="40">
+          <defs>
+            <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#409EFF"/>
+              <stop offset="100%" style="stop-color:#2b5ca6"/>
+            </linearGradient>
+          </defs>
+          <rect width="120" height="120" rx="24" fill="url(#lg)"/>
+          <rect x="24" y="16" width="72" height="88" rx="8" fill="white" opacity="0.95"/>
+          <rect x="34" y="32" width="52" height="4" rx="2" fill="#409EFF" opacity="0.7"/>
+          <rect x="34" y="42" width="40" height="4" rx="2" fill="#409EFF" opacity="0.4"/>
+          <rect x="34" y="52" width="52" height="4" rx="2" fill="#409EFF" opacity="0.7"/>
+          <rect x="34" y="62" width="36" height="4" rx="2" fill="#409EFF" opacity="0.4"/>
+          <rect x="34" y="72" width="52" height="4" rx="2" fill="#409EFF" opacity="0.7"/>
+          <circle cx="90" cy="86" r="20" fill="#67C23A"/>
+          <polyline points="81,86 87,92 99,78" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="logo-text">
+          <h2>账易</h2>
+          <span>代理记账系统</span>
+        </div>
       </div>
       <el-menu
         :default-active="route.path"
@@ -51,24 +70,91 @@
         <div class="header-left">
           <el-breadcrumb separator="/">
             <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-            <el-breadcrumb-item v-if="route.meta.title">{{ route.meta.title }}</el-breadcrumb-item>
+            <el-breadcrumb-item v-if="route.meta.title && route.meta.title !== '工作台'">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
         <div class="header-right">
-          <el-tag type="success" size="small">v0.1.0</el-tag>
+          <el-dropdown @command="handleCommand">
+            <span class="user-info">
+              <el-icon><User /></el-icon>
+              {{ currentUser.real_name || currentUser.username || '用户' }}
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="password">修改密码</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
       <el-main class="app-main">
         <router-view />
       </el-main>
     </el-container>
+
+    <!-- 修改密码对话框 -->
+    <el-dialog v-model="showPasswordDialog" title="修改密码" width="400px">
+      <el-form :model="passwordForm" label-width="80px">
+        <el-form-item label="原密码">
+          <el-input v-model="passwordForm.old_password" type="password" show-password />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="passwordForm.new_password" type="password" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showPasswordDialog = false">取消</el-button>
+        <el-button type="primary" @click="changePassword">确定</el-button>
+      </template>
+    </el-dialog>
   </el-container>
+
+  <router-view v-if="isLoginPage" />
 </template>
 
 <script setup>
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
 
 const route = useRoute()
+const router = useRouter()
+
+const isLoginPage = computed(() => route.path === '/login')
+const currentUser = ref({})
+const showPasswordDialog = ref(false)
+const passwordForm = ref({ old_password: '', new_password: '' })
+
+onMounted(() => {
+  const user = localStorage.getItem('user')
+  if (user) {
+    currentUser.value = JSON.parse(user)
+  }
+})
+
+const handleCommand = (cmd) => {
+  if (cmd === 'logout') {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    router.push('/login')
+  } else if (cmd === 'password') {
+    passwordForm.value = { old_password: '', new_password: '' }
+    showPasswordDialog.value = true
+  }
+}
+
+const changePassword = async () => {
+  try {
+    await axios.put('/api/auth/password', passwordForm.value)
+    ElMessage.success('密码修改成功')
+    showPasswordDialog.value = false
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '修改失败')
+  }
+}
 </script>
 
 <style>
@@ -92,19 +178,22 @@ body {
 }
 
 .logo {
-  padding: 20px;
-  text-align: center;
-  color: #fff;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   border-bottom: 1px solid #3d4f65;
 }
 
-.logo h2 {
-  font-size: 24px;
-  margin-bottom: 4px;
+.logo-text h2 {
+  font-size: 20px;
+  color: #fff;
+  margin: 0;
+  line-height: 1.2;
 }
 
-.logo span {
-  font-size: 12px;
+.logo-text span {
+  font-size: 11px;
   color: #bfcbd9;
 }
 
@@ -118,6 +207,15 @@ body {
   justify-content: space-between;
   border-bottom: 1px solid #e6e6e6;
   background: #fff;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #606266;
+  font-size: 14px;
 }
 
 .app-main {

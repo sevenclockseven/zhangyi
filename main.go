@@ -40,6 +40,7 @@ func main() {
 
 	// Auto migrate
 	if err := db.AutoMigrate(
+		&models.User{},
 		&models.AccountBook{},
 		&models.Account{},
 		&models.Voucher{},
