@@ -16,12 +16,23 @@
       <el-tab-pane label="科目余额" name="account-balance" />
       <el-tab-pane label="应收统计" name="ar" />
       <el-tab-pane label="应付统计" name="ap" />
+      <el-tab-pane label="自定义报表" name="custom" />
 
       <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
         <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadReport" :size="isMobile ? 'small' : 'default'" />
-        <el-button size="small" @click="exportReport" :disabled="!reportData">
-          <el-icon><Download /></el-icon>导出
-        </el-button>
+        <el-dropdown @command="exportReport" :disabled="!reportData">
+          <el-button size="small" :disabled="!reportData">
+            <el-icon><Download /></el-icon>导出 <el-icon><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="csv">导出CSV</el-dropdown-item>
+              <el-dropdown-item command="excel">导出Excel</el-dropdown-item>
+              <el-dropdown-item command="pdf">导出PDF</el-dropdown-item>
+              <el-dropdown-item command="print">打印</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
 
       <!-- 利润表 (新格式) -->
@@ -206,7 +217,68 @@
           </div>
         </el-card>
       </div>
+      <!-- 自定义报表 -->
+      <div v-if="activeTab === 'custom'">
+        <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
+          <el-button type="primary" size="small" @click="openCrAdd">
+            <el-icon><Plus /></el-icon>新建报表
+          </el-button>
+          <el-date-picker v-model="crRunPeriod" type="month" value-format="YYYY-MM" placeholder="期间" size="small" style="width: 140px" />
+        </div>
+        <el-table :data="crList" border size="small">
+          <el-table-column prop="name" label="报表名称" min-width="180" />
+          <el-table-column prop="type" label="类型" width="100" />
+          <el-table-column label="操作" width="180">
+            <template #default="{ row }">
+              <el-button size="small" type="success" link @click="runCr(row)">运行</el-button>
+              <el-button size="small" type="danger" link @click="deleteCr(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-card v-if="crResult" shadow="never" style="margin-top: 12px">
+          <template #header><strong>{{ crResult.name }}</strong><span style="float: right; color: #909399; font-size: 13px">{{ crResult.period }}</span></template>
+          <el-table :data="crResult.data" border size="small">
+            <el-table-column prop="label" label="项目" min-width="200">
+              <template #default="{ row }">
+                <span :style="{ fontWeight: row.bold ? 'bold' : 'normal', paddingLeft: (row.level - 1) * 20 + 'px' }">{{ row.label }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="140" align="right">
+              <template #default="{ row }">{{ fmt(row.amount) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+        <el-card shadow="never" style="margin-top: 12px">
+          <template #header><strong>取数公式</strong></template>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="JE('code','dir')">本期发生额</el-descriptions-item>
+            <el-descriptions-item label="QM('code','dir')">期末余额</el-descriptions-item>
+            <el-descriptions-item label="QC('code','dir')">期初余额</el-descriptions-item>
+            <el-descriptions-item label="JL('code','dir')">本年累计</el-descriptions-item>
+            <el-descriptions-item label="运算">支持 + - ，如 JE('6601','借') - JE('6602','借')</el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+      </div>
     </el-tabs>
+
+    <!-- Custom Report Edit Dialog -->
+    <el-dialog v-model="showCrEdit" title="新建自定义报表" :width="isMobile ? '95%' : '650px'">
+      <el-form :model="crForm" label-width="80px">
+        <el-form-item label="报表名称" required><el-input v-model="crForm.name" placeholder="如：费用汇总表" /></el-form-item>
+        <el-form-item label="行定义">
+          <div v-for="(row, i) in crForm.rows" :key="i" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center">
+            <el-input v-model="row.label" placeholder="行标签" style="flex: 1" />
+            <el-input v-model="row.formula" placeholder="如 JE('6602','借')" style="flex: 1" />
+            <el-input-number v-model="row.level" :min="1" :max="4" size="small" style="width: 70px" />
+            <el-checkbox v-model="row.bold">粗</el-checkbox>
+            <el-button size="small" type="danger" link @click="crForm.rows.splice(i, 1)"><el-icon><Delete /></el-icon></el-button>
+          </div>
+          <el-button size="small" @click="crForm.rows.push({ label: '', formula: '', level: 1, bold: false })"><el-icon><Plus /></el-icon>添加行</el-button>
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button @click="showCrEdit = false">取消</el-button><el-button type="primary" @click="saveCr">保存</el-button></template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -231,6 +303,7 @@ const loadBooks = async () => {
 }
 
 const loadReport = async () => {
+  if (activeTab.value === 'custom') { loadCrList(); return }
   if (!currentBook.value || !period.value) return
   reportData.value = null
   try {
@@ -275,8 +348,30 @@ const incomeSummary = ({ columns, data }) => {
   return sums
 }
 
-const exportReport = () => {
-  ElMessage.info('导出功能开发中')
+const exportReport = (format) => {
+  const typeMap = { 'income': 'income', 'balance-sheet': 'balance-sheet', 'account-balance': 'account-balance' }
+  const type = typeMap[activeTab.value]
+  if (!type) { ElMessage.warning('该报表暂不支持导出'); return }
+
+  if (format === 'csv') {
+    window.open(`/api/books/${currentBook.value}/reports/export?type=${type}&period=${period.value}`, '_blank')
+  } else if (format === 'print') {
+    window.print()
+  } else if (format === 'excel') {
+    // Generate Excel HTML
+    const table = document.querySelector('.el-table__body-wrapper table')
+    if (!table) { ElMessage.warning('无数据可导出'); return }
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>报表</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>${table.outerHTML}</body></html>`
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${activeTab.value}_${period.value}.xls`
+    a.click()
+    URL.revokeObjectURL(url)
+  } else if (format === 'pdf') {
+    window.print()
+  }
 }
 
 const fmt = (v) => {
@@ -288,6 +383,48 @@ onMounted(() => {
   loadBooks()
   window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
 })
+// Custom Reports
+const crList = ref([])
+const crRunPeriod = ref(new Date().toISOString().slice(0, 7))
+const crResult = ref(null)
+const showCrEdit = ref(false)
+const crForm = ref({ name: '', rows: [{ label: '', formula: '', level: 1, bold: false }] })
+
+const loadCrList = async () => {
+  if (!currentBook.value) return
+  const { data } = await axios.get(`/api/books/${currentBook.value}/reports/templates`)
+  crList.value = data.data || []
+}
+const openCrAdd = () => {
+  crForm.value = { name: '', rows: [{ label: '', formula: '', level: 1, bold: false }] }
+  showCrEdit.value = true
+}
+const saveCr = async () => {
+  if (!crForm.value.name) { ElMessage.warning('请输入报表名称'); return }
+  try {
+    await axios.post(`/api/books/${currentBook.value}/reports/templates`, {
+      name: crForm.value.name, type: 'custom', config: JSON.stringify({ rows: crForm.value.rows })
+    })
+    ElMessage.success('保存成功')
+    showCrEdit.value = false
+    loadCrList()
+  } catch (e) { ElMessage.error('保存失败') }
+}
+const runCr = async (tpl) => {
+  if (!crRunPeriod.value) { ElMessage.warning('请选择期间'); return }
+  try {
+    const { data } = await axios.get(`/api/books/${currentBook.value}/reports/custom/${tpl.id}?period=${crRunPeriod.value}`)
+    crResult.value = data
+  } catch (e) { ElMessage.error('生成失败') }
+}
+const deleteCr = async (tpl) => {
+  await ElMessageBox.confirm(`确定删除"${tpl.name}"？`, '确认')
+  await axios.delete(`/api/books/${currentBook.value}/reports/templates/${tpl.id}`)
+  ElMessage.success('已删除')
+  loadCrList()
+  crResult.value = null
+}
+
 </script>
 
 <style scoped>

@@ -17,7 +17,27 @@
           <el-tab-pane label="员工" name="employee" />
           <el-tab-pane label="仓库" name="warehouse" />
           <el-tab-pane label="银行" name="bank_account" />
-        </el-tabs>
+            <!-- Voucher Template Edit Dialog -->
+    <el-dialog v-model="showVtplEdit" :title="editingVtpl ? '编辑模板' : '新增模板'" :width="isMobile ? '95%' : '600px'">
+      <el-form :model="vtplForm" label-width="80px">
+        <el-form-item label="模板名称" required><el-input v-model="vtplForm.name" placeholder="如：收货款" /></el-form-item>
+        <el-form-item label="分类"><el-input v-model="vtplForm.category" placeholder="如：收入、费用" /></el-form-item>
+        <el-form-item label="分录">
+          <div v-for="(item, i) in vtplForm.items" :key="i" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center">
+            <el-select v-model="item.account_id" filterable placeholder="科目" style="flex: 1">
+              <el-option v-for="a in accounts" :key="a.id" :label="a.code + ' ' + a.name" :value="a.id" :disabled="!a.is_leaf" />
+            </el-select>
+            <el-input v-model="item.memo" placeholder="摘要" style="width: 130px" />
+            <el-button size="small" type="danger" link @click="vtplForm.items.splice(i, 1)" :disabled="vtplForm.items.length <= 1"><el-icon><Delete /></el-icon></el-button>
+          </div>
+          <el-button size="small" @click="vtplForm.items.push({ account_id: null, memo: '' })"><el-icon><Plus /></el-icon>添加</el-button>
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button @click="showVtplEdit = false">取消</el-button><el-button type="primary" @click="saveVtpl">保存</el-button></template>
+    </el-dialog>
+
+    
+</el-tabs>
 
         <div class="toolbar">
           <el-button type="primary" size="small" @click="openAdd">
@@ -120,6 +140,52 @@
         </div>
       </el-tab-pane>
 
+      <el-tab-pane label="科目模板" name="templates">
+        <el-card shadow="never">
+          <template #header>
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <span>已安装模板</span>
+              <el-button size="small" type="primary" @click="syncAllTemplates" :loading="syncing">
+                <el-icon><Refresh /></el-icon>同步模板到账套
+              </el-button>
+            </div>
+          </template>
+          <el-table :data="templateVersions" border size="small">
+            <el-table-column prop="id" label="模板ID" width="150" />
+            <el-table-column prop="name" label="模板名称" min-width="150" />
+            <el-table-column prop="version" label="版本" width="120" />
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="凭证模板" name="vtpl">
+        <div v-if="currentBook">
+          <div style="margin-bottom: 12px">
+            <el-button type="primary" size="small" @click="openVtplAdd">
+              <el-icon><Plus /></el-icon>新增模板
+            </el-button>
+          </div>
+          <el-table :data="vtplList" border size="small">
+            <el-table-column prop="name" label="模板名称" min-width="150" />
+            <el-table-column prop="category" label="分类" width="120" />
+            <el-table-column label="分录" min-width="250">
+              <template #default="{ row }">
+                <span v-for="(item, i) in parseVtplItems(row.items)" :key="i" style="margin-right: 10px; font-size: 13px; color: #606266">
+                  {{ item.account_code }} {{ item.account_name }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="130">
+              <template #default="{ row }">
+                <el-button size="small" type="primary" link @click="editVtpl(row)">编辑</el-button>
+                <el-button size="small" type="danger" link @click="deleteVtpl(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </el-tab-pane>
+
+      
       <el-tab-pane label="账套信息" name="book">
         <el-card shadow="never" v-if="bookInfo">
           <el-descriptions :column="isMobile ? 1 : 2" border size="small">
@@ -161,7 +227,27 @@
           </div>
         </el-card>
       </el-tab-pane>
-    </el-tabs>
+        <!-- Voucher Template Edit Dialog -->
+    <el-dialog v-model="showVtplEdit" :title="editingVtpl ? '编辑模板' : '新增模板'" :width="isMobile ? '95%' : '600px'">
+      <el-form :model="vtplForm" label-width="80px">
+        <el-form-item label="模板名称" required><el-input v-model="vtplForm.name" placeholder="如：收货款" /></el-form-item>
+        <el-form-item label="分类"><el-input v-model="vtplForm.category" placeholder="如：收入、费用" /></el-form-item>
+        <el-form-item label="分录">
+          <div v-for="(item, i) in vtplForm.items" :key="i" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center">
+            <el-select v-model="item.account_id" filterable placeholder="科目" style="flex: 1">
+              <el-option v-for="a in accounts" :key="a.id" :label="a.code + ' ' + a.name" :value="a.id" :disabled="!a.is_leaf" />
+            </el-select>
+            <el-input v-model="item.memo" placeholder="摘要" style="width: 130px" />
+            <el-button size="small" type="danger" link @click="vtplForm.items.splice(i, 1)" :disabled="vtplForm.items.length <= 1"><el-icon><Delete /></el-icon></el-button>
+          </div>
+          <el-button size="small" @click="vtplForm.items.push({ account_id: null, memo: '' })"><el-icon><Plus /></el-icon>添加</el-button>
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button @click="showVtplEdit = false">取消</el-button><el-button type="primary" @click="saveVtpl">保存</el-button></template>
+    </el-dialog>
+
+    
+</el-tabs>
 
     <!-- Add/Edit dialog -->
     <el-dialog v-model="showEdit" :title="editingItem ? '编辑' : '新增' + auxLabel" :width="isMobile ? '95%' : '550px'">
@@ -342,7 +428,7 @@ const defaultMenu = [
   { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
   { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
   { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
-  { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
+          { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
   { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
 ]
 
@@ -388,11 +474,83 @@ const resetMenu = () => {
   ElMessage.success('已恢复默认菜单')
 }
 
+// Template versions
+const templateVersions = ref([])
+const syncing = ref(false)
+
+const loadTemplateVersions = async () => {
+  try {
+    const { data } = await axios.get('/api/templates/versions')
+    templateVersions.value = data.data || []
+  } catch (e) { console.error(e) }
+}
+
+const syncAllTemplates = async () => {
+  if (!currentBook.value) return
+  syncing.value = true
+  try {
+    const { data } = await axios.post(`/api/books/${currentBook.value}/sync-all-templates`)
+    ElMessage.success(data.message || '同步成功')
+  } catch (e) { ElMessage.error(e.response?.data?.error || '同步失败') }
+  finally { syncing.value = false }
+}
+
+// Voucher Templates
+const vtplList = ref([])
+const showVtplEdit = ref(false)
+const editingVtpl = ref(null)
+const vtplForm = ref({ name: '', category: '', items: [{ account_id: null, memo: '' }] })
+
+const loadVtplList = async () => {
+  if (!currentBook.value) return
+  const { data } = await axios.get(`/api/books/${currentBook.value}/voucher-templates`)
+  vtplList.value = data.data || []
+}
+const parseVtplItems = (s) => { try { return JSON.parse(s || '[]') } catch { return [] } }
+const openVtplAdd = () => {
+  editingVtpl.value = null
+  vtplForm.value = { name: '', category: '', items: [{ account_id: null, memo: '' }] }
+  showVtplEdit.value = true
+}
+const editVtpl = (row) => {
+  editingVtpl.value = row
+  const items = parseVtplItems(row.items)
+  vtplForm.value = { name: row.name, category: row.category || '', items: items.length > 0 ? items : [{ account_id: null, memo: '' }] }
+  showVtplEdit.value = true
+}
+const saveVtpl = async () => {
+  if (!vtplForm.value.name) { ElMessage.warning('请输入模板名称'); return }
+  const items = vtplForm.value.items.filter(i => i.account_id).map(i => {
+    const acct = auxItems.value.find(a => a.id === i.account_id) || {}
+    return { account_id: i.account_id, account_code: acct.code || i.account_code || '', account_name: acct.name || i.account_name || '', memo: i.memo || '' }
+  })
+  if (items.length === 0) { ElMessage.warning('请至少添加一条分录'); return }
+  try {
+    const payload = { name: vtplForm.value.name, category: vtplForm.value.category, items: JSON.stringify(items) }
+    if (editingVtpl.value) {
+      await axios.put(`/api/books/${currentBook.value}/voucher-templates/${editingVtpl.value.id}`, payload)
+    } else {
+      await axios.post(`/api/books/${currentBook.value}/voucher-templates`, payload)
+    }
+    ElMessage.success('保存成功')
+    showVtplEdit.value = false
+    loadVtplList()
+  } catch (e) { ElMessage.error('保存失败') }
+}
+const deleteVtpl = async (row) => {
+  await ElMessageBox.confirm(`确定删除"${row.name}"？`, '确认')
+  await axios.delete(`/api/books/${currentBook.value}/voucher-templates/${row.id}`)
+  ElMessage.success('已删除')
+  loadVtplList()
+}
+
 const onTabChange = () => {
   if (activeTab.value === 'aux') loadAux()
   else if (activeTab.value === 'book') loadBookInfo()
   else if (activeTab.value === 'menu') loadMenuConfig()
-}
+  else if (activeTab.value === 'templates') loadTemplateVersions()
+  else if (activeTab.value === 'vtpl') loadVtplList()
+  }
 
 const onSelectionChange = (rows) => { selectedItems.value = rows }
 
@@ -466,7 +624,7 @@ watch(showEdit, (val) => {
   if (!val) editingItem.value = null
 })
 
-watch(currentBook, () => { loadAux(); loadBookInfo() })
+watch(currentBook, () => { loadAux(); loadBookInfo(); loadVtplList() })
 
 onMounted(() => {
   loadBooks()

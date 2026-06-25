@@ -128,7 +128,7 @@ const defaultMenuConfig = [
   { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
   { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
   { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
-  { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
+    { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
   { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
 ]
 

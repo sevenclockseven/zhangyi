@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -385,7 +387,8 @@ func listVouchers(db *gorm.DB) gin.HandlerFunc {
 			query = query.Where("date <= ?", dateTo)
 		}
 		if keyword := c.Query("keyword"); keyword != "" {
-			query = query.Where("number LIKE ? OR memo LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+			subQuery := db.Model(&models.VoucherItem{}).Select("DISTINCT voucher_id").Where("memo LIKE ?", "%"+keyword+"%")
+			query = query.Where("number LIKE ? OR memo LIKE ? OR vouchers.id IN (?)", "%"+keyword+"%", "%"+keyword+"%", subQuery)
 		}
 
 		query.Preload("Items").Order("date DESC, number DESC").Find(&vouchers)
@@ -2408,5 +2411,444 @@ func arApReport(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": rows, "type": reportType})
+	}
+}
+// ===== Voucher Template Handlers =====
+
+// listVoucherTemplates returns all templates for a book
+func listVoucherTemplates(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		var templates []models.VoucherTemplate
+		db.Where("book_id = ? OR book_id IS NULL", bookID).Order("category ASC, name ASC").Find(&templates)
+		c.JSON(http.StatusOK, gin.H{"data": templates})
+	}
+}
+
+// createVoucherTemplate creates a new template
+func createVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		var req struct {
+			Name     string `json:"name" binding:"required"`
+			Category string `json:"category"`
+			Items    string `json:"items" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		tpl := models.VoucherTemplate{
+			BookID:   &[]uint{uint(bookID)}[0],
+			Name:     req.Name,
+			Category: req.Category,
+			Items:    req.Items,
+		}
+		if err := db.Create(&tpl).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"data": tpl})
+	}
+}
+
+// updateVoucherTemplate updates a template
+func updateVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tid := c.Param("tid")
+		var tpl models.VoucherTemplate
+		if err := db.First(&tpl, tid).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "模板不存在"})
+			return
+		}
+		var req struct {
+			Name     string `json:"name"`
+			Category string `json:"category"`
+			Items    string `json:"items"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		updates := map[string]interface{}{}
+		if req.Name != "" { updates["name"] = req.Name }
+		if req.Category != "" { updates["category"] = req.Category }
+		if req.Items != "" { updates["items"] = req.Items }
+		db.Model(&tpl).Updates(updates)
+		c.JSON(http.StatusOK, gin.H{"data": tpl})
+	}
+}
+
+// deleteVoucherTemplate deletes a template
+func deleteVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tid := c.Param("tid")
+		if err := db.Delete(&models.VoucherTemplate{}, tid).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "已删除"})
+	}
+}
+// ===== Export Handlers =====
+
+// exportVouchers exports vouchers as CSV (Excel compatible)
+func exportVouchers(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		period := c.Query("period") // YYYY-MM
+
+		var vouchers []models.Voucher
+		query := db.Where("book_id = ?", bookID)
+		if period != "" {
+			query = query.Where("date LIKE ?", period+"%")
+		}
+		query.Preload("Items").Order("date ASC, number ASC").Find(&vouchers)
+
+		var buf strings.Builder
+		buf.WriteString("\xEF\xBB\xBF")
+		buf.WriteString("凭证字号,日期,科目编码,科目名称,摘要,借方金额,贷方金额,状态\n")
+
+		for _, v := range vouchers {
+			statusLabel := map[string]string{"draft": "草稿", "reviewed": "已审核", "posted": "已记账", "voided": "已作废"}[v.Status]
+			for _, item := range v.Items {
+				buf.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%.2f,%.2f,%s\n",
+					quoteCSV(v.Number), v.Date, item.AccountCode, item.AccountName,
+					quoteCSV(item.Memo), item.Debit, item.Credit, statusLabel))
+			}
+		}
+
+		filename := fmt.Sprintf("vouchers_%s.csv", time.Now().Format("20060102"))
+		if period != "" {
+			filename = fmt.Sprintf("vouchers_%s_%s.csv", period, time.Now().Format("20060102"))
+		}
+		c.Header("Content-Type", "text/csv; charset=utf-8")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.String(http.StatusOK, buf.String())
+	}
+}
+
+// exportReport exports current report data as CSV
+func exportReport(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		reportType := c.Query("type")
+		period := c.Query("period")
+
+		var buf strings.Builder
+		buf.WriteString("\xEF\xBB\xBF")
+
+		switch reportType {
+		case "balance-sheet":
+			buf.WriteString("资产负债表\n")
+			buf.WriteString("类型,编码,项目,期末余额\n")
+			// Reuse balance sheet logic
+			var accounts []models.Account
+			db.Where("book_id = ? AND is_active = ?", bookID, true).Order("code ASC").Find(&accounts)
+			for _, acct := range accounts {
+				var balance models.AccountBalance
+				db.Where("book_id = ? AND account_id = ? AND period = ?", bookID, acct.ID, period).First(&balance)
+				total := balance.ClosingDebit - balance.ClosingCredit
+				if total != 0 {
+					category := "其他"
+					code := acct.Code[:1]
+					switch code {
+					case "1": category = "资产"
+					case "2": category = "负债"
+					case "3": category = "所有者权益"
+					}
+					buf.WriteString(fmt.Sprintf("%s,%s,%s,%.2f\n", category, acct.Code, acct.Name, total))
+				}
+			}
+
+		case "income":
+			buf.WriteString("利润表\n")
+			buf.WriteString("项目,本期金额\n")
+			getAmt := func(code string) float64 {
+				var total float64
+				db.Model(&models.AccountBalance{}).
+					Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+					Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
+					Row().Scan(&total)
+				return total
+			}
+			revenue := getAmt("5001") + getAmt("5051")
+			cost := getAmt("5401") + getAmt("5402")
+			buf.WriteString(fmt.Sprintf("营业收入,%.2f\n", revenue))
+			buf.WriteString(fmt.Sprintf("营业成本,%.2f\n", cost))
+			buf.WriteString(fmt.Sprintf("毛利,%.2f\n", revenue-cost))
+
+		case "account-balance":
+			buf.WriteString("科目余额表\n")
+			buf.WriteString("科目编码,科目名称,方向,期初借方,期初贷方,本期借方,本期贷方,期末借方,期末贷方\n")
+			var balances []models.AccountBalance
+			db.Where("book_id = ? AND period = ?", bookID, period).Find(&balances)
+			for _, b := range balances {
+				var acct models.Account
+				db.First(&acct, b.AccountID)
+				buf.WriteString(fmt.Sprintf("%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+					acct.Code, acct.Name, acct.Direction,
+					b.OpeningDebit, b.OpeningCredit, b.PeriodDebit, b.PeriodCredit,
+					b.ClosingDebit, b.ClosingCredit))
+			}
+
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的报表类型"})
+			return
+		}
+
+		filename := fmt.Sprintf("%s_%s_%s.csv", reportType, period, time.Now().Format("20060102"))
+		c.Header("Content-Type", "text/csv; charset=utf-8")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.String(http.StatusOK, buf.String())
+	}
+}
+// ===== Custom Report Engine =====
+
+// customReport generates a custom report based on a template
+func customReport(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		rid := c.Param("rid")
+		period := c.Query("period")
+		if period == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
+			return
+		}
+
+		// Get report template
+		var tpl models.ReportTemplate
+		if err := db.First(&tpl, rid).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "报表模板不存在"})
+			return
+		}
+
+		// Parse config
+		type RowDef struct {
+			Label   string `json:"label"`
+			Level   int    `json:"level"`
+			Bold    bool   `json:"bold"`
+			Formula string `json:"formula"`
+		}
+		var config struct {
+			Rows []RowDef `json:"rows"`
+		}
+		json.Unmarshal([]byte(tpl.Config), &config)
+
+		// Evaluate formulas
+		type ResultRow struct {
+			Label  string  `json:"label"`
+			Level  int     `json:"level"`
+			Bold   bool    `json:"bold"`
+			Amount float64 `json:"amount"`
+		}
+
+		var results []ResultRow
+		for _, row := range config.Rows {
+			amount := 0.0
+			if row.Formula != "" {
+				amount = evalFormula(db, uint(bookID), period, row.Formula)
+			}
+			results = append(results, ResultRow{
+				Label:  row.Label,
+				Level:  row.Level,
+				Bold:   row.Bold,
+				Amount: amount,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": results, "period": period, "name": tpl.Name})
+	}
+}
+
+// listReportTemplates returns all report templates
+func listReportTemplates(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		var templates []models.ReportTemplate
+		db.Where("book_id = ? OR book_id IS NULL", bookID).Order("type ASC, name ASC").Find(&templates)
+		c.JSON(http.StatusOK, gin.H{"data": templates})
+	}
+}
+
+// createReportTemplate creates a new report template
+func createReportTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		var req struct {
+			Name   string `json:"name" binding:"required"`
+			Type   string `json:"type"`
+			Config string `json:"config" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		tpl := models.ReportTemplate{
+			BookID: &[]uint{uint(bookID)}[0],
+			Name:   req.Name,
+			Type:   req.Type,
+			Config: req.Config,
+		}
+		if err := db.Create(&tpl).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"data": tpl})
+	}
+}
+
+// deleteReportTemplate deletes a report template
+func deleteReportTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tid := c.Param("tid")
+		if err := db.Delete(&models.ReportTemplate{}, tid).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "已删除"})
+	}
+}
+
+// evalFormula evaluates a report formula like JE('6602', '借') or QM('1002', '借')
+func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float64 {
+	// Parse formula: FUNC('code', 'direction')
+	formula = strings.TrimSpace(formula)
+
+	// Handle simple arithmetic: formula1 - formula2 or formula1 + formula2
+	if strings.Contains(formula, " - ") {
+		parts := strings.SplitN(formula, " - ", 2)
+		return evalFormula(db, bookID, period, parts[0]) - evalFormula(db, bookID, period, parts[1])
+	}
+	if strings.Contains(formula, " + ") {
+		parts := strings.SplitN(formula, " + ", 2)
+		return evalFormula(db, bookID, period, parts[0]) + evalFormula(db, bookID, period, parts[1])
+	}
+
+	// Parse function call: FUNC('code', 'direction')
+	re := regexp.MustCompile(`(\w+)\('([^']+)'\s*,\s*'([^']+)'\)`)
+	matches := re.FindStringSubmatch(formula)
+	if len(matches) < 4 {
+		return 0
+	}
+
+	funcName := matches[1]
+	code := matches[2]
+	direction := matches[3]
+
+	switch funcName {
+	case "JE": // 本期发生额
+		var total float64
+		db.Model(&models.AccountBalance{}).
+			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+			Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
+			Row().Scan(&total)
+		if direction == "credit" {
+			total = -total
+		}
+		return total
+
+	case "QM": // 期末余额
+		var total float64
+		db.Model(&models.AccountBalance{}).
+			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+			Select("COALESCE(SUM(closing_debit), 0) - COALESCE(SUM(closing_credit), 0)").
+			Row().Scan(&total)
+		if direction == "credit" {
+			total = -total
+		}
+		return total
+
+	case "QC": // 期初余额
+		var total float64
+		db.Model(&models.AccountBalance{}).
+			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+			Select("COALESCE(SUM(opening_debit), 0) - COALESCE(SUM(opening_credit), 0)").
+			Row().Scan(&total)
+		if direction == "credit" {
+			total = -total
+		}
+		return total
+
+	case "JL": // 本年累计发生额
+		// Get all periods up to current
+		yearPrefix := period[:4]
+		var total float64
+		db.Model(&models.AccountBalance{}).
+			Where("book_id = ? AND period LIKE ? AND account_code LIKE ?", bookID, yearPrefix+"%", code+"%").
+			Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
+			Row().Scan(&total)
+		if direction == "credit" {
+			total = -total
+		}
+		return total
+	}
+
+	return 0
+}
+// ===== Template Version Management =====
+
+// templateVersions returns version info for all templates
+func templateVersions(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		dir := templateDir()
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "读取模板目录失败"})
+			return
+		}
+
+		type TemplateInfo struct {
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		}
+
+		var templates []TemplateInfo
+		for _, f := range files {
+			if !strings.HasSuffix(f.Name(), ".json") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(dir, f.Name()))
+			if err != nil {
+				continue
+			}
+			var tpl struct {
+				ID      string `json:"id"`
+				Name    string `json:"name"`
+				Version string `json:"version"`
+			}
+			json.Unmarshal(data, &tpl)
+			if tpl.ID != "" {
+				templates = append(templates, TemplateInfo{
+					ID:      tpl.ID,
+					Name:    tpl.Name,
+					Version: tpl.Version,
+				})
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": templates})
+	}
+}
+
+// syncAllTemplates syncs all templates to all books
+func syncAllTemplates(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+
+		var book models.AccountBook
+		if err := db.First(&book, bookID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "账套不存在"})
+			return
+		}
+
+		industries := strings.Split(book.Industry, ",")
+		if err := services.ApplyTemplateToBook(db, uint(bookID), templateDir(), industries); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "同步失败: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "模板同步成功"})
 	}
 }
