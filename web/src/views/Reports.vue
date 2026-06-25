@@ -19,9 +19,19 @@
 
       <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
         <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadReport" :size="isMobile ? 'small' : 'default'" />
-        <el-button size="small" @click="exportReport" :disabled="!reportData">
-          <el-icon><Download /></el-icon>导出
-        </el-button>
+        <el-dropdown @command="exportReport" :disabled="!reportData">
+          <el-button size="small" :disabled="!reportData">
+            <el-icon><Download /></el-icon>导出 <el-icon><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="csv">导出CSV</el-dropdown-item>
+              <el-dropdown-item command="excel">导出Excel</el-dropdown-item>
+              <el-dropdown-item command="pdf">导出PDF</el-dropdown-item>
+              <el-dropdown-item command="print">打印</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
 
       <!-- 利润表 (新格式) -->
@@ -275,12 +285,30 @@ const incomeSummary = ({ columns, data }) => {
   return sums
 }
 
-const exportReport = () => {
-  const token = localStorage.getItem('token')
+const exportReport = (format) => {
   const typeMap = { 'income': 'income', 'balance-sheet': 'balance-sheet', 'account-balance': 'account-balance' }
   const type = typeMap[activeTab.value]
   if (!type) { ElMessage.warning('该报表暂不支持导出'); return }
-  window.open(`/api/books/${currentBook.value}/reports/export?type=${type}&period=${period.value}&token=***}`, '_blank')
+
+  if (format === 'csv') {
+    window.open(`/api/books/${currentBook.value}/reports/export?type=${type}&period=${period.value}`, '_blank')
+  } else if (format === 'print') {
+    window.print()
+  } else if (format === 'excel') {
+    // Generate Excel HTML
+    const table = document.querySelector('.el-table__body-wrapper table')
+    if (!table) { ElMessage.warning('无数据可导出'); return }
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>报表</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>${table.outerHTML}</body></html>`
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${activeTab.value}_${period.value}.xls`
+    a.click()
+    URL.revokeObjectURL(url)
+  } else if (format === 'pdf') {
+    window.print()
+  }
 }
 
 const fmt = (v) => {
