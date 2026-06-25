@@ -10,10 +10,9 @@
     </div>
 
     <div v-if="currentBook">
-      <!-- 试算平衡提示 -->
       <el-alert
         :title="isBalanced ? '试算平衡 ✓' : '试算不平衡 ✗'"
-        :description="`借方合计：${fmt(totalDebit)}　｜　贷方合计：${fmt(totalCredit)}　｜　差额：${fmt(Math.abs(totalDebit - totalCredit))}`"
+        :description="balanceDesc"
         :type="isBalanced ? 'success' : 'error'"
         show-icon
         :closable="false"
@@ -22,9 +21,23 @@
 
       <div class="toolbar">
         <el-button type="primary" size="small" @click="saveAll" :loading="saving" :disabled="!isBalanced">
-          <el-icon><Check /></el-icon>保存期初余额
+          <el-icon><Check /></el-icon>保存
         </el-button>
-        <el-button size="small" @click="loadData">
+        <el-button size="small" @click="exportData">
+          <el-icon><Download /></el-icon>导出
+        </el-button>
+        <el-upload
+          :action="importUrl"
+          :headers="uploadHeaders"
+          :show-file-list="false"
+          :on-success="onImportSuccess"
+          :on-error="onImportError"
+          accept=".csv"
+          style="display: inline-block; margin-left: 8px"
+        >
+          <el-button size="small"><el-icon><Upload /></el-icon>导入CSV</el-button>
+        </el-upload>
+        <el-button size="small" @click="loadData" style="margin-left: 8px">
           <el-icon><Refresh /></el-icon>刷新
         </el-button>
       </div>
@@ -36,31 +49,13 @@
           <el-table-column prop="direction" label="方向" width="50" align="center" />
           <el-table-column label="期初借方" width="140" align="right">
             <template #default="{ row }">
-              <el-input-number
-                v-if="row.is_leaf"
-                v-model="row.opening_debit"
-                :min="0"
-                :precision="2"
-                :controls="false"
-                size="small"
-                style="width: 100%"
-                @change="onBalanceChange(row)"
-              />
+              <el-input-number v-if="row.is_leaf" v-model="row.opening_debit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="onBalanceChange(row)" />
               <span v-else>{{ fmt(row.opening_debit) }}</span>
             </template>
           </el-table-column>
           <el-table-column label="期初贷方" width="140" align="right">
             <template #default="{ row }">
-              <el-input-number
-                v-if="row.is_leaf"
-                v-model="row.opening_credit"
-                :min="0"
-                :precision="2"
-                :controls="false"
-                size="small"
-                style="width: 100%"
-                @change="onBalanceChange(row)"
-              />
+              <el-input-number v-if="row.is_leaf" v-model="row.opening_credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="onBalanceChange(row)" />
               <span v-else>{{ fmt(row.opening_credit) }}</span>
             </template>
           </el-table-column>
@@ -83,21 +78,13 @@ const currentBook = ref(null)
 const balances = ref([])
 const saving = ref(false)
 
-const totalDebit = computed(() => {
-  return balances.value
-    .filter(b => b.is_leaf)
-    .reduce((sum, b) => sum + (b.opening_debit || 0), 0)
-})
+const totalDebit = computed(() => balances.value.filter(b => b.is_leaf).reduce((s, b) => s + (b.opening_debit || 0), 0))
+const totalCredit = computed(() => balances.value.filter(b => b.is_leaf).reduce((s, b) => s + (b.opening_credit || 0), 0))
+const isBalanced = computed(() => Math.abs(totalDebit.value - totalCredit.value) < 0.01)
+const balanceDesc = computed(() => `借方合计：${fmt(totalDebit.value)}　｜　贷方合计：${fmt(totalCredit.value)}　｜　差额：${fmt(Math.abs(totalDebit.value - totalCredit.value))}`)
 
-const totalCredit = computed(() => {
-  return balances.value
-    .filter(b => b.is_leaf)
-    .reduce((sum, b) => sum + (b.opening_credit || 0), 0)
-})
-
-const isBalanced = computed(() => {
-  return Math.abs(totalDebit.value - totalCredit.value) < 0.01
-})
+const importUrl = computed(() => currentBook.value ? `/api/books/${currentBook.value}/opening-balances/import` : '')
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.getItem('token')}` }))
 
 const loadBooks = async () => {
   const { data } = await axios.get('/api/books')
@@ -111,54 +98,33 @@ const loadData = async () => {
   balances.value = data.data || []
 }
 
-// Propagate parent account totals
-const onBalanceChange = (row) => {
-  // Find parent and recalculate
-  recalcParents()
+const onBalanceChange = () => {}
+
+const exportData = () => {
+  const token = localStorage.getItem('token')
+  window.open(`/api/books/${currentBook.value}/opening-balances/export?token=${token}`, '_blank')
 }
 
-const recalcParents = () => {
-  // Group by parent_code and sum children
-  const parentMap = {}
-  balances.value.forEach(b => {
-    if (b.account_code.includes('.')) {
-      const parentCode = b.account_code.split('.').slice(0, -1).join('.')
-      if (!parentMap[parentCode]) parentMap[parentCode] = { debit: 0, credit: 0 }
-      parentMap[parentCode].debit += b.opening_debit || 0
-      parentMap[parentCode].credit += b.opening_credit || 0
-    }
-  })
-  balances.value.forEach(b => {
-    if (parentMap[b.account_code]) {
-      b.opening_debit = parentMap[b.account_code].debit
-      b.opening_credit = parentMap[b.account_code].credit
-    }
-  })
+const onImportSuccess = (resp) => {
+  ElMessage.success(resp.message || '导入成功')
+  loadData()
 }
+
+const onImportError = () => { ElMessage.error('导入失败') }
 
 const saveAll = async () => {
-  if (!isBalanced.value) {
-    ElMessage.warning('借方与贷方不相等，无法保存')
-    return
-  }
+  if (!isBalanced.value) { ElMessage.warning('借方与贷方不相等'); return }
   saving.value = true
   try {
     const payload = {
       balances: balances.value
         .filter(b => b.is_leaf && (b.opening_debit > 0 || b.opening_credit > 0))
-        .map(b => ({
-          account_id: b.account_id,
-          opening_debit: b.opening_debit || 0,
-          opening_credit: b.opening_credit || 0
-        }))
+        .map(b => ({ account_id: b.account_id, opening_debit: b.opening_debit || 0, opening_credit: b.opening_credit || 0 }))
     }
     await axios.post(`/api/books/${currentBook.value}/opening-balances`, payload)
-    ElMessage.success('期初余额保存成功')
-  } catch (e) {
-    ElMessage.error(e.response?.data?.error || '保存失败')
-  } finally {
-    saving.value = false
-  }
+    ElMessage.success('保存成功')
+  } catch (e) { ElMessage.error(e.response?.data?.error || '保存失败') }
+  finally { saving.value = false }
 }
 
 const fmt = (v) => {
@@ -171,11 +137,8 @@ const summaryMethod = ({ columns, data }) => {
   columns.forEach((col, i) => {
     if (i === 0) { sums[i] = '合计'; return }
     if (i <= 2) { sums[i] = ''; return }
-    if (i === 3) {
-      sums[i] = fmt(data.filter(r => r.is_leaf).reduce((s, r) => s + (r.opening_debit || 0), 0))
-    } else if (i === 4) {
-      sums[i] = fmt(data.filter(r => r.is_leaf).reduce((s, r) => s + (r.opening_credit || 0), 0))
-    }
+    if (i === 3) sums[i] = fmt(data.filter(r => r.is_leaf).reduce((s, r) => s + (r.opening_debit || 0), 0))
+    else if (i === 4) sums[i] = fmt(data.filter(r => r.is_leaf).reduce((s, r) => s + (r.opening_credit || 0), 0))
   })
   return sums
 }
@@ -189,6 +152,6 @@ onMounted(() => {
 <style scoped>
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
 .page-header h2 { color: #303133; font-size: 18px; }
-.toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+.toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 </style>

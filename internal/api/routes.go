@@ -67,6 +67,9 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				books.GET("/:id/trial-balance", trialBalance(db))
 			books.GET("/:id/opening-balances", getOpeningBalances(db))
 			books.POST("/:id/opening-balances", saveOpeningBalances(db))
+			books.GET("/:id/opening-balances/export", exportOpeningBalances(db))
+			books.POST("/:id/opening-balances/import", importOpeningBalances(db))
+			
 			}
 
 			// 科目
