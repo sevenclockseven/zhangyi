@@ -31,10 +31,10 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	{
 		// 公开接口（不需要登录）
 		api.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": "0.2.0"})
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": "0.3.0"})
 		})
 		api.POST("/auth/login", loginHandler(db))
-		api.POST("/auth/register", registerHandler(db)) // 首次注册用，之后关闭
+		api.POST("/auth/register", registerHandler(db))
 
 		// 需要登录的接口
 		auth := api.Group("")
@@ -89,15 +89,22 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				vouchers.POST("/:vid/unreview", unreviewVoucher(db))
 				vouchers.POST("/:vid/post", postVoucher(db))
 				vouchers.POST("/:vid/unpost", unpostVoucher(db))
+				vouchers.POST("/:vid/void", voidVoucher(db))
+				vouchers.POST("/:vid/restore", restoreVoucher(db))
 				vouchers.POST("/batch-review", batchReview(db))
 				vouchers.POST("/batch-post", batchPost(db))
 			}
+
+			// 账簿查询
+			books.GET("/:id/ledger/journal", journal(db))
+			books.GET("/:id/ledger/multi-column", multiColumnLedger(db))
 
 			// 报表
 			reports := auth.Group("/books/:id/reports")
 			{
 				reports.GET("/balance-sheet", balanceSheet(db))
 				reports.GET("/income-statement", incomeStatement(db))
+				reports.GET("/cash-flow", cashFlowStatement(db))
 				reports.GET("/account-balance", accountBalanceReport(db))
 			}
 

@@ -1133,3 +1133,380 @@ func reverseAccountBalances(db *gorm.DB, voucher *models.Voucher) error {
 
 	return nil
 }
+// ===== Additional Phase 1 Handlers =====
+
+// voidVoucher marks a voucher as voided
+func voidVoucher(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		vid, _ := strconv.ParseUint(c.Param("vid"), 10, 64)
+
+		var voucher models.Voucher
+		if err := db.Where("id = ? AND book_id = ?", vid, bookID).First(&voucher).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
+			return
+		}
+
+		if voucher.Status == "posted" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "已记账凭证不能作废，请先反记账"})
+			return
+		}
+
+		if voucher.Status == "voided" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "凭证已作废"})
+			return
+		}
+
+		if err := db.Model(&voucher).Update("status", "voided").Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "凭证已作废", "data": voucher})
+	}
+}
+
+// restoreVoucher restores a voided voucher to draft
+func restoreVoucher(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		vid, _ := strconv.ParseUint(c.Param("vid"), 10, 64)
+
+		var voucher models.Voucher
+		if err := db.Where("id = ? AND book_id = ?", vid, bookID).First(&voucher).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
+			return
+		}
+
+		if voucher.Status != "voided" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "只有作废凭证才能恢复"})
+			return
+		}
+
+		if err := db.Model(&voucher).Update("status", "draft").Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "凭证已恢复为草稿", "data": voucher})
+	}
+}
+
+// journal returns cash/bank journal entries
+func journal(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		accountType := c.DefaultQuery("type", "cash") // cash or bank
+		period := c.DefaultQuery("period", "")         // YYYY-MM
+		accountCode := c.DefaultQuery("account_code", "")
+
+		// Determine account codes
+		var codes []string
+		if accountCode != "" {
+			codes = []string{accountCode}
+		} else if accountType == "cash" {
+			codes = []string{"1001"} // 库存现金
+		} else {
+			codes = []string{"1002"} // 银行存款
+			// Also get sub-accounts
+			var subAccounts []models.Account
+			db.Where("book_id = ? AND parent_code = ? AND is_active = ?", bookID, "1002", true).Find(&subAccounts)
+			for _, a := range subAccounts {
+				codes = append(codes, a.Code)
+			}
+		}
+
+		query := db.Model(&models.VoucherItem{}).
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND voucher_items.account_code IN ?",
+				bookID, "posted", codes)
+
+		if period != "" {
+			query = query.Where("vouchers.date LIKE ?", period+"%")
+		}
+
+		var items []struct {
+			Date        string  `json:"date"`
+			VoucherNum  string  `json:"voucher_number"`
+			AccountCode string  `json:"account_code"`
+			AccountName string  `json:"account_name"`
+			Memo        string  `json:"memo"`
+			Debit       float64 `json:"debit"`
+			Credit      float64 `json:"credit"`
+		}
+
+		query.Select("vouchers.date, vouchers.number as voucher_num, voucher_items.account_code, voucher_items.account_name, voucher_items.memo, voucher_items.debit, voucher_items.credit").
+			Order("vouchers.date ASC, vouchers.number ASC, voucher_items.line_no ASC").
+			Scan(&items)
+
+		// Calculate running balance
+		type JournalEntry struct {
+			Date        string  `json:"date"`
+			VoucherNum  string  `json:"voucher_number"`
+			AccountCode string  `json:"account_code"`
+			AccountName string  `json:"account_name"`
+			Memo        string  `json:"memo"`
+			Debit       float64 `json:"debit"`
+			Credit      float64 `json:"credit"`
+			Balance     float64 `json:"balance"`
+		}
+
+		var result []JournalEntry
+		var runningBalance float64
+
+		// Get opening balance
+		if period != "" {
+			var openingDebit, openingCredit float64
+			db.Model(&models.AccountBalance{}).
+				Where("book_id = ? AND period = ?", bookID, period).
+				Select("COALESCE(SUM(opening_debit), 0) as opening_debit, COALESCE(SUM(opening_credit), 0) as opening_credit").
+				Row().Scan(&openingDebit, &openingCredit)
+			runningBalance = openingDebit - openingCredit
+		}
+
+		for _, item := range items {
+			runningBalance += item.Debit - item.Credit
+			result = append(result, JournalEntry{
+				Date:        item.Date,
+				VoucherNum:  item.VoucherNum,
+				AccountCode: item.AccountCode,
+				AccountName: item.AccountName,
+				Memo:        item.Memo,
+				Debit:       item.Debit,
+				Credit:      item.Credit,
+				Balance:     runningBalance,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": result, "opening_balance": runningBalance - (func() float64 {
+			var sum float64
+			for _, r := range result {
+				sum += r.Debit - r.Credit
+			}
+			return sum
+		}())})
+	}
+}
+
+// multiColumnLedger returns multi-column ledger for expense accounts
+func multiColumnLedger(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		accountCode := c.Query("account_code") // Parent account code like 6602
+		period := c.DefaultQuery("period", "")
+
+		if accountCode == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定科目编码"})
+			return
+		}
+
+		// Get sub-accounts
+		var subAccounts []models.Account
+		db.Where("book_id = ? AND parent_code = ? AND is_active = ?", bookID, accountCode, true).
+			Order("code ASC").Find(&subAccounts)
+
+		if len(subAccounts) == 0 {
+			// Try getting the account itself and its children at any level
+			db.Where("book_id = ? AND (parent_code = ? OR code = ?) AND code != ? AND is_active = ?",
+				bookID, accountCode, accountCode, accountCode, true).
+				Order("code ASC").Find(&subAccounts)
+		}
+
+		type ColumnData struct {
+			AccountCode string  `json:"account_code"`
+			AccountName string  `json:"account_name"`
+			Debit       float64 `json:"debit"`
+			Credit      float64 `json:"credit"`
+		}
+
+		type MultiColumnRow struct {
+			Period string        `json:"period"`
+			Total  ColumnData    `json:"total"`
+			Columns []ColumnData `json:"columns"`
+		}
+
+		// Determine periods to show
+		var periods []string
+		if period != "" {
+			periods = []string{period}
+		} else {
+			// Get all periods that have data
+			db.Model(&models.AccountBalance{}).
+				Where("book_id = ? AND account_code IN (?)", bookID,
+					db.Model(&models.Account{}).Select("code").Where("book_id = ? AND (parent_code = ? OR code = ?)", bookID, accountCode, accountCode)).
+				Select("DISTINCT period").Order("period ASC").Pluck("period", &periods)
+		}
+
+		var result []MultiColumnRow
+		for _, p := range periods {
+			// Get parent total
+			var parentAccount models.Account
+			db.Where("book_id = ? AND code = ?", bookID, accountCode).First(&parentAccount)
+
+			var parentBalance models.AccountBalance
+			db.Where("book_id = ? AND account_id = ? AND period = ?", bookID, parentAccount.ID, p).First(&parentBalance)
+
+			row := MultiColumnRow{
+				Period: p,
+				Total: ColumnData{
+					AccountCode: accountCode,
+					AccountName: parentAccount.Name,
+					Debit:       parentBalance.PeriodDebit,
+					Credit:      parentBalance.PeriodCredit,
+				},
+			}
+
+			// Get sub-account columns
+			for _, sub := range subAccounts {
+				var balance models.AccountBalance
+				db.Where("book_id = ? AND account_id = ? AND period = ?", bookID, sub.ID, p).First(&balance)
+				row.Columns = append(row.Columns, ColumnData{
+					AccountCode: sub.Code,
+					AccountName: sub.Name,
+					Debit:       balance.PeriodDebit,
+					Credit:      balance.PeriodCredit,
+				})
+			}
+
+			result = append(result, row)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": result, "sub_accounts": subAccounts})
+	}
+}
+
+// cashFlowStatement generates cash flow statement
+func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		period := c.DefaultQuery("period", "")
+
+		if period == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
+			return
+		}
+
+		// Cash flow items are derived from voucher items with cash_flow_id
+		// For now, we provide a simplified version based on cash/bank account movements
+
+		// Get all cash/bank account movements
+		type FlowItem struct {
+			Category    string  `json:"category"`    // operating/investing/financing
+			ItemName    string  `json:"item_name"`
+			Amount      float64 `json:"amount"`
+		}
+
+		var items []FlowItem
+
+		// Operating activities - derive from non-cash account movements
+		// Revenue received
+		var revenueDebit float64
+		db.Model(&models.VoucherItem{}).
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
+				bookID, "posted", period+"%",
+				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND code LIKE ?", bookID, "5%")).
+			Select("COALESCE(SUM(credit), 0)").Row().Scan(&revenueDebit)
+
+		items = append(items, FlowItem{Category: "operating", ItemName: "销售商品、提供劳务收到的现金", Amount: revenueDebit})
+
+		// Purchases paid
+		var purchaseDebit float64
+		db.Model(&models.VoucherItem{}).
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
+				bookID, "posted", period+"%",
+				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND (code LIKE ? OR code LIKE ?)", bookID, "14%", "4%")).
+			Select("COALESCE(SUM(debit), 0)").Row().Scan(&purchaseDebit)
+
+		items = append(items, FlowItem{Category: "operating", ItemName: "购买商品、接受劳务支付的现金", Amount: -purchaseDebit})
+
+		// Employee payments
+		var employeePay float64
+		db.Model(&models.VoucherItem{}).
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code = ?",
+				bookID, "posted", period+"%", "2211").
+			Select("COALESCE(SUM(debit), 0)").Row().Scan(&employeePay)
+
+		items = append(items, FlowItem{Category: "operating", ItemName: "支付给职工以及为职工支付的现金", Amount: -employeePay})
+
+		// Tax payments
+		var taxPay float64
+		db.Model(&models.VoucherItem{}).
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code = ?",
+				bookID, "posted", period+"%", "2221").
+			Select("COALESCE(SUM(debit), 0)").Row().Scan(&taxPay)
+
+		items = append(items, FlowItem{Category: "operating", ItemName: "支付的各项税费", Amount: -taxPay})
+
+		// Operating total
+		var operatingTotal float64
+		for _, item := range items {
+			if item.Category == "operating" {
+				operatingTotal += item.Amount
+			}
+		}
+
+		// Investing activities
+		var fixedAssetDebit float64
+		db.Model(&models.VoucherItem{}).
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
+				bookID, "posted", period+"%",
+				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND code IN (?)", bookID, []string{"1601", "1604", "1701"})).
+			Select("COALESCE(SUM(debit), 0)").Row().Scan(&fixedAssetDebit)
+
+		items = append(items, FlowItem{Category: "investing", ItemName: "购建固定资产、无形资产支付的现金", Amount: -fixedAssetDebit})
+
+		var investingTotal float64
+		for _, item := range items {
+			if item.Category == "investing" {
+				investingTotal += item.Amount
+			}
+		}
+
+		// Financing activities
+		var loanReceived float64
+		db.Model(&models.VoucherItem{}).
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
+				bookID, "posted", period+"%",
+				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND code IN (?)", bookID, []string{"2001", "2501"})).
+			Select("COALESCE(SUM(credit), 0)").Row().Scan(&loanReceived)
+
+		items = append(items, FlowItem{Category: "financing", ItemName: "取得借款收到的现金", Amount: loanReceived})
+
+		var loanRepaid float64
+		db.Model(&models.VoucherItem{}).
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
+				bookID, "posted", period+"%",
+				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND code IN (?)", bookID, []string{"2001", "2501"})).
+			Select("COALESCE(SUM(debit), 0)").Row().Scan(&loanRepaid)
+
+		items = append(items, FlowItem{Category: "financing", ItemName: "偿还债务支付的现金", Amount: -loanRepaid})
+
+		var financingTotal float64
+		for _, item := range items {
+			if item.Category == "financing" {
+				financingTotal += item.Amount
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": items,
+			"summary": gin.H{
+				"operating_total":  operatingTotal,
+				"investing_total":  investingTotal,
+				"financing_total":  financingTotal,
+				"cash_increase":    operatingTotal + investingTotal + financingTotal,
+			},
+			"period": period,
+		})
+	}
+}
+// ===== Additional Phase 1 Handlers =====
+
+// voidVoucher marks a voucher as voided

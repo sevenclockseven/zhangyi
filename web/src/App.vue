@@ -1,7 +1,10 @@
 <template>
   <el-container class="app-container" v-if="!isLoginPage">
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" v-if="sidebarOpen && isMobile" @click="sidebarOpen = false"></div>
+
     <!-- Sidebar -->
-    <el-aside width="220px" class="app-aside">
+    <el-aside :width="sidebarWidth" class="app-aside" :class="{ 'sidebar-mobile': isMobile, 'sidebar-open': sidebarOpen }">
       <div class="logo">
         <svg viewBox="0 0 120 120" width="40" height="40">
           <defs>
@@ -20,7 +23,7 @@
           <circle cx="90" cy="86" r="20" fill="#67C23A"/>
           <polyline points="81,86 87,92 99,78" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <div class="logo-text">
+        <div class="logo-text" v-show="!isMobile || sidebarOpen">
           <h2>账易</h2>
           <span>代理记账系统</span>
         </div>
@@ -32,6 +35,7 @@
         background-color="#304156"
         text-color="#bfcbd9"
         active-text-color="#409EFF"
+        @select="onMenuSelect"
       >
         <el-menu-item index="/">
           <el-icon><HomeFilled /></el-icon>
@@ -68,16 +72,21 @@
     <el-container>
       <el-header class="app-header">
         <div class="header-left">
-          <el-breadcrumb separator="/">
+          <el-icon class="menu-toggle" @click="sidebarOpen = !sidebarOpen" v-if="isMobile">
+            <Fold v-if="sidebarOpen" />
+            <Expand v-else />
+          </el-icon>
+          <el-breadcrumb separator="/" v-if="!isMobile">
             <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
             <el-breadcrumb-item v-if="route.meta.title && route.meta.title !== '工作台'">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
+          <span class="page-title" v-else>{{ route.meta.title || '账易' }}</span>
         </div>
         <div class="header-right">
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-icon><User /></el-icon>
-              {{ currentUser.real_name || currentUser.username || '用户' }}
+              <span v-if="!isMobile">{{ currentUser.real_name || currentUser.username || '用户' }}</span>
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
@@ -95,7 +104,7 @@
     </el-container>
 
     <!-- 修改密码对话框 -->
-    <el-dialog v-model="showPasswordDialog" title="修改密码" width="400px">
+    <el-dialog v-model="showPasswordDialog" title="修改密码" :width="isMobile ? '90%' : '400px'">
       <el-form :model="passwordForm" label-width="80px">
         <el-form-item label="原密码">
           <el-input v-model="passwordForm.old_password" type="password" show-password />
@@ -115,7 +124,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
@@ -128,12 +137,34 @@ const currentUser = ref({})
 const showPasswordDialog = ref(false)
 const passwordForm = ref({ old_password: '', new_password: '' })
 
+// Mobile responsive
+const isMobile = ref(window.innerWidth < 768)
+const sidebarOpen = ref(false)
+const sidebarWidth = computed(() => {
+  if (isMobile.value) return '220px'
+  return '220px'
+})
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth < 768
+  if (!isMobile.value) sidebarOpen.value = false
+}
+
 onMounted(() => {
+  window.addEventListener('resize', handleResize)
   const user = localStorage.getItem('user')
   if (user) {
     currentUser.value = JSON.parse(user)
   }
 })
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
+
+const onMenuSelect = () => {
+  if (isMobile.value) sidebarOpen.value = false
+}
 
 const handleCommand = (cmd) => {
   if (cmd === 'logout') {
@@ -166,6 +197,7 @@ const changePassword = async () => {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 .app-container {
@@ -175,6 +207,31 @@ body {
 .app-aside {
   background-color: #304156;
   overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+/* Mobile sidebar */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+}
+
+.sidebar-mobile {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 1000;
+  transform: translateX(-100%);
+}
+
+.sidebar-mobile.sidebar-open {
+  transform: translateX(0);
 }
 
 .logo {
@@ -207,6 +264,25 @@ body {
   justify-content: space-between;
   border-bottom: 1px solid #e6e6e6;
   background: #fff;
+  padding: 0 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-toggle {
+  font-size: 20px;
+  cursor: pointer;
+  color: #606266;
+}
+
+.page-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
 }
 
 .user-info {
@@ -220,6 +296,60 @@ body {
 
 .app-main {
   background-color: #f5f7fa;
-  padding: 20px;
+  padding: 16px;
+  overflow-x: hidden;
+}
+
+/* Mobile responsive utilities */
+@media (max-width: 767px) {
+  .app-main {
+    padding: 12px;
+  }
+
+  .el-dialog {
+    width: 90% !important;
+    margin: 10vh auto !important;
+  }
+
+  .el-table {
+    font-size: 13px;
+  }
+
+  .el-form-item__label {
+    font-size: 13px;
+  }
+
+  .el-button {
+    font-size: 13px;
+  }
+
+  /* Responsive grid */
+  .responsive-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .responsive-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .responsive-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 20px;
+  }
 }
 </style>
