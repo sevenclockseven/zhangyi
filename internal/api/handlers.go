@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -2600,4 +2601,187 @@ func exportReport(db *gorm.DB) gin.HandlerFunc {
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 		c.String(http.StatusOK, buf.String())
 	}
+}
+// ===== Custom Report Engine =====
+
+// customReport generates a custom report based on a template
+func customReport(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		rid := c.Param("rid")
+		period := c.Query("period")
+		if period == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
+			return
+		}
+
+		// Get report template
+		var tpl models.ReportTemplate
+		if err := db.First(&tpl, rid).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "报表模板不存在"})
+			return
+		}
+
+		// Parse config
+		type RowDef struct {
+			Label   string `json:"label"`
+			Level   int    `json:"level"`
+			Bold    bool   `json:"bold"`
+			Formula string `json:"formula"`
+		}
+		var config struct {
+			Rows []RowDef `json:"rows"`
+		}
+		json.Unmarshal([]byte(tpl.Config), &config)
+
+		// Evaluate formulas
+		type ResultRow struct {
+			Label  string  `json:"label"`
+			Level  int     `json:"level"`
+			Bold   bool    `json:"bold"`
+			Amount float64 `json:"amount"`
+		}
+
+		var results []ResultRow
+		for _, row := range config.Rows {
+			amount := 0.0
+			if row.Formula != "" {
+				amount = evalFormula(db, uint(bookID), period, row.Formula)
+			}
+			results = append(results, ResultRow{
+				Label:  row.Label,
+				Level:  row.Level,
+				Bold:   row.Bold,
+				Amount: amount,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": results, "period": period, "name": tpl.Name})
+	}
+}
+
+// listReportTemplates returns all report templates
+func listReportTemplates(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		var templates []models.ReportTemplate
+		db.Where("book_id = ? OR book_id IS NULL", bookID).Order("type ASC, name ASC").Find(&templates)
+		c.JSON(http.StatusOK, gin.H{"data": templates})
+	}
+}
+
+// createReportTemplate creates a new report template
+func createReportTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		var req struct {
+			Name   string `json:"name" binding:"required"`
+			Type   string `json:"type"`
+			Config string `json:"config" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		tpl := models.ReportTemplate{
+			BookID: &[]uint{uint(bookID)}[0],
+			Name:   req.Name,
+			Type:   req.Type,
+			Config: req.Config,
+		}
+		if err := db.Create(&tpl).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"data": tpl})
+	}
+}
+
+// deleteReportTemplate deletes a report template
+func deleteReportTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tid := c.Param("tid")
+		if err := db.Delete(&models.ReportTemplate{}, tid).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "已删除"})
+	}
+}
+
+// evalFormula evaluates a report formula like JE('6602', '借') or QM('1002', '借')
+func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float64 {
+	// Parse formula: FUNC('code', 'direction')
+	formula = strings.TrimSpace(formula)
+
+	// Handle simple arithmetic: formula1 - formula2 or formula1 + formula2
+	if strings.Contains(formula, " - ") {
+		parts := strings.SplitN(formula, " - ", 2)
+		return evalFormula(db, bookID, period, parts[0]) - evalFormula(db, bookID, period, parts[1])
+	}
+	if strings.Contains(formula, " + ") {
+		parts := strings.SplitN(formula, " + ", 2)
+		return evalFormula(db, bookID, period, parts[0]) + evalFormula(db, bookID, period, parts[1])
+	}
+
+	// Parse function call: FUNC('code', 'direction')
+	re := regexp.MustCompile(`(\w+)\('([^']+)'\s*,\s*'([^']+)'\)`)
+	matches := re.FindStringSubmatch(formula)
+	if len(matches) < 4 {
+		return 0
+	}
+
+	funcName := matches[1]
+	code := matches[2]
+	direction := matches[3]
+
+	switch funcName {
+	case "JE": // 本期发生额
+		var total float64
+		db.Model(&models.AccountBalance{}).
+			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+			Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
+			Row().Scan(&total)
+		if direction == "credit" {
+			total = -total
+		}
+		return total
+
+	case "QM": // 期末余额
+		var total float64
+		db.Model(&models.AccountBalance{}).
+			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+			Select("COALESCE(SUM(closing_debit), 0) - COALESCE(SUM(closing_credit), 0)").
+			Row().Scan(&total)
+		if direction == "credit" {
+			total = -total
+		}
+		return total
+
+	case "QC": // 期初余额
+		var total float64
+		db.Model(&models.AccountBalance{}).
+			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+			Select("COALESCE(SUM(opening_debit), 0) - COALESCE(SUM(opening_credit), 0)").
+			Row().Scan(&total)
+		if direction == "credit" {
+			total = -total
+		}
+		return total
+
+	case "JL": // 本年累计发生额
+		// Get all periods up to current
+		yearPrefix := period[:4]
+		var total float64
+		db.Model(&models.AccountBalance{}).
+			Where("book_id = ? AND period LIKE ? AND account_code LIKE ?", bookID, yearPrefix+"%", code+"%").
+			Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
+			Row().Scan(&total)
+		if direction == "credit" {
+			total = -total
+		}
+		return total
+	}
+
+	return 0
 }
