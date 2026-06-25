@@ -7,7 +7,7 @@
 - 🖥️ **单机运行** — 双击即用，零配置，无需安装数据库
 - 📊 **多账套管理** — 每个代理客户独立账套，互不干扰
 - 🏭 **行业适配** — 7个行业科目模板（基础/制造/零售/服务/建筑/运输/农业）
-- 📝 **凭证管理** — 录入、审核、记账、作废、批量操作全流程
+- 📝 **凭证管理** — 录入、审核、记账、反审核、反记账、作废、恢复、批量操作全流程
 - 📒 **账簿查询** — 科目余额表、总账、日记账、多栏账
 - 📈 **标准报表** — 资产负债表、利润表、现金流量表
 - 🔧 **辅助核算** — 7个维度，支持扩展字段、批量导入导出
@@ -112,7 +112,7 @@ zhangyi/
 | 账套 | GET/POST/PUT/DELETE /api/books | 账套CRUD |
 | 科目 | GET/POST/PUT/DELETE /api/books/:id/accounts | 科目CRUD |
 | 凭证 | GET/POST/PUT/DELETE /api/books/:id/vouchers | 凭证CRUD |
-| 凭证 | POST .../review,post,void,restore | 审核/记账/作废/恢复 |
+| 凭证 | POST .../review,unreview,post,void,restore,unpost | 审核/记账/作废/恢复 |
 | 凭证 | POST .../batch-review,batch-post | 批量审核/记账 |
 | 账簿 | GET /api/books/:id/ledger/general | 总账 |
 | 账簿 | GET /api/books/:id/ledger/journal | 日记账 |
