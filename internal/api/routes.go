@@ -65,6 +65,8 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				books.DELETE("/:id", deleteBook(db))
 				books.POST("/:id/sync-template", syncTemplate(db))
 				books.GET("/:id/trial-balance", trialBalance(db))
+			books.GET("/:id/opening-balances", getOpeningBalances(db))
+			books.POST("/:id/opening-balances", saveOpeningBalances(db))
 			}
 
 			// 科目

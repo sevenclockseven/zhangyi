@@ -1794,3 +1794,166 @@ func parseCSVLine(line string) []string {
 	fields = append(fields, strings.TrimSpace(current.String()))
 	return fields
 }
+// ===== Opening Balance Handlers =====
+
+// getOpeningBalances returns opening balances for all accounts in a book
+func getOpeningBalances(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		period := c.Query("period")
+
+		if period == "" {
+			// Get book start date
+			var book models.AccountBook
+			if err := db.First(&book, bookID).Error; err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "账套不存在"})
+				return
+			}
+			period = book.StartDate
+		}
+
+		// Get all accounts
+		var accounts []models.Account
+		db.Where("book_id = ? AND is_active = ?", bookID, true).Order("code ASC").Find(&accounts)
+
+		// Get existing opening balances
+		var balances []models.OpeningBalance
+		db.Where("book_id = ? AND period = ?", bookID, period).Find(&balances)
+
+		// Create balance map
+		balanceMap := make(map[uint]*models.OpeningBalance)
+		for i := range balances {
+			balanceMap[balances[i].AccountID] = &balances[i]
+		}
+
+		// Build result
+		type BalanceRow struct {
+			AccountID    uint    `json:"account_id"`
+			AccountCode  string  `json:"account_code"`
+			AccountName  string  `json:"account_name"`
+			Direction    string  `json:"direction"`
+			Level        int     `json:"level"`
+			IsLeaf       bool    `json:"is_leaf"`
+			OpeningDebit float64 `json:"opening_debit"`
+			OpeningCredit float64 `json:"opening_credit"`
+		}
+
+		var result []BalanceRow
+		for _, acct := range accounts {
+			row := BalanceRow{
+				AccountID:   acct.ID,
+				AccountCode: acct.Code,
+				AccountName: acct.Name,
+				Direction:   acct.Direction,
+				Level:       acct.Level,
+				IsLeaf:      acct.IsLeaf,
+			}
+			if b, ok := balanceMap[acct.ID]; ok {
+				row.OpeningDebit = b.Debit
+				row.OpeningCredit = b.Credit
+			}
+			result = append(result, row)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": result, "period": period})
+	}
+}
+
+// saveOpeningBalances saves opening balances (batch)
+func saveOpeningBalances(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+
+		var req struct {
+			Period   string `json:"period"`
+			Balances []struct {
+				AccountID     uint    `json:"account_id"`
+				OpeningDebit  float64 `json:"opening_debit"`
+				OpeningCredit float64 `json:"opening_credit"`
+			} `json:"balances"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if req.Period == "" {
+			var book models.AccountBook
+			db.First(&book, bookID)
+			req.Period = book.StartDate
+		}
+
+		tx := db.Begin()
+
+		for _, b := range req.Balances {
+			if b.OpeningDebit == 0 && b.OpeningCredit == 0 {
+				// Delete empty balance
+				tx.Where("book_id = ? AND account_id = ? AND period = ?", bookID, b.AccountID, req.Period).Delete(&models.OpeningBalance{})
+				continue
+			}
+
+			// Upsert
+			var existing models.OpeningBalance
+			result := tx.Where("book_id = ? AND account_id = ? AND period = ? AND aux_key = ?",
+				bookID, b.AccountID, req.Period, "").First(&existing)
+
+			if result.Error == gorm.ErrRecordNotFound {
+				tx.Create(&models.OpeningBalance{
+					BookID:    uint(bookID),
+					AccountID: b.AccountID,
+					Period:    req.Period,
+					Debit:     b.OpeningDebit,
+					Credit:    b.OpeningCredit,
+					AuxKey:    "",
+				})
+			} else {
+				tx.Model(&existing).Updates(map[string]interface{}{
+					"debit":  b.OpeningDebit,
+					"credit": b.OpeningCredit,
+				})
+			}
+		}
+
+		// Update account_balances table
+		// Clear existing opening balances for this period
+		tx.Where("book_id = ? AND period = ?", bookID, req.Period).Delete(&models.AccountBalance{})
+
+		// Rebuild from opening balances + posted vouchers
+		var accounts []models.Account
+		tx.Where("book_id = ?", bookID).Find(&accounts)
+
+		for _, acct := range accounts {
+			var ob models.OpeningBalance
+			tx.Where("book_id = ? AND account_id = ? AND period = ?", bookID, acct.ID, req.Period).First(&ob)
+
+			// Calculate period totals from posted vouchers
+			var periodDebit, periodCredit float64
+			tx.Model(&models.VoucherItem{}).
+				Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+				Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_id = ?",
+					bookID, "posted", req.Period+"%", acct.ID).
+				Select("COALESCE(SUM(debit), 0), COALESCE(SUM(credit), 0)").
+				Row().Scan(&periodDebit, &periodCredit)
+
+			closingDebit := ob.Debit + periodDebit
+			closingCredit := ob.Credit + periodCredit
+
+			tx.Create(&models.AccountBalance{
+				BookID:        uint(bookID),
+				AccountID:     acct.ID,
+				Period:        req.Period,
+				OpeningDebit:  ob.Debit,
+				OpeningCredit: ob.Credit,
+				PeriodDebit:   periodDebit,
+				PeriodCredit:  periodCredit,
+				ClosingDebit:  closingDebit,
+				ClosingCredit: closingCredit,
+			})
+		}
+
+		tx.Commit()
+
+		c.JSON(http.StatusOK, gin.H{"message": "期初余额保存成功"})
+	}
+}
