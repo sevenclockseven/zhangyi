@@ -1,0 +1,7 @@
+web/node_modules
+.git
+data
+backups
+exports
+*.md
+!README.md

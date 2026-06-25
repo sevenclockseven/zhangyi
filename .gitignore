@@ -1,0 +1,30 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+zhangyi
+
+# Data
+data/
+backups/
+exports/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+web/node_modules/
+web/.vite/
+# 注意: web/dist/ 不能忽略！go:embed 需要它
+web/dist/

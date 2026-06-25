@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  zhangyi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zhangyi
+    restart: unless-stopped
+    ports:
+      - "3003:8080"
+    volumes:
+      - zhangyi-data:/app/data
+      - zhangyi-backups:/app/backups
+      - zhangyi-exports:/app/exports
+    environment:
+      - TZ=Asia/Shanghai
+      - PORT=8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  zhangyi-data:
+  zhangyi-backups:
+  zhangyi-exports:

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#409EFF"/>
+      <stop offset="100%" style="stop-color:#2b5ca6"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Document icon -->
+  <rect x="120" y="80" width="272" height="340" rx="16" fill="white" opacity="0.95"/>
+  <!-- Document lines (ledger rows) -->
+  <rect x="152" y="140" width="208" height="8" rx="4" fill="#409EFF" opacity="0.7"/>
+  <rect x="152" y="172" width="160" height="8" rx="4" fill="#409EFF" opacity="0.4"/>
+  <rect x="152" y="204" width="208" height="8" rx="4" fill="#409EFF" opacity="0.7"/>
+  <rect x="152" y="236" width="140" height="8" rx="4" fill="#409EFF" opacity="0.4"/>
+  <rect x="152" y="268" width="208" height="8" rx="4" fill="#409EFF" opacity="0.7"/>
+  <!-- Checkmark (easy/done) -->
+  <circle cx="380" cy="360" r="72" fill="#67C23A"/>
+  <polyline points="348,360 372,384 412,340" fill="none" stroke="white" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

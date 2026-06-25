@@ -1,0 +1,28 @@
+{
+  "id": "construction",
+  "name": "建筑业",
+  "version": "2026.1",
+  "base": "base",
+  "description": "建筑业叠加模板：工程施工、工程结算、机械作业等",
+  "accounts": [
+    {"code": "1122.01", "name": "应收账款-工程款", "direction": "借", "level": 2, "parent": "1122", "aux": ["customer", "project"]},
+    {"code": "1122.02", "name": "应收账款-质保金", "direction": "借", "level": 2, "parent": "1122", "aux": ["customer", "project"]},
+    {"code": "2203.01", "name": "预收账款-工程预收款", "direction": "贷", "level": 2, "parent": "2203", "aux": ["customer", "project"]},
+    {"code": "4401.01", "name": "工程施工-合同成本", "direction": "借", "level": 2, "parent": "4401", "aux": ["project"]},
+    {"code": "4401.01.01", "name": "工程施工-合同成本-人工费", "direction": "借", "level": 3, "parent": "4401.01", "aux": ["project"]},
+    {"code": "4401.01.02", "name": "工程施工-合同成本-材料费", "direction": "借", "level": 3, "parent": "4401.01", "aux": ["project"]},
+    {"code": "4401.01.03", "name": "工程施工-合同成本-机械使用费", "direction": "借", "level": 3, "parent": "4401.01", "aux": ["project"]},
+    {"code": "4401.01.04", "name": "工程施工-合同成本-其他直接费", "direction": "借", "level": 3, "parent": "4401.01", "aux": ["project"]},
+    {"code": "4401.01.05", "name": "工程施工-合同成本-间接费", "direction": "借", "level": 3, "parent": "4401.01", "aux": ["project"]},
+    {"code": "4401.02", "name": "工程施工-合同毛利", "direction": "借", "level": 2, "parent": "4401", "aux": ["project"]},
+    {"code": "4402", "name": "工程结算", "direction": "贷", "level": 1, "aux": ["project"]},
+    {"code": "5001.01", "name": "主营业务收入-工程收入", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer", "project"]},
+    {"code": "5401.01", "name": "主营业务成本-工程成本", "direction": "借", "level": 2, "parent": "5401", "aux": ["project"]},
+    {"code": "5602.01", "name": "管理费用-工资薪金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.02", "name": "管理费用-办公费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.03", "name": "管理费用-差旅费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.04", "name": "管理费用-折旧费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.05", "name": "管理费用-业务招待费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.06", "name": "管理费用-社保公积金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]}
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "retail",
+  "name": "零售/批发业",
+  "version": "2026.1",
+  "base": "base",
+  "description": "零售/批发业叠加模板：库存商品按类别、进销差价等",
+  "accounts": [
+    {"code": "1405.01", "name": "库存商品-食品", "direction": "借", "level": 2, "parent": "1405", "aux": ["warehouse"]},
+    {"code": "1405.02", "name": "库存商品-日用品", "direction": "借", "level": 2, "parent": "1405", "aux": ["warehouse"]},
+    {"code": "1405.03", "name": "库存商品-电子产品", "direction": "借", "level": 2, "parent": "1405", "aux": ["warehouse"]},
+    {"code": "1405.04", "name": "库存商品-服装", "direction": "借", "level": 2, "parent": "1405", "aux": ["warehouse"]},
+    {"code": "1405.99", "name": "库存商品-其他", "direction": "借", "level": 2, "parent": "1405", "aux": ["warehouse"]},
+    {"code": "5001.01", "name": "主营业务收入-商品销售", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer"]},
+    {"code": "5001.02", "name": "主营业务收入-服务收入", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer"]},
+    {"code": "5401.01", "name": "主营业务成本-商品销售", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5601.01", "name": "销售费用-运输费", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5601.02", "name": "销售费用-促销费", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5601.03", "name": "销售费用-广告宣传费", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5601.04", "name": "销售费用-销售人员薪酬", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5602.01", "name": "管理费用-工资薪金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.02", "name": "管理费用-办公费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.03", "name": "管理费用-差旅费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.04", "name": "管理费用-折旧费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.05", "name": "管理费用-业务招待费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.06", "name": "管理费用-租赁费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.07", "name": "管理费用-社保公积金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.08", "name": "管理费用-其他", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]}
+  ]
+}

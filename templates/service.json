@@ -1,0 +1,26 @@
+{
+  "id": "service",
+  "name": "服务业",
+  "version": "2026.1",
+  "base": "base",
+  "description": "服务业叠加模板：劳务成本、合同履约等",
+  "accounts": [
+    {"code": "5001.01", "name": "主营业务收入-咨询服务", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer", "project"]},
+    {"code": "5001.02", "name": "主营业务收入-技术服务", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer", "project"]},
+    {"code": "5001.03", "name": "主营业务收入-设计服务", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer", "project"]},
+    {"code": "5401.01", "name": "主营业务成本-人工成本", "direction": "借", "level": 2, "parent": "5401", "aux": ["project"]},
+    {"code": "5401.02", "name": "主营业务成本-外包成本", "direction": "借", "level": 2, "parent": "5401", "aux": ["project", "supplier"]},
+    {"code": "5401.03", "name": "主营业务成本-差旅费", "direction": "借", "level": 2, "parent": "5401", "aux": ["project"]},
+    {"code": "5601.01", "name": "销售费用-业务招待费", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5601.02", "name": "销售费用-广告宣传费", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5601.03", "name": "销售费用-佣金手续费", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5602.01", "name": "管理费用-工资薪金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.02", "name": "管理费用-办公费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.03", "name": "管理费用-差旅费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.04", "name": "管理费用-折旧费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.05", "name": "管理费用-租赁费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.06", "name": "管理费用-社保公积金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.07", "name": "管理费用-培训费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.08", "name": "管理费用-其他", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]}
+  ]
+}

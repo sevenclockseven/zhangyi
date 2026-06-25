@@ -1,0 +1,31 @@
+{
+  "id": "agriculture",
+  "name": "农林牧渔业",
+  "version": "2026.1",
+  "base": "base",
+  "description": "农林牧渔业叠加模板：消耗性生物资产、生产性生物资产、农业生产成本等",
+  "accounts": [
+    {"code": "1421", "name": "消耗性生物资产", "direction": "借", "level": 1, "aux": ["project"]},
+    {"code": "1421.01", "name": "消耗性生物资产-幼畜及育肥畜", "direction": "借", "level": 2, "parent": "1421", "aux": ["project"]},
+    {"code": "1421.02", "name": "消耗性生物资产-生长中的农作物", "direction": "借", "level": 2, "parent": "1421", "aux": ["project"]},
+    {"code": "1421.03", "name": "消耗性生物资产-林木", "direction": "借", "level": 2, "parent": "1421", "aux": ["project"]},
+    {"code": "1621", "name": "生产性生物资产", "direction": "借", "level": 1, "aux": []},
+    {"code": "1621.01", "name": "生产性生物资产-产畜", "direction": "借", "level": 2, "parent": "1621", "aux": []},
+    {"code": "1621.02", "name": "生产性生物资产-役畜", "direction": "借", "level": 2, "parent": "1621", "aux": []},
+    {"code": "1621.03", "name": "生产性生物资产-经济林木", "direction": "借", "level": 2, "parent": "1621", "aux": []},
+    {"code": "1622", "name": "生产性生物资产累计折旧", "direction": "贷", "level": 1, "aux": []},
+    {"code": "5001.01", "name": "主营业务收入-农产品销售", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer"]},
+    {"code": "5001.02", "name": "主营业务收入-畜牧产品销售", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer"]},
+    {"code": "5001.03", "name": "主营业务收入-林产品销售", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer"]},
+    {"code": "5401.01", "name": "主营业务成本-种子化肥", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5401.02", "name": "主营业务成本-农药", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5401.03", "name": "主营业务成本-饲料", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5401.04", "name": "主营业务成本-人工费", "direction": "借", "level": 2, "parent": "5401", "aux": ["employee"]},
+    {"code": "5401.05", "name": "主营业务成本-水电费", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5602.01", "name": "管理费用-工资薪金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.02", "name": "管理费用-办公费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.03", "name": "管理费用-折旧费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.04", "name": "管理费用-社保公积金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.05", "name": "管理费用-其他", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]}
+  ]
+}

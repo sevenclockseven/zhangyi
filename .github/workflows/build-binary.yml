@@ -1,0 +1,84 @@
+name: Build Binary
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GOPROXY: https://goproxy.cn,direct
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            asset: zhangyi-windows-amd64.exe
+          - goos: linux
+            goarch: amd64
+            asset: zhangyi-linux-amd64
+          - goos: linux
+            goarch: arm64
+            asset: zhangyi-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            asset: zhangyi-macos-amd64
+          - goos: darwin
+            goarch: arm64
+            asset: zhangyi-macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        working-directory: web
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: go build -ldflags="-s -w" -o ${{ matrix.asset }} .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/zhangyi-windows-amd64.exe/zhangyi-windows-amd64.exe
+            artifacts/zhangyi-linux-amd64/zhangyi-linux-amd64
+            artifacts/zhangyi-linux-arm64/zhangyi-linux-arm64
+            artifacts/zhangyi-macos-amd64/zhangyi-macos-amd64
+            artifacts/zhangyi-macos-arm64/zhangyi-macos-arm64
+          generate_release_notes: true

@@ -1,0 +1,28 @@
+{
+  "id": "transport",
+  "name": "交通运输业",
+  "version": "2026.1",
+  "base": "base",
+  "description": "交通运输业叠加模板：运输收入、运输成本、车辆费用等",
+  "accounts": [
+    {"code": "1601.01", "name": "固定资产-运输车辆", "direction": "借", "level": 2, "parent": "1601", "aux": []},
+    {"code": "1601.02", "name": "固定资产-装卸设备", "direction": "借", "level": 2, "parent": "1601", "aux": []},
+    {"code": "5001.01", "name": "主营业务收入-运输收入", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer"]},
+    {"code": "5001.02", "name": "主营业务收入-装卸收入", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer"]},
+    {"code": "5001.03", "name": "主营业务收入-仓储收入", "direction": "贷", "level": 2, "parent": "5001", "aux": ["customer"]},
+    {"code": "5401.01", "name": "主营业务成本-燃油费", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5401.02", "name": "主营业务成本-过路费", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5401.03", "name": "主营业务成本-车辆维修费", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5401.04", "name": "主营业务成本-车辆保险费", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5401.05", "name": "主营业务成本-司机薪酬", "direction": "借", "level": 2, "parent": "5401", "aux": ["employee"]},
+    {"code": "5401.06", "name": "主营业务成本-折旧费", "direction": "借", "level": 2, "parent": "5401", "aux": []},
+    {"code": "5601.01", "name": "销售费用-业务招待费", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5601.02", "name": "销售费用-广告宣传费", "direction": "借", "level": 2, "parent": "5601", "aux": ["department"]},
+    {"code": "5602.01", "name": "管理费用-工资薪金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.02", "name": "管理费用-办公费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.03", "name": "管理费用-差旅费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.04", "name": "管理费用-折旧费", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.05", "name": "管理费用-社保公积金", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]},
+    {"code": "5602.06", "name": "管理费用-其他", "direction": "借", "level": 2, "parent": "5602", "aux": ["department"]}
+  ]
+}
