@@ -146,12 +146,13 @@ const loadMenuConfig = () => {
     const saved = localStorage.getItem('zhangyi_menu_config')
     if (saved) {
       const parsed = JSON.parse(saved)
-      // Merge with defaults to handle new items
-      const merged = defaultMenuConfig.map(def => {
-        const found = parsed.find(p => p.index === def.index)
-        return found ? { ...def, ...found } : { ...def }
+      // Use saved order, append any new default items not in saved config
+      const savedIndexes = new Set(parsed.map(p => p.index))
+      const extras = defaultMenuConfig.filter(d => !savedIndexes.has(d.index))
+      menuConfig.value = [...parsed, ...extras].map(item => {
+        const def = defaultMenuConfig.find(d => d.index === item.index)
+        return def ? { ...def, ...item } : item
       })
-      menuConfig.value = merged
     }
   } catch {}
 }

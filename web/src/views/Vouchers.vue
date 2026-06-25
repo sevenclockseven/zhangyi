@@ -108,16 +108,16 @@
       <div class="table-wrapper">
         <el-table :data="voucherForm.items" border size="small" style="margin: 8px 0">
           <el-table-column label="#" width="40" type="index" />
-          <el-table-column label="科目" min-width="180">
+          <el-table-column label="摘要" min-width="150">
             <template #default="{ row, $index }">
-              <el-select v-model="row.account_id" filterable placeholder="选择科目" @change="(val) => onAccountChange(val, $index)" @keydown.enter.prevent="focusNext($index, 'memo')" :ref="el => setFieldRef($index, 'account', el)" style="width: 100%">
-                <el-option v-for="a in accounts" :key="a.id" :label="a.code + ' ' + a.name" :value="a.id" :disabled="!a.is_leaf" />
-              </el-select>
+              <el-input v-model="row.memo" placeholder="摘要" size="small" @keydown.enter.prevent="focusNext($index, 'account')" :ref="el => setFieldRef($index, 'memo', el)" />
             </template>
           </el-table-column>
-          <el-table-column label="摘要" min-width="120">
-            <template #default="{ row }">
-              <el-input v-model="row.memo" placeholder="摘要" size="small" @keydown.enter.prevent="focusNext($index, 'debit')" :ref="el => setFieldRef($index, 'memo', el)" />
+          <el-table-column label="科目" min-width="180">
+            <template #default="{ row, $index }">
+              <el-select v-model="row.account_id" filterable placeholder="选择科目" @change="(val) => onAccountChange(val, $index)" @keydown.enter.prevent="focusNext($index, 'debit')" :ref="el => setFieldRef($index, 'account', el)" style="width: 100%">
+                <el-option v-for="a in accounts" :key="a.id" :label="a.code + ' ' + a.name" :value="a.id" :disabled="!a.is_leaf" />
+              </el-select>
             </template>
           </el-table-column>
           <el-table-column label="借方" width="120">
@@ -384,8 +384,8 @@ const setFieldRef = (rowIndex, field, el) => {
 
 const focusNext = (rowIndex, field) => {
   if (field === 'next-row') {
-    // Jump to next row's account select
-    const nextKey = `${rowIndex + 1}_account`
+    // Jump to next row's memo
+    const nextKey = `${rowIndex + 1}_memo`
     if (fieldRefs[nextKey]) {
       fieldRefs[nextKey].focus?.() || fieldRefs[nextKey].$el?.querySelector('input')?.focus()
     } else {
