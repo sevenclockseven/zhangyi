@@ -259,7 +259,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, Top, Bottom, Rank } from '@element-plus/icons-vue'
+import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Top, Bottom, Rank } from '@element-plus/icons-vue'
 
 const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)')
@@ -347,6 +347,7 @@ const loadMenuConfig = () => {
         { index: '/vouchers', label: '凭证管理', icon: 'Document', visible: true },
         { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
         { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
+        { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
         { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
       ]
     }

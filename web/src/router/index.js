@@ -44,6 +44,12 @@ const routes = [
     meta: { title: '报表中心' }
   },
   {
+    path: '/closing',
+    name: 'Closing',
+    component: () => import('../views/Closing.vue'),
+    meta: { title: '期末处理' }
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../views/Settings.vue'),
