@@ -247,6 +247,7 @@ const loadVouchers = async () => {
       params.push(`date_from=${filterDateRange.value[0]}`)
       params.push(`date_to=${filterDateRange.value[1]}`)
     }
+    if (filterKeyword.value) params.push(`keyword=${filterKeyword.value}`)
     if (params.length) url += '?' + params.join('&')
     const { data } = await axios.get(url)
     vouchers.value = data.data || []
