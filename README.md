@@ -6,16 +6,55 @@
 
 - 🖥️ **单机运行** — 双击即用，零配置，无需安装数据库
 - 📊 **多账套管理** — 每个代理客户独立账套，互不干扰
-- 🏭 **行业适配** — 内置多行业会计科目模板（制造业/零售业/服务业等）
-- 📝 **凭证管理** — 录入、审核、记账全流程
-- 📈 **标准报表** — 资产负债表、利润表、现金流量表
-- 🔧 **自定义报表** — 取数公式引擎，灵活出表
+- 🏭 **行业适配** — 7个行业科目模板（基础/制造/零售/服务/建筑/运输/农业）
+- 📝 **凭证管理** — 录入、审核、记账、批量操作全流程
+- 📈 **标准报表** — 资产负债表、利润表、科目余额表
+- 🔧 **辅助核算** — 客户/供应商/部门/项目/员工/仓库/银行账号
 - 🔄 **科目可更新** — 会计准则变更时推送更新包
-- 🚀 **可扩展** — 架构预留多人协作能力
+- 🚀 **Docker部署** — Docker Compose 一键部署
 
 ## 📦 下载
 
-从 [Releases](https://github.com/sevenclockseven/zhangyi/releases) 页面下载对应平台的可执行文件：
+### Docker 部署（推荐）
+
+```bash
+# 拉取镜像
+docker pull ghcr.io/sevenclockseven/zhangyi:0.1
+
+# 创建 docker-compose.yml
+cat > docker-compose.yml << 'EOF'
+services:
+  zhangyi:
+    image: ghcr.io/sevenclockseven/zhangyi:0.1
+    container_name: zhangyi
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+    environment:
+      - TZ=Asia/Shanghai
+      - PORT=8080
+    networks:
+      - zhangyi-net
+
+networks:
+  zhangyi-net:
+    ipam:
+      config:
+        - subnet: 192.168.88.0/24
+EOF
+
+# 启动
+docker compose up -d
+```
+
+访问 http://localhost:8080
+
+### 二进制下载
+
+从 [Releases](https://github.com/sevenclockseven/zhangyi/releases) 页面下载：
 
 | 平台 | 文件 |
 |------|------|
@@ -25,18 +64,23 @@
 | macOS Intel | `zhangyi-macos-amd64` |
 | macOS Apple Silicon | `zhangyi-macos-arm64` |
 
-## 🚀 快速开始
-
 ```bash
-# Windows
-zhangyi-windows-amd64.exe
-
-# Linux/macOS
-chmod +zhangyi-linux-amd64
+# 运行
 ./zhangyi-linux-amd64
 ```
 
-启动后访问 http://localhost:8080
+## 🏗️ 功能清单
+
+| 模块 | 状态 | 说明 |
+|------|------|------|
+| 账套管理 | ✅ | CRUD、行业模板自动加载 |
+| 科目管理 | ✅ | 树形展示、搜索、增删改、停用 |
+| 凭证管理 | ✅ | 录入、审核、记账、批量操作 |
+| 账簿查询 | ✅ | 科目余额表、总账 |
+| 报表中心 | ✅ | 资产负债表、利润表 |
+| 辅助核算 | ✅ | 7个维度（客户/供应商/部门/项目/员工/仓库/银行） |
+| 期末处理 | 🔜 | 损益结转、折旧、结账 |
+| 报表导出 | 🔜 | Excel/PDF/打印 |
 
 ## 🛠️ 开发
 
@@ -44,58 +88,58 @@ chmod +zhangyi-linux-amd64
 
 - Go 1.21+
 - Node.js 20+
-- GCC (CGO for SQLite)
+- Docker（部署用）
 
 ### 本地开发
 
 ```bash
-# 安装 Go 依赖
-go mod tidy
+# 克隆仓库
+git clone https://github.com/sevenclockseven/zhangyi.git
+cd zhangyi
 
-# 启动后端（热重载可选 air）
-go run cmd/server/main.go
+# 安装前端依赖并构建
+cd web && npm install --legacy-peer-deps && npm run build && cd ..
 
-# 启动前端开发服务器
-cd web
-npm install
-npm run dev
+# 运行后端
+go run main.go
 ```
 
-### 构建
+### 发布流程
 
 ```bash
-# 构建前端
-cd web && npm run build && cd ..
+# 打 tag 触发 GitHub Actions
+git tag v0.2.0
+git push origin v0.2.0
 
-# 构建可执行文件
-go build -o zhangyi cmd/server/main.go
+# Actions 自动：
+# 1. 构建前端
+# 2. 编译5平台二进制 → 创建 Release
+# 3. 构建Docker镜像 → 推到 ghcr.io
+
+# 部署
+docker compose pull && docker compose up -d
 ```
-
-### 发布
-
-```bash
-# 打 tag 触发 GitHub Actions 自动构建
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-GitHub Actions 会自动构建 5 个平台的可执行文件并创建 Release。
 
 ## 📁 项目结构
 
 ```
 zhangyi/
-├── cmd/server/          # 程序入口
+├── main.go                  # 程序入口
 ├── internal/
-│   ├── api/             # HTTP API 处理器
-│   ├── models/          # 数据模型
-│   ├── services/        # 业务逻辑
-│   └── middleware/       # 中间件
-├── web/                 # Vue3 前端
-├── templates/           # 会计科目模板 (JSON)
-├── reports/             # 报表模板 (JSON)
-├── .github/workflows/   # GitHub Actions
-└── data/                # SQLite 数据库 (运行时生成)
+│   ├── api/                 # HTTP API
+│   │   ├── routes.go        # 路由注册
+│   │   └── handlers.go      # 请求处理
+│   ├── models/              # 数据模型
+│   └── services/            # 业务逻辑
+├── web/                     # Vue3 前端
+│   ├── src/views/           # 页面组件
+│   ├── src/router/          # 路由
+│   └── package.json
+├── templates/               # 会计科目模板 (JSON)
+├── docs/                    # 文档
+├── .github/workflows/       # GitHub Actions
+├── Dockerfile               # 多阶段构建
+└── docker-compose.yml       # 部署配置
 ```
 
 ## 📋 技术栈
@@ -103,9 +147,10 @@ zhangyi/
 | 层 | 技术 |
 |---|---|
 | 后端 | Go + Gin + GORM |
-| 数据库 | SQLite3 |
-| 前端 | Vue3 + Element Plus |
-| CI/CD | GitHub Actions |
+| 数据库 | SQLite3（纯Go驱动，无CGO依赖） |
+| 前端 | Vue3 + Element Plus + Vite |
+| 容器 | Docker + Docker Compose |
+| CI/CD | GitHub Actions → ghcr.io |
 
 ## 📄 许可证
 
