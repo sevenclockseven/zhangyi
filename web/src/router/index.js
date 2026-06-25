@@ -56,6 +56,12 @@ const routes = [
     meta: { title: '期末处理' }
   },
   {
+    path: '/voucher-templates',
+    name: 'VoucherTemplates',
+    component: () => import('../views/VoucherTemplates.vue'),
+    meta: { title: '凭证模板' }
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../views/Settings.vue'),
