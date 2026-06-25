@@ -1042,11 +1042,11 @@ func generateID(db *gorm.DB) uint {
 func generateVoucherNumber(db *gorm.DB, bookID uint, date string) string {
 	// Format: 记-YYYYMM-001
 	parts := strings.Split(date, "-")
-	period := parts[0] + parts[1]
+	period := parts[0] + "-" + parts[1] // e.g. "2026-06"
 
 	var count int64
 	db.Model(&models.Voucher{}).
-		Where("book_id = ? AND date LIKE ?", bookID, period+"%").
+		Where("book_id = ? AND number LIKE ?", bookID, "记-"+period+"%").
 		Count(&count)
 
 	return fmt.Sprintf("记-%s-%03d", period, count+1)
