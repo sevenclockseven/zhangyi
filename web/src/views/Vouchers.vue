@@ -445,7 +445,11 @@ const formatMoney = (v) => {
 
 const statusType = (s) => ({ draft: 'info', reviewed: 'warning', posted: 'success', voided: 'danger' }[s] || 'info')
 const statusLabel = (s) => ({ draft: '草稿', reviewed: '已审核', posted: '已记账', voided: '已作废' }[s] || s)
-const getVoucherMemo = (row) => row.memo || ''
+const getVoucherMemo = (row) => {
+  if (row.memo) return row.memo
+  if (row.items && row.items.length > 0) return row.items[0].memo || ''
+  return ''
+}
 
 watch(currentBook, () => { loadVouchers(); loadAccounts() })
 watch(showEditor, (val) => { if (val && !editingVoucher.value) resetForm() })
