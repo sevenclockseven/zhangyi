@@ -111,6 +111,10 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				reports.GET("/income-statement", incomeStatement(db))
 				reports.GET("/cash-flow", cashFlowStatement(db))
 				reports.GET("/account-balance", accountBalanceReport(db))
+			reports.GET("/income-statement-v2", incomeStatementEnhanced(db))
+			reports.GET("/expense", expenseReport(db))
+			reports.GET("/general-ledger", generalLedgerReport(db))
+			reports.GET("/ar-ap", arApReport(db))
 			}
 
 			// 辅助核算
