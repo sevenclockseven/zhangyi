@@ -39,7 +39,7 @@ services:
 docker compose up -d
 ```
 
-访问 http://localhost:8080 ，默认管理员：admin / admin123
+访问 http://localhost:8080 ，首次运行自动创建管理员账号
 
 ### 源码编译
 
