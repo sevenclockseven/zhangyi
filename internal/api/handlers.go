@@ -388,7 +388,7 @@ func listVouchers(db *gorm.DB) gin.HandlerFunc {
 			query = query.Where("number LIKE ? OR memo LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 		}
 
-		query.Order("date DESC, number DESC").Find(&vouchers)
+		query.Preload("Items").Order("date DESC, number DESC").Find(&vouchers)
 		c.JSON(http.StatusOK, gin.H{"data": vouchers})
 	}
 }
