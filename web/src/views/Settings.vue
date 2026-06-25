@@ -334,23 +334,32 @@ const loadBookInfo = async () => {
 const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting }
 const menuConfig = ref([])
 
+const defaultMenu = [
+  { index: '/', label: '工作台', icon: 'HomeFilled', visible: true },
+  { index: '/books', label: '账套管理', icon: 'Notebook', visible: true },
+  { index: '/accounts', label: '科目管理', icon: 'Memo', visible: true },
+  { index: '/vouchers', label: '凭证管理', icon: 'Document', visible: true },
+  { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
+  { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
+  { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
+  { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
+  { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
+]
+
 const loadMenuConfig = () => {
   try {
     const saved = localStorage.getItem('zhangyi_menu_config')
     if (saved) {
-      menuConfig.value = JSON.parse(saved)
+      const parsed = JSON.parse(saved)
+      // Merge: use saved order, append new default items not in saved config
+      const savedIndexes = new Set(parsed.map(p => p.index))
+      const extras = defaultMenu.filter(d => !savedIndexes.has(d.index))
+      menuConfig.value = [...parsed, ...extras].map(item => {
+        const def = defaultMenu.find(d => d.index === item.index)
+        return def ? { ...def, ...item } : item
+      })
     } else {
-      menuConfig.value = [
-        { index: '/', label: '工作台', icon: 'HomeFilled', visible: true },
-        { index: '/books', label: '账套管理', icon: 'Notebook', visible: true },
-        { index: '/accounts', label: '科目管理', icon: 'Memo', visible: true },
-        { index: '/vouchers', label: '凭证管理', icon: 'Document', visible: true },
-        { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
-        { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
-        { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
-        { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
-        { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
-      ]
+      menuConfig.value = [...defaultMenu]
     }
   } catch {}
 }
