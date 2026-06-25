@@ -2488,3 +2488,116 @@ func deleteVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "已删除"})
 	}
 }
+// ===== Export Handlers =====
+
+// exportVouchers exports vouchers as CSV (Excel compatible)
+func exportVouchers(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		period := c.Query("period") // YYYY-MM
+
+		var vouchers []models.Voucher
+		query := db.Where("book_id = ?", bookID)
+		if period != "" {
+			query = query.Where("date LIKE ?", period+"%")
+		}
+		query.Preload("Items").Order("date ASC, number ASC").Find(&vouchers)
+
+		var buf strings.Builder
+		buf.WriteString("\xEF\xBB\xBF")
+		buf.WriteString("凭证字号,日期,科目编码,科目名称,摘要,借方金额,贷方金额,状态\n")
+
+		for _, v := range vouchers {
+			statusLabel := map[string]string{"draft": "草稿", "reviewed": "已审核", "posted": "已记账", "voided": "已作废"}[v.Status]
+			for _, item := range v.Items {
+				buf.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%.2f,%.2f,%s\n",
+					quoteCSV(v.Number), v.Date, item.AccountCode, item.AccountName,
+					quoteCSV(item.Memo), item.Debit, item.Credit, statusLabel))
+			}
+		}
+
+		filename := fmt.Sprintf("vouchers_%s.csv", time.Now().Format("20060102"))
+		if period != "" {
+			filename = fmt.Sprintf("vouchers_%s_%s.csv", period, time.Now().Format("20060102"))
+		}
+		c.Header("Content-Type", "text/csv; charset=utf-8")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.String(http.StatusOK, buf.String())
+	}
+}
+
+// exportReport exports current report data as CSV
+func exportReport(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		reportType := c.Query("type")
+		period := c.Query("period")
+
+		var buf strings.Builder
+		buf.WriteString("\xEF\xBB\xBF")
+
+		switch reportType {
+		case "balance-sheet":
+			buf.WriteString("资产负债表\n")
+			buf.WriteString("类型,编码,项目,期末余额\n")
+			// Reuse balance sheet logic
+			var accounts []models.Account
+			db.Where("book_id = ? AND is_active = ?", bookID, true).Order("code ASC").Find(&accounts)
+			for _, acct := range accounts {
+				var balance models.AccountBalance
+				db.Where("book_id = ? AND account_id = ? AND period = ?", bookID, acct.ID, period).First(&balance)
+				total := balance.ClosingDebit - balance.ClosingCredit
+				if total != 0 {
+					category := "其他"
+					code := acct.Code[:1]
+					switch code {
+					case "1": category = "资产"
+					case "2": category = "负债"
+					case "3": category = "所有者权益"
+					}
+					buf.WriteString(fmt.Sprintf("%s,%s,%s,%.2f\n", category, acct.Code, acct.Name, total))
+				}
+			}
+
+		case "income":
+			buf.WriteString("利润表\n")
+			buf.WriteString("项目,本期金额\n")
+			getAmt := func(code string) float64 {
+				var total float64
+				db.Model(&models.AccountBalance{}).
+					Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+					Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
+					Row().Scan(&total)
+				return total
+			}
+			revenue := getAmt("5001") + getAmt("5051")
+			cost := getAmt("5401") + getAmt("5402")
+			buf.WriteString(fmt.Sprintf("营业收入,%.2f\n", revenue))
+			buf.WriteString(fmt.Sprintf("营业成本,%.2f\n", cost))
+			buf.WriteString(fmt.Sprintf("毛利,%.2f\n", revenue-cost))
+
+		case "account-balance":
+			buf.WriteString("科目余额表\n")
+			buf.WriteString("科目编码,科目名称,方向,期初借方,期初贷方,本期借方,本期贷方,期末借方,期末贷方\n")
+			var balances []models.AccountBalance
+			db.Where("book_id = ? AND period = ?", bookID, period).Find(&balances)
+			for _, b := range balances {
+				var acct models.Account
+				db.First(&acct, b.AccountID)
+				buf.WriteString(fmt.Sprintf("%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+					acct.Code, acct.Name, acct.Direction,
+					b.OpeningDebit, b.OpeningCredit, b.PeriodDebit, b.PeriodCredit,
+					b.ClosingDebit, b.ClosingCredit))
+			}
+
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的报表类型"})
+			return
+		}
+
+		filename := fmt.Sprintf("%s_%s_%s.csv", reportType, period, time.Now().Format("20060102"))
+		c.Header("Content-Type", "text/csv; charset=utf-8")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.String(http.StatusOK, buf.String())
+	}
+}

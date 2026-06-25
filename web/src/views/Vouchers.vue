@@ -72,10 +72,13 @@
     </div>
 
     <!-- Batch actions -->
-    <div class="batch-actions" v-if="selectedVouchers.length > 0">
-      <el-button @click="batchReview" :disabled="!canBatchReview">批量审核</el-button>
-      <el-button @click="batchPost" :disabled="!canBatchPost">批量记账</el-button>
-      <span style="margin-left: 12px; color: #909399">已选 {{ selectedVouchers.length }} 条</span>
+    <div class="batch-actions">
+      <el-button v-if="selectedVouchers.length > 0" @click="batchReview" :disabled="!canBatchReview">批量审核</el-button>
+      <el-button v-if="selectedVouchers.length > 0" @click="batchPost" :disabled="!canBatchPost">批量记账</el-button>
+      <span v-if="selectedVouchers.length > 0" style="margin-left: 12px; color: #909399">已选 {{ selectedVouchers.length }} 条</span>
+      <el-button style="margin-left: auto" size="small" @click="exportVouchers">
+        <el-icon><Download /></el-icon>导出凭证
+      </el-button>
     </div>
 
     <!-- Voucher Editor Dialog -->
@@ -435,6 +438,11 @@ const focusNext = (rowIndex, field) => {
 }
 
 const calcTotal = () => {}
+
+const exportVouchers = () => {
+  const token = localStorage.getItem('token')
+  window.open(`/api/books/${currentBook.value}/vouchers/export`, '_blank')
+}
 
 const saveVoucher = async () => {
   try {

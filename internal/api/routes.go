@@ -98,6 +98,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				vouchers.POST("/:vid/restore", restoreVoucher(db))
 				vouchers.POST("/batch-review", batchReview(db))
 				vouchers.POST("/batch-post", batchPost(db))
+				vouchers.GET("/export", exportVouchers(db))
 			}
 
 			// 凭证模板
@@ -120,6 +121,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				reports.GET("/income-statement", incomeStatement(db))
 				reports.GET("/cash-flow", cashFlowStatement(db))
 				reports.GET("/account-balance", accountBalanceReport(db))
+				reports.GET("/export", exportReport(db))
 			reports.GET("/income-statement-v2", incomeStatementEnhanced(db))
 			reports.GET("/expense", expenseReport(db))
 			reports.GET("/general-ledger", generalLedgerReport(db))

@@ -276,7 +276,11 @@ const incomeSummary = ({ columns, data }) => {
 }
 
 const exportReport = () => {
-  ElMessage.info('导出功能开发中')
+  const token = localStorage.getItem('token')
+  const typeMap = { 'income': 'income', 'balance-sheet': 'balance-sheet', 'account-balance': 'account-balance' }
+  const type = typeMap[activeTab.value]
+  if (!type) { ElMessage.warning('该报表暂不支持导出'); return }
+  window.open(`/api/books/${currentBook.value}/reports/export?type=${type}&period=${period.value}&token=***}`, '_blank')
 }
 
 const fmt = (v) => {
