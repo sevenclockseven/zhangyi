@@ -385,7 +385,8 @@ func listVouchers(db *gorm.DB) gin.HandlerFunc {
 			query = query.Where("date <= ?", dateTo)
 		}
 		if keyword := c.Query("keyword"); keyword != "" {
-			query = query.Where("number LIKE ? OR memo LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+			subQuery := db.Model(&models.VoucherItem{}).Select("DISTINCT voucher_id").Where("memo LIKE ?", "%"+keyword+"%")
+			query = query.Where("number LIKE ? OR memo LIKE ? OR vouchers.id IN (?)", "%"+keyword+"%", "%"+keyword+"%", subQuery)
 		}
 
 		query.Preload("Items").Order("date DESC, number DESC").Find(&vouchers)
