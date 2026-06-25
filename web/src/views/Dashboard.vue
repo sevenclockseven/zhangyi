@@ -30,17 +30,25 @@
           <el-button @click="$router.push('/vouchers')">
             <el-icon><Document /></el-icon>录入凭证
           </el-button>
+          <el-button @click="$router.push('/opening-balance')">
+            <el-icon><Coin /></el-icon>期初余额
+          </el-button>
           <el-button @click="$router.push('/reports')">
             <el-icon><DataAnalysis /></el-icon>查看报表
+          </el-button>
+          <el-button @click="$router.push('/closing')">
+            <el-icon><SwitchButton /></el-icon>期末处理
           </el-button>
         </el-space>
       </el-card>
       <el-card>
         <template #header>系统信息</template>
         <el-descriptions :column="1" border size="small">
-          <el-descriptions-item label="版本">v0.3.0</el-descriptions-item>
+          <el-descriptions-item label="版本">{{ systemInfo.version || '-' }}</el-descriptions-item>
           <el-descriptions-item label="数据库">SQLite</el-descriptions-item>
-          <el-descriptions-item label="数据目录">./data/</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag type="success" size="small">{{ systemInfo.status || '-' }}</el-tag>
+          </el-descriptions-item>
         </el-descriptions>
       </el-card>
     </div>
@@ -58,10 +66,32 @@ const stats = ref({
   pendingPost: 0
 })
 
+const systemInfo = ref({
+  version: '',
+  status: ''
+})
+
 onMounted(async () => {
   try {
+    // Load books count
     const { data } = await axios.get('/api/books')
-    stats.value.totalBooks = data.data?.length || 0
+    const books = data.data || []
+    stats.value.totalBooks = books.length
+
+    // Load vouchers for first book
+    if (books.length > 0) {
+      const { data: vData } = await axios.get(`/api/books/${books[0].id}/vouchers`)
+      const vouchers = vData.data || []
+      const now = new Date()
+      const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      stats.value.monthVouchers = vouchers.filter(v => v.date && v.date.startsWith(monthPrefix)).length
+      stats.value.pendingReview = vouchers.filter(v => v.status === 'draft').length
+      stats.value.pendingPost = vouchers.filter(v => v.status === 'reviewed').length
+    }
+
+    // Load system info from health API
+    const { data: health } = await axios.get('/api/health')
+    systemInfo.value = health
   } catch (e) {
     console.error('Failed to load stats:', e)
   }
@@ -69,11 +99,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.dashboard h2 {
-  margin-bottom: 20px;
-  color: #303133;
-  font-size: 18px;
-}
+.dashboard h2 { margin-bottom: 20px; color: #303133; font-size: 18px; }
 
 .stats-grid {
   display: grid;
@@ -96,27 +122,12 @@ onMounted(async () => {
   padding: 10px 0;
 }
 
-.stat-value.warning {
-  color: #E6A23C;
-}
-
-.stat-value.info {
-  color: #909399;
-}
+.stat-value.warning { color: #E6A23C; }
+.stat-value.info { color: #909399; }
 
 @media (max-width: 767px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  .bottom-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .stat-value {
-    font-size: 28px;
-  }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .bottom-grid { grid-template-columns: 1fr; gap: 12px; }
+  .stat-value { font-size: 28px; }
 }
 </style>
