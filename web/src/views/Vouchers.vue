@@ -61,6 +61,10 @@
             <el-button size="small" type="warning" link @click="editVoucher(row)" v-if="row.status === 'draft'">编辑</el-button>
             <el-button size="small" type="success" link @click="reviewVoucher(row)" v-if="row.status === 'draft'">审核</el-button>
             <el-button size="small" type="success" link @click="postVoucher(row)" v-if="row.status === 'reviewed' || row.status === 'draft'">记账</el-button>
+            <el-button size="small" type="warning" link @click="unreviewVoucher(row)" v-if="row.status === 'reviewed'">反审核</el-button>
+            <el-button size="small" type="warning" link @click="unpostVoucher(row)" v-if="row.status === 'posted'">反记账</el-button>
+            <el-button size="small" type="danger" link @click="voidVoucher(row)" v-if="row.status === 'draft' || row.status === 'reviewed'">作废</el-button>
+            <el-button size="small" type="info" link @click="restoreVoucher(row)" v-if="row.status === 'voided'">恢复</el-button>
             <el-button size="small" type="danger" link @click="deleteVoucher(row)" v-if="row.status === 'draft'">删除</el-button>
           </template>
         </el-table-column>
@@ -302,6 +306,39 @@ const deleteVoucher = async (row) => {
     ElMessage.success('已删除')
     loadVouchers()
   } catch (e) { ElMessage.error(e.response?.data?.error || '删除失败') }
+}
+
+const unreviewVoucher = async (row) => {
+  try {
+    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/unreview`)
+    ElMessage.success('反审核成功')
+    loadVouchers()
+  } catch (e) { ElMessage.error(e.response?.data?.error || '反审核失败') }
+}
+
+const unpostVoucher = async (row) => {
+  try {
+    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/unpost`)
+    ElMessage.success('反记账成功')
+    loadVouchers()
+  } catch (e) { ElMessage.error(e.response?.data?.error || '反记账失败') }
+}
+
+const voidVoucher = async (row) => {
+  await ElMessageBox.confirm('确定作废该凭证？', '确认', { type: 'warning' })
+  try {
+    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/void`)
+    ElMessage.success('已作废')
+    loadVouchers()
+  } catch (e) { ElMessage.error(e.response?.data?.error || '作废失败') }
+}
+
+const restoreVoucher = async (row) => {
+  try {
+    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/restore`)
+    ElMessage.success('已恢复')
+    loadVouchers()
+  } catch (e) { ElMessage.error(e.response?.data?.error || '恢复失败') }
 }
 
 const handleSelectionChange = (rows) => { selectedVouchers.value = rows }
