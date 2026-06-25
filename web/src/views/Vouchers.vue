@@ -110,24 +110,24 @@
           <el-table-column label="#" width="40" type="index" />
           <el-table-column label="科目" min-width="180">
             <template #default="{ row, $index }">
-              <el-select v-model="row.account_id" filterable placeholder="选择科目" @change="(val) => onAccountChange(val, $index)" style="width: 100%">
+              <el-select v-model="row.account_id" filterable placeholder="选择科目" @change="(val) => onAccountChange(val, $index)" @keydown.enter.prevent="focusNext($index, 'memo')" :ref="el => setFieldRef($index, 'account', el)" style="width: 100%">
                 <el-option v-for="a in accounts" :key="a.id" :label="a.code + ' ' + a.name" :value="a.id" :disabled="!a.is_leaf" />
               </el-select>
             </template>
           </el-table-column>
           <el-table-column label="摘要" min-width="120">
             <template #default="{ row }">
-              <el-input v-model="row.memo" placeholder="摘要" size="small" />
+              <el-input v-model="row.memo" placeholder="摘要" size="small" @keydown.enter.prevent="focusNext($index, 'debit')" :ref="el => setFieldRef($index, 'memo', el)" />
             </template>
           </el-table-column>
           <el-table-column label="借方" width="120">
             <template #default="{ row }">
-              <el-input-number v-model="row.debit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" />
+              <el-input-number v-model="row.debit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'credit')" :ref="el => setFieldRef($index, 'debit', el)" />
             </template>
           </el-table-column>
           <el-table-column label="贷方" width="120">
             <template #default="{ row }">
-              <el-input-number v-model="row.credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" />
+              <el-input-number v-model="row.credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'next-row')" :ref="el => setFieldRef($index, 'credit', el)" />
             </template>
           </el-table-column>
           <el-table-column label="" width="40">
@@ -199,7 +199,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -372,6 +372,38 @@ const onAccountChange = (val, index) => {
   if (acct) {
     voucherForm.value.items[index].account_code = acct.code
     voucherForm.value.items[index].account_name = acct.name
+  }
+}
+
+// Field refs for Enter navigation
+const fieldRefs = {}
+const setFieldRef = (rowIndex, field, el) => {
+  const key = `${rowIndex}_${field}`
+  if (el) fieldRefs[key] = el
+}
+
+const focusNext = (rowIndex, field) => {
+  if (field === 'next-row') {
+    // Jump to next row's account select
+    const nextKey = `${rowIndex + 1}_account`
+    if (fieldRefs[nextKey]) {
+      fieldRefs[nextKey].focus?.() || fieldRefs[nextKey].$el?.querySelector('input')?.focus()
+    } else {
+      // Add new row if at the end
+      addItem()
+      nextTick(() => {
+        setTimeout(() => {
+          const newKey = `${voucherForm.value.items.length - 1}_account`
+          fieldRefs[newKey]?.focus?.() || fieldRefs[newKey]?.$el?.querySelector('input')?.focus()
+        }, 100)
+      })
+    }
+  } else {
+    const key = `${rowIndex}_${field}`
+    const ref = fieldRefs[key]
+    if (ref) {
+      ref.focus?.() || ref.$el?.querySelector('input')?.focus()
+    }
   }
 }
 

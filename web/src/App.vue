@@ -37,33 +37,9 @@
         active-text-color="#409EFF"
         @select="onMenuSelect"
       >
-        <el-menu-item index="/">
-          <el-icon><HomeFilled /></el-icon>
-          <span>工作台</span>
-        </el-menu-item>
-        <el-menu-item index="/books">
-          <el-icon><Notebook /></el-icon>
-          <span>账套管理</span>
-        </el-menu-item>
-        <el-menu-item index="/accounts">
-          <el-icon><Memo /></el-icon>
-          <span>科目管理</span>
-        </el-menu-item>
-        <el-menu-item index="/vouchers">
-          <el-icon><Document /></el-icon>
-          <span>凭证管理</span>
-        </el-menu-item>
-        <el-menu-item index="/ledger">
-          <el-icon><List /></el-icon>
-          <span>账簿查询</span>
-        </el-menu-item>
-        <el-menu-item index="/reports">
-          <el-icon><DataAnalysis /></el-icon>
-          <span>报表中心</span>
-        </el-menu-item>
-        <el-menu-item index="/settings">
-          <el-icon><Setting /></el-icon>
-          <span>系统设置</span>
+        <el-menu-item v-for="item in menuItems" :key="item.index" :index="item.index">
+          <el-icon><component :is="item.icon" /></el-icon>
+          <span>{{ item.label }}</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -128,6 +104,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -140,10 +117,55 @@ const passwordForm = ref({ old_password: '', new_password: '' })
 // Mobile responsive
 const isMobile = ref(window.innerWidth < 768)
 const sidebarOpen = ref(false)
-const sidebarWidth = computed(() => {
-  if (isMobile.value) return '220px'
-  return '220px'
-})
+const sidebarWidth = '220px'
+
+// Default menu config
+const defaultMenuConfig = [
+  { index: '/', label: '工作台', icon: 'HomeFilled', visible: true },
+  { index: '/books', label: '账套管理', icon: 'Notebook', visible: true },
+  { index: '/accounts', label: '科目管理', icon: 'Memo', visible: true },
+  { index: '/vouchers', label: '凭证管理', icon: 'Document', visible: true },
+  { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
+  { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
+  { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
+]
+
+const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting }
+
+// Load menu config from localStorage
+const menuConfig = ref(defaultMenuConfig)
+const menuItems = computed(() =>
+  menuConfig.value
+    .filter(item => item.visible !== false)
+    .map(item => ({ ...item, icon: iconMap[item.icon] || HomeFilled }))
+)
+
+const loadMenuConfig = () => {
+  try {
+    const saved = localStorage.getItem('zhangyi_menu_config')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      // Merge with defaults to handle new items
+      const merged = defaultMenuConfig.map(def => {
+        const found = parsed.find(p => p.index === def.index)
+        return found ? { ...def, ...found } : { ...def }
+      })
+      menuConfig.value = merged
+    }
+  } catch {}
+}
+
+// Expose for Settings page
+if (typeof window !== 'undefined') {
+  window.__menuConfig = menuConfig
+  window.__saveMenuConfig = () => {
+    localStorage.setItem('zhangyi_menu_config', JSON.stringify(menuConfig.value))
+  }
+  window.__resetMenuConfig = () => {
+    menuConfig.value = [...defaultMenuConfig]
+    localStorage.removeItem('zhangyi_menu_config')
+  }
+}
 
 const handleResize = () => {
   isMobile.value = window.innerWidth < 768
@@ -152,15 +174,18 @@ const handleResize = () => {
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
+  window.addEventListener('menu-config-changed', loadMenuConfig)
   const user = localStorage.getItem('user')
-  if (user) {
-    currentUser.value = JSON.parse(user)
-  }
+  if (user) currentUser.value = JSON.parse(user)
+  loadMenuConfig()
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('menu-config-changed', loadMenuConfig)
 })
+
+
 
 const onMenuSelect = () => {
   if (isMobile.value) sidebarOpen.value = false
@@ -189,167 +214,25 @@ const changePassword = async () => {
 </script>
 
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-
-.app-container {
-  height: 100vh;
-}
-
-.app-aside {
-  background-color: #304156;
-  overflow: hidden;
-  transition: transform 0.3s ease;
-}
-
-/* Mobile sidebar */
-.sidebar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  z-index: 999;
-}
-
-.sidebar-mobile {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  z-index: 1000;
-  transform: translateX(-100%);
-}
-
-.sidebar-mobile.sidebar-open {
-  transform: translateX(0);
-}
-
-.logo {
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid #3d4f65;
-}
-
-.logo-text h2 {
-  font-size: 20px;
-  color: #fff;
-  margin: 0;
-  line-height: 1.2;
-}
-
-.logo-text span {
-  font-size: 11px;
-  color: #bfcbd9;
-}
-
-.aside-menu {
-  border-right: none;
-}
-
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e6e6e6;
-  background: #fff;
-  padding: 0 16px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.menu-toggle {
-  font-size: 20px;
-  cursor: pointer;
-  color: #606266;
-}
-
-.page-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #303133;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  color: #606266;
-  font-size: 14px;
-}
-
-.app-main {
-  background-color: #f5f7fa;
-  padding: 16px;
-  overflow-x: hidden;
-}
-
-/* Mobile responsive utilities */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+.app-container { height: 100vh; }
+.app-aside { background-color: #304156; overflow: hidden; transition: transform 0.3s ease; }
+.sidebar-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+.sidebar-mobile { position: fixed; top: 0; left: 0; bottom: 0; z-index: 1000; transform: translateX(-100%); }
+.sidebar-mobile.sidebar-open { transform: translateX(0); }
+.logo { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #3d4f65; }
+.logo-text h2 { font-size: 20px; color: #fff; margin: 0; line-height: 1.2; }
+.logo-text span { font-size: 11px; color: #bfcbd9; }
+.aside-menu { border-right: none; }
+.app-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e6e6e6; background: #fff; padding: 0 16px; }
+.header-left { display: flex; align-items: center; gap: 8px; }
+.menu-toggle { font-size: 20px; cursor: pointer; color: #606266; }
+.page-title { font-size: 16px; font-weight: 500; color: #303133; }
+.user-info { display: flex; align-items: center; gap: 4px; cursor: pointer; color: #606266; font-size: 14px; }
+.app-main { background-color: #f5f7fa; padding: 16px; overflow-x: hidden; }
 @media (max-width: 767px) {
-  .app-main {
-    padding: 12px;
-  }
-
-  .el-dialog {
-    width: 90% !important;
-    margin: 10vh auto !important;
-  }
-
-  .el-table {
-    font-size: 13px;
-  }
-
-  .el-form-item__label {
-    font-size: 13px;
-  }
-
-  .el-button {
-    font-size: 13px;
-  }
-
-  /* Responsive grid */
-  .responsive-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .responsive-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  .responsive-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .responsive-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    gap: 20px;
-  }
+  .app-main { padding: 12px; }
+  .el-dialog { width: 90% !important; margin: 10vh auto !important; }
 }
 </style>

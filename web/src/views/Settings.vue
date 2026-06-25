@@ -132,6 +132,35 @@
           </el-descriptions>
         </el-card>
       </el-tab-pane>
+
+      <el-tab-pane label="菜单排序" name="menu">
+        <el-card shadow="never">
+          <template #header>
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <span>菜单排序（拖拽调整顺序，可控制显示/隐藏）</span>
+              <el-button size="small" @click="resetMenu">恢复默认</el-button>
+            </div>
+          </template>
+          <div class="menu-sort-list">
+            <div v-for="(item, index) in menuConfig" :key="item.index" class="menu-sort-item">
+              <div class="menu-sort-left">
+                <el-icon class="sort-handle"><Rank /></el-icon>
+                <el-icon><component :is="iconMap[item.icon] || HomeFilled" /></el-icon>
+                <span>{{ item.label }}</span>
+              </div>
+              <div class="menu-sort-right">
+                <el-button size="small" :disabled="index === 0" @click="moveMenu(index, -1)">
+                  <el-icon><Top /></el-icon>
+                </el-button>
+                <el-button size="small" :disabled="index === menuConfig.length - 1" @click="moveMenu(index, 1)">
+                  <el-icon><Bottom /></el-icon>
+                </el-button>
+                <el-switch v-model="item.visible" @change="saveMenu" style="margin-left: 12px" />
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- Add/Edit dialog -->
@@ -230,6 +259,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, Top, Bottom, Rank } from '@element-plus/icons-vue'
 
 const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)')
@@ -300,9 +330,57 @@ const loadBookInfo = async () => {
   bookInfo.value = data.data
 }
 
+// Menu config
+const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting }
+const menuConfig = ref([])
+
+const loadMenuConfig = () => {
+  try {
+    const saved = localStorage.getItem('zhangyi_menu_config')
+    if (saved) {
+      menuConfig.value = JSON.parse(saved)
+    } else {
+      menuConfig.value = [
+        { index: '/', label: '工作台', icon: 'HomeFilled', visible: true },
+        { index: '/books', label: '账套管理', icon: 'Notebook', visible: true },
+        { index: '/accounts', label: '科目管理', icon: 'Memo', visible: true },
+        { index: '/vouchers', label: '凭证管理', icon: 'Document', visible: true },
+        { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
+        { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
+        { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
+      ]
+    }
+  } catch {}
+}
+
+const saveMenu = () => {
+  localStorage.setItem('zhangyi_menu_config', JSON.stringify(menuConfig.value))
+  // Trigger App.vue to reload
+  window.dispatchEvent(new Event('menu-config-changed'))
+}
+
+const moveMenu = (index, direction) => {
+  const newIndex = index + direction
+  if (newIndex < 0 || newIndex >= menuConfig.value.length) return
+  const arr = [...menuConfig.value]
+  const temp = arr[index]
+  arr[index] = arr[newIndex]
+  arr[newIndex] = temp
+  menuConfig.value = arr
+  saveMenu()
+}
+
+const resetMenu = () => {
+  localStorage.removeItem('zhangyi_menu_config')
+  loadMenuConfig()
+  window.dispatchEvent(new Event('menu-config-changed'))
+  ElMessage.success('已恢复默认菜单')
+}
+
 const onTabChange = () => {
   if (activeTab.value === 'aux') loadAux()
   else if (activeTab.value === 'book') loadBookInfo()
+  else if (activeTab.value === 'menu') loadMenuConfig()
 }
 
 const onSelectionChange = (rows) => { selectedItems.value = rows }
@@ -391,4 +469,14 @@ onMounted(() => {
 .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0; margin-bottom: 12px; }
 .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .inner-tabs :deep(.el-tabs__header) { margin-bottom: 8px; }
+
+.menu-sort-list { display: flex; flex-direction: column; gap: 8px; }
+.menu-sort-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; background: #f5f7fa; border-radius: 6px;
+  border: 1px solid #ebeef5;
+}
+.menu-sort-left { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.sort-handle { cursor: grab; color: #909399; }
+.menu-sort-right { display: flex; align-items: center; gap: 4px; }
 </style>
