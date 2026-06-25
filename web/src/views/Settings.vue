@@ -120,6 +120,24 @@
         </div>
       </el-tab-pane>
 
+      <el-tab-pane label="科目模板" name="templates">
+        <el-card shadow="never">
+          <template #header>
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <span>已安装模板</span>
+              <el-button size="small" type="primary" @click="syncAllTemplates" :loading="syncing">
+                <el-icon><Refresh /></el-icon>同步模板到账套
+              </el-button>
+            </div>
+          </template>
+          <el-table :data="templateVersions" border size="small">
+            <el-table-column prop="id" label="模板ID" width="150" />
+            <el-table-column prop="name" label="模板名称" min-width="150" />
+            <el-table-column prop="version" label="版本" width="120" />
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
       <el-tab-pane label="账套信息" name="book">
         <el-card shadow="never" v-if="bookInfo">
           <el-descriptions :column="isMobile ? 1 : 2" border size="small">
@@ -390,10 +408,32 @@ const resetMenu = () => {
   ElMessage.success('已恢复默认菜单')
 }
 
+// Template versions
+const templateVersions = ref([])
+const syncing = ref(false)
+
+const loadTemplateVersions = async () => {
+  try {
+    const { data } = await axios.get('/api/templates/versions')
+    templateVersions.value = data.data || []
+  } catch (e) { console.error(e) }
+}
+
+const syncAllTemplates = async () => {
+  if (!currentBook.value) return
+  syncing.value = true
+  try {
+    const { data } = await axios.post(`/api/books/${currentBook.value}/sync-all-templates`)
+    ElMessage.success(data.message || '同步成功')
+  } catch (e) { ElMessage.error(e.response?.data?.error || '同步失败') }
+  finally { syncing.value = false }
+}
+
 const onTabChange = () => {
   if (activeTab.value === 'aux') loadAux()
   else if (activeTab.value === 'book') loadBookInfo()
   else if (activeTab.value === 'menu') loadMenuConfig()
+  else if (activeTab.value === 'templates') loadTemplateVersions()
 }
 
 const onSelectionChange = (rows) => { selectedItems.value = rows }
