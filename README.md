@@ -61,13 +61,14 @@ GOPROXY=https://goproxy.cn,direct go build -o zhangyi .
 
 | 模块 | 功能 | 状态 |
 |------|------|------|
-| 账套管理 | CRUD、行业模板自动加载、试算平衡 | ✅ |
+| 账套管理 | CRUD、行业模板自动加载 | ✅ |
 | 科目管理 | 树形展示、搜索、增删改、停用、同步模板 | ✅ |
 | 凭证管理 | 录入、审核、记账、反审核、反记账、作废、批量 | ✅ |
 | 账簿查询 | 科目余额表、总账、日记账、多栏账 | ✅ |
 | 报表中心 | 资产负债表、利润表、现金流量表 | ✅ |
 | 辅助核算 | 7维度CRUD、扩展字段、CSV导入导出、批量删除 | ✅ |
 | 期末处理 | 损益结转、期末结账/反结账（含独立页面） | ✅ |
+| 期初余额 | ✅ | 期初余额录入、试算平衡校验、自动汇总 |
 | 用户管理 | JWT认证、登录/注册、密码修改、管理员 | ✅ |
 | 移动端 | 响应式布局、侧边栏抽屉、表格横向滚动 | ✅ |
 
@@ -125,8 +126,11 @@ zhangyi/
 | 辅助 | GET .../export | CSV导出 |
 | 辅助 | POST .../import | CSV导入 |
 | 辅助 | POST .../batch-delete | 批量删除 |
+| 期初 | GET/POST /api/books/:id/opening-balances | 期初余额查询/保存 |
 | 期末 | POST /api/books/:id/closing/auto-transfer | 损益结转 |
+| 期初 | GET/POST /api/books/:id/opening-balances | 期初余额查询/保存 |
 | 期末 | POST /api/books/:id/closing/close | 期末结账 |
+| 期初 | GET/POST /api/books/:id/opening-balances | 期初余额查询/保存 |
 | 期末 | POST /api/books/:id/closing/unclose | 反结账 |
 
 ## 📋 版本历史
