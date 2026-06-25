@@ -115,6 +115,9 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				aux.POST("", createAuxItem(db))
 				aux.PUT("/:aid", updateAuxItem(db))
 				aux.DELETE("/:aid", deleteAuxItem(db))
+			aux.GET("/export", exportAuxItems(db))
+			aux.POST("/import", importAuxItems(db))
+			aux.POST("/batch-delete", batchDeleteAuxItems(db))
 			}
 
 			// 期末处理
