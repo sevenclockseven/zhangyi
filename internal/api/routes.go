@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"github.com/sevenclockseven/zhangyi/internal/models"
 	"github.com/sevenclockseven/zhangyi/internal/middleware"
 	"github.com/sevenclockseven/zhangyi/internal/services"
 )
@@ -82,6 +83,24 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				accounts.POST("", createAccount(db))
 				accounts.PUT("/:acid", updateAccount(db))
 				accounts.DELETE("/:acid", deleteAccount(db))
+				accounts.POST("/dedup", func(c *gin.Context) {
+					bookID := c.Param("id")
+					var accounts []models.Account
+					db.Where("book_id = ?", bookID).Order("id").Find(&accounts)
+					seen := make(map[string]bool)
+					var toDelete []uint
+					for _, a := range accounts {
+						if seen[a.Code] {
+							toDelete = append(toDelete, a.ID)
+						} else {
+							seen[a.Code] = true
+						}
+					}
+					if len(toDelete) > 0 {
+						db.Where("id IN ?", toDelete).Delete(&models.Account{})
+					}
+					c.JSON(http.StatusOK, gin.H{"deleted": len(toDelete), "remaining": len(accounts) - len(toDelete)})
+				})
 			}
 
 			// 凭证
