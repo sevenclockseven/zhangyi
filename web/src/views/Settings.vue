@@ -36,24 +36,7 @@
       <template #footer><el-button @click="showVtplEdit = false">取消</el-button><el-button type="primary" @click="saveVtpl">保存</el-button></template>
     </el-dialog>
 
-    <!-- Custom Report Edit Dialog -->
-    <el-dialog v-model="showCrEdit" title="新建自定义报表" :width="isMobile ? '95%' : '650px'">
-      <el-form :model="crForm" label-width="80px">
-        <el-form-item label="报表名称" required><el-input v-model="crForm.name" placeholder="如：费用汇总表" /></el-form-item>
-        <el-form-item label="行定义">
-          <div v-for="(row, i) in crForm.rows" :key="i" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center">
-            <el-input v-model="row.label" placeholder="行标签" style="flex: 1" />
-            <el-input v-model="row.formula" placeholder="如 JE('6602','借')" style="flex: 1" />
-            <el-input-number v-model="row.level" :min="1" :max="4" size="small" style="width: 70px" />
-            <el-checkbox v-model="row.bold">粗</el-checkbox>
-            <el-button size="small" type="danger" link @click="crForm.rows.splice(i, 1)"><el-icon><Delete /></el-icon></el-button>
-          </div>
-          <el-button size="small" @click="crForm.rows.push({ label: '', formula: '', level: 1, bold: false })"><el-icon><Plus /></el-icon>添加行</el-button>
-        </el-form-item>
-      </el-form>
-      <template #footer><el-button @click="showCrEdit = false">取消</el-button><el-button type="primary" @click="saveCr">保存</el-button></template>
-    </el-dialog>
-
+    
 </el-tabs>
 
         <div class="toolbar">
@@ -202,52 +185,7 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="自定义报表" name="customReport">
-        <div v-if="currentBook">
-          <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
-            <el-button type="primary" size="small" @click="openCrAdd">
-              <el-icon><Plus /></el-icon>新建报表
-            </el-button>
-            <el-date-picker v-model="crRunPeriod" type="month" value-format="YYYY-MM" placeholder="期间" size="small" style="width: 140px" />
-          </div>
-          <el-table :data="crList" border size="small">
-            <el-table-column prop="name" label="报表名称" min-width="180" />
-            <el-table-column prop="type" label="类型" width="100" />
-            <el-table-column label="操作" width="180">
-              <template #default="{ row }">
-                <el-button size="small" type="success" link @click="runCr(row)">运行</el-button>
-                <el-button size="small" type="danger" link @click="deleteCr(row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <!-- Run result -->
-          <el-card v-if="crResult" shadow="never" style="margin-top: 12px">
-            <template #header><strong>{{ crResult.name }}</strong><span style="float: right; color: #909399; font-size: 13px">{{ crResult.period }}</span></template>
-            <el-table :data="crResult.data" border size="small">
-              <el-table-column prop="label" label="项目" min-width="200">
-                <template #default="{ row }">
-                  <span :style="{ fontWeight: row.bold ? 'bold' : 'normal', paddingLeft: (row.level - 1) * 20 + 'px' }">{{ row.label }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="金额" width="140" align="right">
-                <template #default="{ row }">{{ fmtMoney(row.amount) }}</template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-          <!-- Formula help -->
-          <el-card shadow="never" style="margin-top: 12px">
-            <template #header><strong>取数公式</strong></template>
-            <el-descriptions :column="1" border size="small">
-              <el-descriptions-item label="JE('code','dir')">本期发生额</el-descriptions-item>
-              <el-descriptions-item label="QM('code','dir')">期末余额</el-descriptions-item>
-              <el-descriptions-item label="QC('code','dir')">期初余额</el-descriptions-item>
-              <el-descriptions-item label="JL('code','dir')">本年累计</el-descriptions-item>
-              <el-descriptions-item label="运算">支持 + - ，如 JE('6601','借') - JE('6602','借')</el-descriptions-item>
-            </el-descriptions>
-          </el-card>
-        </div>
-      </el-tab-pane>
-
+      
       <el-tab-pane label="账套信息" name="book">
         <el-card shadow="never" v-if="bookInfo">
           <el-descriptions :column="isMobile ? 1 : 2" border size="small">
@@ -308,24 +246,7 @@
       <template #footer><el-button @click="showVtplEdit = false">取消</el-button><el-button type="primary" @click="saveVtpl">保存</el-button></template>
     </el-dialog>
 
-    <!-- Custom Report Edit Dialog -->
-    <el-dialog v-model="showCrEdit" title="新建自定义报表" :width="isMobile ? '95%' : '650px'">
-      <el-form :model="crForm" label-width="80px">
-        <el-form-item label="报表名称" required><el-input v-model="crForm.name" placeholder="如：费用汇总表" /></el-form-item>
-        <el-form-item label="行定义">
-          <div v-for="(row, i) in crForm.rows" :key="i" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center">
-            <el-input v-model="row.label" placeholder="行标签" style="flex: 1" />
-            <el-input v-model="row.formula" placeholder="如 JE('6602','借')" style="flex: 1" />
-            <el-input-number v-model="row.level" :min="1" :max="4" size="small" style="width: 70px" />
-            <el-checkbox v-model="row.bold">粗</el-checkbox>
-            <el-button size="small" type="danger" link @click="crForm.rows.splice(i, 1)"><el-icon><Delete /></el-icon></el-button>
-          </div>
-          <el-button size="small" @click="crForm.rows.push({ label: '', formula: '', level: 1, bold: false })"><el-icon><Plus /></el-icon>添加行</el-button>
-        </el-form-item>
-      </el-form>
-      <template #footer><el-button @click="showCrEdit = false">取消</el-button><el-button type="primary" @click="saveCr">保存</el-button></template>
-    </el-dialog>
-
+    
 </el-tabs>
 
     <!-- Add/Edit dialog -->
@@ -623,60 +544,13 @@ const deleteVtpl = async (row) => {
   loadVtplList()
 }
 
-// Custom Reports
-const crList = ref([])
-const crRunPeriod = ref(new Date().toISOString().slice(0, 7))
-const crResult = ref(null)
-const showCrEdit = ref(false)
-const crForm = ref({ name: '', rows: [{ label: '', formula: '', level: 1, bold: false }] })
-
-const loadCrList = async () => {
-  if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}/reports/templates`)
-  crList.value = data.data || []
-}
-const openCrAdd = () => {
-  crForm.value = { name: '', rows: [{ label: '', formula: '', level: 1, bold: false }] }
-  showCrEdit.value = true
-}
-const saveCr = async () => {
-  if (!crForm.value.name) { ElMessage.warning('请输入报表名称'); return }
-  try {
-    await axios.post(`/api/books/${currentBook.value}/reports/templates`, {
-      name: crForm.value.name, type: 'custom', config: JSON.stringify({ rows: crForm.value.rows })
-    })
-    ElMessage.success('保存成功')
-    showCrEdit.value = false
-    loadCrList()
-  } catch (e) { ElMessage.error('保存失败') }
-}
-const runCr = async (tpl) => {
-  if (!crRunPeriod.value) { ElMessage.warning('请选择期间'); return }
-  try {
-    const { data } = await axios.get(`/api/books/${currentBook.value}/reports/custom/${tpl.id}?period=${crRunPeriod.value}`)
-    crResult.value = data
-  } catch (e) { ElMessage.error('生成失败') }
-}
-const deleteCr = async (tpl) => {
-  await ElMessageBox.confirm(`确定删除"${tpl.name}"？`, '确认')
-  await axios.delete(`/api/books/${currentBook.value}/reports/templates/${tpl.id}`)
-  ElMessage.success('已删除')
-  loadCrList()
-  crResult.value = null
-}
-const fmtMoney = (v) => {
-  if (!v && v !== 0) return ''
-  return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
 const onTabChange = () => {
   if (activeTab.value === 'aux') loadAux()
   else if (activeTab.value === 'book') loadBookInfo()
   else if (activeTab.value === 'menu') loadMenuConfig()
   else if (activeTab.value === 'templates') loadTemplateVersions()
   else if (activeTab.value === 'vtpl') loadVtplList()
-  else if (activeTab.value === 'customReport') loadCrList()
-}
+  }
 
 const onSelectionChange = (rows) => { selectedItems.value = rows }
 
@@ -750,7 +624,7 @@ watch(showEdit, (val) => {
   if (!val) editingItem.value = null
 })
 
-watch(currentBook, () => { loadAux(); loadBookInfo(); loadVtplList(); loadCrList() })
+watch(currentBook, () => { loadAux(); loadBookInfo(); loadVtplList() })
 
 onMounted(() => {
   loadBooks()
