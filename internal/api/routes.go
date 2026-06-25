@@ -30,6 +30,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	api := r.Group("/api")
 	{
 		// 公开接口（不需要登录）
+		api.GET("/templates/versions", templateVersions(db))
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": "0.3.1"})
 		})
@@ -64,6 +65,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				books.PUT("/:id", updateBook(db))
 				books.DELETE("/:id", deleteBook(db))
 				books.POST("/:id/sync-template", syncTemplate(db))
+				books.POST("/:id/sync-all-templates", syncAllTemplates(db))
 				books.GET("/:id/trial-balance", trialBalance(db))
 			books.GET("/:id/opening-balances", getOpeningBalances(db))
 			books.POST("/:id/opening-balances", saveOpeningBalances(db))

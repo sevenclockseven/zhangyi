@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"regexp"
@@ -2784,4 +2785,70 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 	}
 
 	return 0
+}
+// ===== Template Version Management =====
+
+// templateVersions returns version info for all templates
+func templateVersions(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		dir := templateDir()
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "读取模板目录失败"})
+			return
+		}
+
+		type TemplateInfo struct {
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		}
+
+		var templates []TemplateInfo
+		for _, f := range files {
+			if !strings.HasSuffix(f.Name(), ".json") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(dir, f.Name()))
+			if err != nil {
+				continue
+			}
+			var tpl struct {
+				ID      string `json:"id"`
+				Name    string `json:"name"`
+				Version string `json:"version"`
+			}
+			json.Unmarshal(data, &tpl)
+			if tpl.ID != "" {
+				templates = append(templates, TemplateInfo{
+					ID:      tpl.ID,
+					Name:    tpl.Name,
+					Version: tpl.Version,
+				})
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": templates})
+	}
+}
+
+// syncAllTemplates syncs all templates to all books
+func syncAllTemplates(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+
+		var book models.AccountBook
+		if err := db.First(&book, bookID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "账套不存在"})
+			return
+		}
+
+		industries := strings.Split(book.Industry, ",")
+		if err := services.ApplyTemplateToBook(db, uint(bookID), templateDir(), industries); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "同步失败: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "模板同步成功"})
+	}
 }
