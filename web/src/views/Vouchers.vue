@@ -24,7 +24,7 @@
           <el-option label="已记账" value="posted" />
           <el-option label="已作废" value="voided" />
         </el-select>
-        <el-input v-if="!isMobile" v-model="filterMemo" placeholder="搜索摘要" clearable @change="loadVouchers" style="width: 200px" />
+        <el-input v-if="!isMobile" v-model="filterKeyword" placeholder="搜索凭证号/摘要" clearable @change="loadVouchers" style="width: 200px" />
       </div>
     </el-card>
 
@@ -214,7 +214,7 @@ const selectedVouchers = ref([])
 
 const filterDateRange = ref(null)
 const filterStatus = ref('')
-const filterMemo = ref('')
+const filterKeyword = ref('')
 
 const showEditor = ref(false)
 const editingVoucher = ref(null)
