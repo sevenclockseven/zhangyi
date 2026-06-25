@@ -100,6 +100,15 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				vouchers.POST("/batch-post", batchPost(db))
 			}
 
+			// 凭证模板
+			tpls := auth.Group("/books/:id/voucher-templates")
+			{
+			tpls.GET("", listVoucherTemplates(db))
+			tpls.POST("", createVoucherTemplate(db))
+			tpls.PUT("/:tid", updateVoucherTemplate(db))
+			tpls.DELETE("/:tid", deleteVoucherTemplate(db))
+			}
+
 			// 账簿查询
 			books.GET("/:id/ledger/journal", journal(db))
 			books.GET("/:id/ledger/multi-column", multiColumnLedger(db))

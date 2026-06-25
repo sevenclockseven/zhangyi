@@ -2411,3 +2411,80 @@ func arApReport(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": rows, "type": reportType})
 	}
 }
+// ===== Voucher Template Handlers =====
+
+// listVoucherTemplates returns all templates for a book
+func listVoucherTemplates(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		var templates []models.VoucherTemplate
+		db.Where("book_id = ? OR book_id IS NULL", bookID).Order("category ASC, name ASC").Find(&templates)
+		c.JSON(http.StatusOK, gin.H{"data": templates})
+	}
+}
+
+// createVoucherTemplate creates a new template
+func createVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		var req struct {
+			Name     string `json:"name" binding:"required"`
+			Category string `json:"category"`
+			Items    string `json:"items" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		tpl := models.VoucherTemplate{
+			BookID:   &[]uint{uint(bookID)}[0],
+			Name:     req.Name,
+			Category: req.Category,
+			Items:    req.Items,
+		}
+		if err := db.Create(&tpl).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"data": tpl})
+	}
+}
+
+// updateVoucherTemplate updates a template
+func updateVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tid := c.Param("tid")
+		var tpl models.VoucherTemplate
+		if err := db.First(&tpl, tid).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "模板不存在"})
+			return
+		}
+		var req struct {
+			Name     string `json:"name"`
+			Category string `json:"category"`
+			Items    string `json:"items"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		updates := map[string]interface{}{}
+		if req.Name != "" { updates["name"] = req.Name }
+		if req.Category != "" { updates["category"] = req.Category }
+		if req.Items != "" { updates["items"] = req.Items }
+		db.Model(&tpl).Updates(updates)
+		c.JSON(http.StatusOK, gin.H{"data": tpl})
+	}
+}
+
+// deleteVoucherTemplate deletes a template
+func deleteVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tid := c.Param("tid")
+		if err := db.Delete(&models.VoucherTemplate{}, tid).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "已删除"})
+	}
+}

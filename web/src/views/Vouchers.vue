@@ -158,6 +158,17 @@
       <template #footer>
         <div class="editor-footer">
           <el-button @click="showEditor = false">取消</el-button>
+          <el-button @click="showSaveAsTemplate = true" :disabled="totalDebit === 0">存为模板</el-button>
+          <el-dropdown @command="loadFromTemplate" v-if="templates.length > 0">
+            <el-button>从模板加载 <el-icon><ArrowDown /></el-icon></el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="t in templates" :key="t.id" :command="t">
+                  {{ t.category ? t.category + '/' : '' }}{{ t.name }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <el-button type="primary" @click="saveVoucher" :disabled="totalDebit !== totalCredit || totalDebit === 0">
             {{ editingVoucher ? '保存' : '保存' }}
           </el-button>
@@ -194,6 +205,21 @@
           </el-table>
         </div>
       </div>
+    </el-dialog>
+    <!-- Save as template dialog -->
+    <el-dialog v-model="showSaveAsTemplate" title="保存为凭证模板" :width="isMobile ? '90%' : '400px'">
+      <el-form :model="templateForm" label-width="80px">
+        <el-form-item label="模板名称" required>
+          <el-input v-model="templateForm.name" placeholder="如：收货款、付工资" />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-input v-model="templateForm.category" placeholder="如：收入、费用（可选）" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showSaveAsTemplate = false">取消</el-button>
+        <el-button type="primary" @click="saveAsTemplate">保存</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -452,8 +478,53 @@ const getVoucherMemo = (row) => {
   return ''
 }
 
-watch(currentBook, () => { loadVouchers(); loadAccounts() })
+
 watch(showEditor, (val) => { if (val && !editingVoucher.value) resetForm() })
+
+// Templates
+const showSaveAsTemplate = ref(false)
+const templateForm = ref({ name: '', category: '' })
+const templates = ref([])
+
+const loadTemplates = async () => {
+  if (!currentBook.value) return
+  try {
+    const { data } = await axios.get(`/api/books/${currentBook.value}/voucher-templates`)
+    templates.value = data.data || []
+  } catch (e) { console.error(e) }
+}
+
+const saveAsTemplate = async () => {
+  if (!templateForm.value.name) { ElMessage.warning('请输入模板名称'); return }
+  try {
+    const items = voucherForm.value.items.map(i => ({
+      account_id: i.account_id, account_code: i.account_code, account_name: i.account_name,
+      memo: i.memo
+    }))
+    await axios.post(`/api/books/${currentBook.value}/voucher-templates`, {
+      name: templateForm.value.name,
+      category: templateForm.value.category,
+      items: JSON.stringify(items)
+    })
+    ElMessage.success('模板保存成功')
+    showSaveAsTemplate.value = false
+    templateForm.value = { name: '', category: '' }
+    loadTemplates()
+  } catch (e) { ElMessage.error('保存失败') }
+}
+
+const loadFromTemplate = (tpl) => {
+  try {
+    const items = JSON.parse(tpl.items)
+    voucherForm.value.items = items.map(i => ({
+      account_id: i.account_id || null, account_code: i.account_code || '',
+      account_name: i.account_name || '', debit: 0, credit: 0, memo: i.memo || ''
+    }))
+    ElMessage.success(`已加载模板: ${tpl.name}`)
+  } catch (e) { ElMessage.error('模板格式错误') }
+}
+
+watch(currentBook, () => { loadVouchers(); loadAccounts(); loadTemplates() })
 
 onMounted(() => {
   loadBooks()
