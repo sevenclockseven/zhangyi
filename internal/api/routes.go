@@ -31,7 +31,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	{
 		// 公开接口（不需要登录）
 		api.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": "0.3.0"})
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": "0.3.1"})
 		})
 		api.POST("/auth/login", loginHandler(db))
 		api.POST("/auth/register", registerHandler(db))
