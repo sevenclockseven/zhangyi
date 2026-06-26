@@ -59,9 +59,6 @@
           <span class="page-title" v-else>{{ route.meta.title || '账易' }}</span>
         </div>
         <div class="header-right">
-          <el-select v-model="currentBookId" placeholder="选择账套" size="small" style="width: 180px; margin-right: 12px" @change="onBookChange" clearable>
-            <el-option v-for="b in headerBooks" :key="b.id" :label="b.name" :value="b.id" />
-          </el-select>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-icon><User /></el-icon>
@@ -109,6 +106,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin } from '@element-plus/icons-vue'
 import { useBookStore } from './stores/book'
+const { setCurrentBook } = useBookStore()
 
 const route = useRoute()
 const router = useRouter()
@@ -174,20 +172,6 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const { currentBookId, setCurrentBook } = useBookStore()
-const headerBooks = ref([])
-
-const loadHeaderBooks = async () => {
-  try {
-    const { data } = await axios.get('/api/books')
-    headerBooks.value = data.data || []
-  } catch {}
-}
-
-const onBookChange = (val) => {
-  setCurrentBook(val)
-}
-
 const handleResize = () => {
   isMobile.value = window.innerWidth < 768
   if (!isMobile.value) sidebarOpen.value = false
@@ -199,13 +183,6 @@ onMounted(() => {
   const user = localStorage.getItem('user')
   if (user) currentUser.value = JSON.parse(user)
   loadMenuConfig()
-  loadHeaderBooks()
-  // Reload header books periodically and on route change
-  setInterval(loadHeaderBooks, 10000)
-})
-
-watch(() => route.path, () => {
-  loadHeaderBooks()
 })
 
 onUnmounted(() => {
@@ -223,6 +200,7 @@ const handleCommand = async (cmd) => {
   if (cmd === 'logout') {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    const { setCurrentBook } = useBookStore()
     setCurrentBook(null)
     router.push('/login')
   } else if (cmd === 'password') {

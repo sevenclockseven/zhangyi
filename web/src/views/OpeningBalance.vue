@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
@@ -145,6 +145,9 @@ const summaryMethod = ({ columns, data }) => {
 
 onMounted(() => {
   loadBooks()
+  watch(currentBook, (newVal) => {
+    if (newVal) loadData()
+  })
   window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
 })
 </script>
