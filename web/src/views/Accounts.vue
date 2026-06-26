@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>科目管理</h2>
       <div class="header-actions">
-        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="loadAccounts">
+        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadAccounts()">
           <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
         </el-select>
         <el-button @click="syncTemplate" :disabled="!currentBook" type="success" plain size="small">
@@ -114,12 +114,13 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { useBookStore } from '../stores/book'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const isMobile = ref(window.innerWidth < 768)
 const books = ref([])
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const accounts = ref([])
 const accountTree = ref([])
 const selectedAccount = ref(null)
@@ -135,7 +136,7 @@ watch(searchText, (val) => { treeRef.value?.filter(val) })
 const loadBooks = async () => {
   const { data } = await axios.get('/api/books')
   books.value = data.data || []
-  if (books.value.length > 0 && !currentBook.value) currentBook.value = books.value[0].id
+  if (books.value.length > 0 && !currentBook.value) setCurrentBook(books.value[0].id)
 }
 
 const loadAccounts = async () => {

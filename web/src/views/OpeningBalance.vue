@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>期初余额</h2>
       <div class="header-actions">
-        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="loadData">
+        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadData()">
           <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
         </el-select>
       </div>
@@ -74,7 +74,7 @@ const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 260px)' : 'calc(100vh - 300px)')
 
 const books = ref([])
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const balances = ref([])
 const saving = ref(false)
 

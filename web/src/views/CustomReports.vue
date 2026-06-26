@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>自定义报表</h2>
       <div class="header-actions">
-        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="loadTemplates">
+        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadTemplates()">
           <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
         </el-select>
         <el-button type="primary" size="small" @click="openAdd">
@@ -94,6 +94,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useBookStore } from '../stores/book'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -101,7 +102,7 @@ const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 400px)' : 'calc(100vh - 450px)'
 
 const books = ref([])
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const templates = ref([])
 const reportResult = ref(null)
 const runPeriod = ref(new Date().toISOString().slice(0, 7))

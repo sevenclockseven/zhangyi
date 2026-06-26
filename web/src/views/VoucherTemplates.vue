@@ -61,13 +61,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useBookStore } from '../stores/book'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 200px)' : 'calc(100vh - 250px)'
 
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const templates = ref([])
 const accounts = ref([])
 const showEdit = ref(false)

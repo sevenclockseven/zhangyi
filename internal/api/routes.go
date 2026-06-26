@@ -11,6 +11,9 @@ import (
 	"github.com/sevenclockseven/zhangyi/internal/services"
 )
 
+// AppVersion is set by main.go at startup
+var AppVersion = "0.5.3"
+
 // RegisterRoutes registers all API routes
 func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	// 初始化管理员
@@ -34,7 +37,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		api.GET("/templates/versions", templateVersions(db))
 		api.GET("/templates/manifest", getTemplateManifest(db))
 		api.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": "0.5.3"})
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": AppVersion})
 		})
 		api.POST("/auth/login", loginHandler(db))
 		api.POST("/auth/register", registerHandler(db))

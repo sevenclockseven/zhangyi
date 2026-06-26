@@ -59,6 +59,9 @@
           <span class="page-title" v-else>{{ route.meta.title || '账易' }}</span>
         </div>
         <div class="header-right">
+          <el-select v-model="currentBookId" placeholder="选择账套" size="small" style="width: 180px; margin-right: 12px" @change="onBookChange" clearable>
+            <el-option v-for="b in headerBooks" :key="b.id" :label="b.name" :value="b.id" />
+          </el-select>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-icon><User /></el-icon>
@@ -100,11 +103,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin } from '@element-plus/icons-vue'
+import { useBookStore } from './stores/book'
 
 const route = useRoute()
 const router = useRouter()
@@ -170,6 +174,20 @@ if (typeof window !== 'undefined') {
   }
 }
 
+const { currentBookId, setCurrentBook } = useBookStore()
+const headerBooks = ref([])
+
+const loadHeaderBooks = async () => {
+  try {
+    const { data } = await axios.get('/api/books')
+    headerBooks.value = data.data || []
+  } catch {}
+}
+
+const onBookChange = (val) => {
+  setCurrentBook(val)
+}
+
 const handleResize = () => {
   isMobile.value = window.innerWidth < 768
   if (!isMobile.value) sidebarOpen.value = false
@@ -181,6 +199,13 @@ onMounted(() => {
   const user = localStorage.getItem('user')
   if (user) currentUser.value = JSON.parse(user)
   loadMenuConfig()
+  loadHeaderBooks()
+  // Reload header books periodically and on route change
+  setInterval(loadHeaderBooks, 10000)
+})
+
+watch(() => route.path, () => {
+  loadHeaderBooks()
 })
 
 onUnmounted(() => {
@@ -194,10 +219,11 @@ const onMenuSelect = () => {
   if (isMobile.value) sidebarOpen.value = false
 }
 
-const handleCommand = (cmd) => {
+const handleCommand = async (cmd) => {
   if (cmd === 'logout') {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    setCurrentBook(null)
     router.push('/login')
   } else if (cmd === 'password') {
     passwordForm.value = { old_password: '', new_password: '' }
@@ -229,6 +255,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 .logo-text span { font-size: 11px; color: #bfcbd9; }
 .aside-menu { border-right: none; }
 .app-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e6e6e6; background: #fff; padding: 0 16px; }
+.header-right .el-select { --el-select-input-color: #606266; }
 .header-left { display: flex; align-items: center; gap: 8px; }
 .menu-toggle { font-size: 20px; cursor: pointer; color: #606266; }
 .page-title { font-size: 16px; font-weight: 500; color: #303133; }

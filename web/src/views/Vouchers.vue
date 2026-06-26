@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>凭证管理</h2>
       <div class="header-actions">
-        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px', marginRight: isMobile ? '0' : '12px', marginBottom: isMobile ? '8px' : '0' }" @change="loadVouchers">
+        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px', marginRight: isMobile ? '0' : '12px', marginBottom: isMobile ? '8px' : '0' }" @change="setCurrentBook($event); loadVouchers()">
           <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
         </el-select>
         <el-button type="primary" @click="showEditor = true" :disabled="!currentBook">
@@ -17,14 +17,14 @@
       <div :class="isMobile ? 'filter-mobile' : ''">
         <el-date-picker v-model="filterDateRange" type="daterange" range-separator="至"
           start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD"
-          @change="loadVouchers" :style="{ width: isMobile ? '100%' : '300px', marginBottom: isMobile ? '8px' : '0' }" />
-        <el-select v-model="filterStatus" placeholder="状态" clearable @change="loadVouchers" :style="{ width: isMobile ? '100%' : '120px', marginBottom: isMobile ? '8px' : '0' }">
+          @change="loadVouchers()" :style="{ width: isMobile ? '100%' : '300px', marginBottom: isMobile ? '8px' : '0' }" />
+        <el-select v-model="filterStatus" placeholder="状态" clearable @change="loadVouchers()" :style="{ width: isMobile ? '100%' : '120px', marginBottom: isMobile ? '8px' : '0' }">
           <el-option label="草稿" value="draft" />
           <el-option label="已审核" value="reviewed" />
           <el-option label="已记账" value="posted" />
           <el-option label="已作废" value="voided" />
         </el-select>
-        <el-input v-if="!isMobile" v-model="filterKeyword" placeholder="搜索凭证号/摘要" clearable @change="loadVouchers" style="width: 200px" />
+        <el-input v-if="!isMobile" v-model="filterKeyword" placeholder="搜索凭证号/摘要" clearable @change="loadVouchers()" style="width: 200px" />
       </div>
     </el-card>
 
@@ -236,7 +236,7 @@ const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 300px)' : 'calc(100vh - 350px)')
 
 const books = ref([])
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const vouchers = ref([])
 const accounts = ref([])
 const selectedVouchers = ref([])
@@ -262,7 +262,7 @@ const loadBooks = async () => {
   try {
     const { data } = await axios.get('/api/books')
     books.value = data.data || []
-    if (books.value.length > 0 && !currentBook.value) currentBook.value = books.value[0].id
+    if (books.value.length > 0 && !currentBook.value) setCurrentBook(books.value[0].id)
   } catch (e) { console.error(e) }
 }
 

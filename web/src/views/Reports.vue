@@ -2,7 +2,7 @@
   <div class="reports">
     <div class="page-header">
       <h2>报表中心</h2>
-      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="loadReport">
+      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadReport()">
         <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
       </el-select>
     </div>
@@ -19,7 +19,7 @@
       <el-tab-pane label="自定义报表" name="custom" />
 
       <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
-        <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadReport" :size="isMobile ? 'small' : 'default'" />
+        <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadReport()" :size="isMobile ? 'small' : 'default'" />
         <el-dropdown @command="exportReport" :disabled="!reportData && !crResult">
           <el-button size="small" :disabled="!reportData">
             <el-icon><Download /></el-icon>导出 <el-icon><ArrowDown /></el-icon>
@@ -296,6 +296,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useBookStore } from '../stores/book'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -303,7 +304,7 @@ const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)'
 
 const books = ref([])
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const activeTab = ref('income')
 const period = ref(new Date().toISOString().slice(0, 7))
 const reportData = ref(null)

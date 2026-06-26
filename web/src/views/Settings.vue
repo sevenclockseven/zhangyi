@@ -2,7 +2,7 @@
   <div class="settings">
     <div class="page-header">
       <h2>系统设置</h2>
-      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="loadAux">
+      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadAux()">
         <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
       </el-select>
     </div>
@@ -374,7 +374,7 @@ const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)')
 
 const books = ref([])
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const activeTab = ref('aux')
 const auxType = ref('customer')
 const auxItems = ref([])

@@ -7,15 +7,15 @@
         <div class="stat-value">{{ stats.totalBooks }}</div>
       </el-card>
       <el-card shadow="hover">
-        <template #header>本月凭证</template>
+        <template #header>本月凭证（全部账套）</template>
         <div class="stat-value">{{ stats.monthVouchers }}</div>
       </el-card>
       <el-card shadow="hover">
-        <template #header>待审核</template>
+        <template #header>待审核（全部账套）</template>
         <div class="stat-value warning">{{ stats.pendingReview }}</div>
       </el-card>
       <el-card shadow="hover">
-        <template #header>待记账</template>
+        <template #header>待记账（全部账套）</template>
         <div class="stat-value info">{{ stats.pendingPost }}</div>
       </el-card>
     </div>
@@ -78,16 +78,17 @@ onMounted(async () => {
     const books = data.data || []
     stats.value.totalBooks = books.length
 
-    // Load vouchers for first book
-    if (books.length > 0) {
-      const { data: vData } = await axios.get(`/api/books/${books[0].id}/vouchers`)
-      const vouchers = vData.data || []
-      const now = new Date()
-      const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-      stats.value.monthVouchers = vouchers.filter(v => v.date && v.date.startsWith(monthPrefix)).length
-      stats.value.pendingReview = vouchers.filter(v => v.status === 'draft').length
-      stats.value.pendingPost = vouchers.filter(v => v.status === 'reviewed').length
+    // Aggregate stats across ALL books
+    const now = new Date()
+    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    let allVouchers = []
+    for (const book of books) {
+      const { data: vData } = await axios.get(`/api/books/${book.id}/vouchers`)
+      allVouchers = allVouchers.concat(vData.data || [])
     }
+    stats.value.monthVouchers = allVouchers.filter(v => v.date && v.date.startsWith(monthPrefix)).length
+    stats.value.pendingReview = allVouchers.filter(v => v.status === 'draft').length
+    stats.value.pendingPost = allVouchers.filter(v => v.status === 'reviewed').length
 
     // Load system info from health API
     const { data: health } = await axios.get('/api/health')

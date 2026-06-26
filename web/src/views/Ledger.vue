@@ -2,7 +2,7 @@
   <div class="ledger">
     <div class="page-header">
       <h2>账簿查询</h2>
-      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="loadData">
+      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadData()">
         <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
       </el-select>
     </div>
@@ -10,7 +10,7 @@
     <el-tabs v-model="activeTab" v-if="currentBook" @tab-change="loadData">
       <el-tab-pane label="科目余额表" name="balance">
         <div style="margin-bottom: 12px">
-          <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadData" :size="isMobile ? 'small' : 'default'" />
+          <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadData()" :size="isMobile ? 'small' : 'default'" />
         </div>
         <div class="table-wrapper">
           <el-table :data="balanceData" stripe border size="small" show-summary :summary-method="balanceSummary" :max-height="tableMaxHeight">
@@ -65,7 +65,7 @@ const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 260px)' : 'calc(100vh - 300px)')
 
 const books = ref([])
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const activeTab = ref('balance')
 const period = ref(new Date().toISOString().slice(0, 7))
 const balanceData = ref([])

@@ -2,7 +2,7 @@
   <div class="closing">
     <div class="page-header">
       <h2>期末处理</h2>
-      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="loadStatus">
+      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadStatus()">
         <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
       </el-select>
     </div>
@@ -87,7 +87,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 const isMobile = ref(window.innerWidth < 768)
 const books = ref([])
-const currentBook = ref(null)
+const { currentBookId: currentBook, setCurrentBook } = useBookStore()
 const loading = ref(false)
 const status = ref({
   current_period: '',
