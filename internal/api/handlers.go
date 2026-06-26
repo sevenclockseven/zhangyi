@@ -2710,6 +2710,36 @@ func deleteReportTemplate(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+func updateReportTemplate(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tid := c.Param("tid")
+		var tpl models.ReportTemplate
+		if err := db.First(&tpl, tid).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "报表模板不存在"})
+			return
+		}
+		var req struct {
+			Name   string `json:"name"`
+			Config string `json:"config"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		updates := map[string]interface{}{}
+		if req.Name != "" {
+			updates["name"] = req.Name
+		}
+		if req.Config != "" {
+			updates["config"] = req.Config
+		}
+		if len(updates) > 0 {
+			db.Model(&tpl).Updates(updates)
+		}
+		c.JSON(http.StatusOK, gin.H{"data": tpl})
+	}
+}
+
 // evalFormula evaluates a report formula like JE('6602', '借') or QM('1002', '借')
 func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float64 {
 	// Parse formula: FUNC('code', 'direction')

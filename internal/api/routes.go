@@ -33,7 +33,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		// 公开接口（不需要登录）
 		api.GET("/templates/versions", templateVersions(db))
 		api.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": "0.5.0"})
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": "0.5.2"})
 		})
 		api.POST("/auth/login", loginHandler(db))
 		api.POST("/auth/register", registerHandler(db))
@@ -145,6 +145,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				reports.GET("/export", exportReport(db))
 			reports.GET("/templates", listReportTemplates(db))
 			reports.POST("/templates", createReportTemplate(db))
+			reports.PUT("/templates/:tid", updateReportTemplate(db))
 			reports.DELETE("/templates/:tid", deleteReportTemplate(db))
 			reports.GET("/custom/:rid", customReport(db))
 			reports.GET("/income-statement-v2", incomeStatementEnhanced(db))

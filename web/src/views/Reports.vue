@@ -28,7 +28,6 @@
             <el-dropdown-menu>
               <el-dropdown-item command="csv">导出CSV</el-dropdown-item>
               <el-dropdown-item command="excel">导出Excel</el-dropdown-item>
-              <el-dropdown-item command="pdf">导出PDF</el-dropdown-item>
               <el-dropdown-item command="print">打印</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -231,6 +230,7 @@
           <el-table-column label="操作" width="180">
             <template #default="{ row }">
               <el-button size="small" type="success" link @click="runCr(row)">运行</el-button>
+              <el-button size="small" type="primary" link @click="editCr(row)">编辑</el-button>
               <el-button size="small" type="danger" link @click="deleteCr(row)">删除</el-button>
             </template>
           </el-table-column>
@@ -262,7 +262,7 @@
     </el-tabs>
 
     <!-- Custom Report Edit Dialog -->
-    <el-dialog v-model="showCrEdit" title="新建自定义报表" :width="isMobile ? '95%' : '650px'">
+    <el-dialog v-model="showCrEdit" :title="crForm.id ? '编辑自定义报表' : '新建自定义报表'" :width="isMobile ? '95%' : '650px'">
       <el-form :model="crForm" label-width="80px">
         <el-form-item label="报表名称" required><el-input v-model="crForm.name" placeholder="如：费用汇总表" /></el-form-item>
         <el-form-item label="行定义">
@@ -285,7 +285,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)'
@@ -348,30 +348,89 @@ const incomeSummary = ({ columns, data }) => {
   return sums
 }
 
-const exportReport = (format) => {
-  const typeMap = { 'income': 'income', 'balance-sheet': 'balance-sheet', 'account-balance': 'account-balance' }
-  const type = typeMap[activeTab.value]
-  if (!type) { ElMessage.warning('该报表暂不支持导出'); return }
+const exportReport = async (format) => {
+  if (activeTab.value === 'custom') { ElMessage.warning('自定义报表请使用运行结果导出'); return }
+  if (!reportData.value) { ElMessage.warning('请先加载报表数据'); return }
 
   if (format === 'csv') {
-    window.open(`/api/books/${currentBook.value}/reports/export?type=${type}&period=${period.value}`, '_blank')
+    exportCSV()
   } else if (format === 'print') {
-    window.print()
+    printReport()
   } else if (format === 'excel') {
-    // Generate Excel HTML
-    const table = document.querySelector('.el-table__body-wrapper table')
-    if (!table) { ElMessage.warning('无数据可导出'); return }
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>报表</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>${table.outerHTML}</body></html>`
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${activeTab.value}_${period.value}.xls`
-    a.click()
-    URL.revokeObjectURL(url)
-  } else if (format === 'pdf') {
-    window.print()
+    exportExcel()
   }
+}
+
+const exportCSV = () => {
+  const tables = document.querySelectorAll('.el-table__body-wrapper table')
+  if (!tables.length) { ElMessage.warning('无数据可导出'); return }
+  let csv = '\uFEFF' // BOM for Excel
+  tables.forEach((table, ti) => {
+    if (ti > 0) csv += '\n'
+    // Headers
+    const headers = []
+    table.querySelectorAll('thead th').forEach(th => {
+      headers.push('"' + th.innerText.replace(/"/g, '""') + '"')
+    })
+    csv += headers.join(',') + '\n'
+    // Rows
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      const row = []
+      tr.querySelectorAll('td').forEach(td => {
+        row.push('"' + td.innerText.replace(/"/g, '""') + '"')
+      })
+      csv += row.join(',') + '\n'
+    })
+  })
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${activeTab.value}_${period.value}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+const printReport = () => {
+  const el = document.querySelector('.reports .el-tabs__content')
+  if (!el) { ElMessage.warning('无数据可打印'); return }
+  const printWin = window.open('', '_blank')
+  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>报表打印</title>
+    <style>
+      body { font-family: 'Microsoft YaHei', sans-serif; padding: 20px; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+      th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 13px; }
+      th { background: #f5f7fa; font-weight: bold; }
+      .el-card { border: none !important; box-shadow: none !important; }
+      .el-card__header { padding: 8px 0 !important; border-bottom: 1px solid #eee; }
+      h3 { margin: 0 0 8px; }
+      .no-print { display: none !important; }
+      @media print { body { padding: 0; } }
+    </style></head><body>${el.innerHTML}</body></html>`)
+  printWin.document.close()
+  printWin.focus()
+  setTimeout(() => { printWin.print(); printWin.close(); }, 300)
+}
+
+const exportExcel = () => {
+  const tables = document.querySelectorAll('.el-table__body-wrapper table')
+  if (!tables.length) { ElMessage.warning('无数据可导出'); return }
+  let tableHTML = ''
+  tables.forEach(t => { tableHTML += t.outerHTML + '<br>' })
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+    <head><meta charset="utf-8">
+    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+    <x:Name>报表</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+    </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+    <style>table{border-collapse:collapse} th,td{border:1px solid #000;padding:4px 8px;font-size:12px} th{background:#f0f0f0;font-weight:bold}</style>
+    </head><body>${tableHTML}</body></html>`
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${activeTab.value}_${period.value}.xls`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 const fmt = (v) => {
@@ -396,15 +455,29 @@ const loadCrList = async () => {
   crList.value = data.data || []
 }
 const openCrAdd = () => {
-  crForm.value = { name: '', rows: [{ label: '', formula: '', level: 1, bold: false }] }
+  crForm.value = { id: null, name: '', rows: [{ label: '', formula: '', level: 1, bold: false }] }
+  showCrEdit.value = true
+}
+const editCr = (tpl) => {
+  let rows = [{ label: '', formula: '', level: 1, bold: false }]
+  try {
+    const config = JSON.parse(tpl.config)
+    if (config.rows && config.rows.length > 0) rows = config.rows
+  } catch (e) {}
+  crForm.value = { id: tpl.id, name: tpl.name, rows }
   showCrEdit.value = true
 }
 const saveCr = async () => {
   if (!crForm.value.name) { ElMessage.warning('请输入报表名称'); return }
   try {
-    await axios.post(`/api/books/${currentBook.value}/reports/templates`, {
+    const payload = {
       name: crForm.value.name, type: 'custom', config: JSON.stringify({ rows: crForm.value.rows })
-    })
+    }
+    if (crForm.value.id) {
+      await axios.put(`/api/books/${currentBook.value}/reports/templates/${crForm.value.id}`, payload)
+    } else {
+      await axios.post(`/api/books/${currentBook.value}/reports/templates`, payload)
+    }
     ElMessage.success('保存成功')
     showCrEdit.value = false
     loadCrList()
