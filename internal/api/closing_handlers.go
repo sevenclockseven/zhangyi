@@ -176,29 +176,16 @@ func autoTransfer(db *gorm.DB) gin.HandlerFunc {
 			lineNo++
 		}
 
-		// 本年利润汇总
-		netProfit := totalIncome - totalExpense
-		if netProfit > 0 {
-			// 盈利：收入>费用
+		// 本年利润汇总：收入转贷方，费用转借方
+		if totalIncome > 0 {
 			tx.Create(&models.VoucherItem{
 				VoucherID: voucher.ID, LineNo: lineNo,
 				AccountID: profitAccount.ID, AccountCode: profitAccount.Code, AccountName: profitAccount.Name,
 				Debit: 0, Credit: totalIncome, Memo: "收入结转",
 			})
 			lineNo++
-			tx.Create(&models.VoucherItem{
-				VoucherID: voucher.ID, LineNo: lineNo,
-				AccountID: profitAccount.ID, AccountCode: profitAccount.Code, AccountName: profitAccount.Name,
-				Debit: totalExpense, Credit: 0, Memo: "费用结转",
-			})
-		} else if netProfit < 0 {
-			// 亏损：费用>收入
-			tx.Create(&models.VoucherItem{
-				VoucherID: voucher.ID, LineNo: lineNo,
-				AccountID: profitAccount.ID, AccountCode: profitAccount.Code, AccountName: profitAccount.Name,
-				Debit: 0, Credit: totalIncome, Memo: "收入结转",
-			})
-			lineNo++
+		}
+		if totalExpense > 0 {
 			tx.Create(&models.VoucherItem{
 				VoucherID: voucher.ID, LineNo: lineNo,
 				AccountID: profitAccount.ID, AccountCode: profitAccount.Code, AccountName: profitAccount.Name,
@@ -227,7 +214,7 @@ func autoTransfer(db *gorm.DB) gin.HandlerFunc {
 			"voucher_number": voucher.Number,
 			"income_total":   totalIncome,
 			"expense_total":  totalExpense,
-			"net_profit":     netProfit,
+			"net_profit":     totalIncome - totalExpense,
 			"item_count":     len(items),
 		})
 	}
@@ -246,17 +233,9 @@ func closePeriod(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 2. 更新科目余额：将 period -> closing
+		// 2. 获取本期余额（closing_debit/closing_credit 由记账时自动更新）
 		var balances []models.AccountBalance
 		db.Where("book_id = ? AND period = ?", bookID, period).Find(&balances)
-		for _, b := range balances {
-			closingDebit := b.OpeningDebit + b.PeriodDebit
-			closingCredit := b.OpeningCredit + b.PeriodCredit
-			db.Model(&b).Updates(map[string]interface{}{
-				"closing_debit":  closingDebit,
-				"closing_credit": closingCredit,
-			})
-		}
 
 		// 3. 创建下一期间的期初余额记录
 		// Parse period to get next period
@@ -315,15 +294,30 @@ func unclosePeriod(db *gorm.DB) gin.HandlerFunc {
 		}
 		nextPeriod := fmt.Sprintf("%04d-%02d", nextYear, nextMonth)
 
-		// 2. 删除下一期间的期初余额记录
-		db.Where("book_id = ? AND period = ?", bookID, nextPeriod).Delete(&models.AccountBalance{})
+		tx := db.Begin()
 
-		// 3. 恢复账套状态
-		db.Model(&models.AccountBook{}).Where("id = ?", bookID).Update("status", "active")
+		// 2. 删除下一期间的期初余额记录
+		tx.Where("book_id = ? AND period = ?", bookID, nextPeriod).Delete(&models.AccountBalance{})
+
+		// 3. 删除本期自动生成的结转凭证（含凭证分录）
+		var transferVouchers []models.Voucher
+		tx.Where("book_id = ? AND date LIKE ? AND memo LIKE ?", bookID, period+"%", "%损益结转%").Find(&transferVouchers)
+		for _, v := range transferVouchers {
+			tx.Where("voucher_id = ?", v.ID).Delete(&models.VoucherItem{})
+			// 回滚科目余额
+			reverseAccountBalances(tx, &v)
+			tx.Delete(&v)
+		}
+
+		// 4. 恢复账套状态
+		tx.Model(&models.AccountBook{}).Where("id = ?", bookID).Update("status", "active")
+
+		tx.Commit()
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":     period + " 反结账成功",
-			"next_period": nextPeriod,
+			"message":             period + " 反结账成功",
+			"next_period":         nextPeriod,
+			"transfer_vouchers":   len(transferVouchers),
 		})
 	}
 }
