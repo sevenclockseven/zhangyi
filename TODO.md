@@ -181,14 +181,10 @@
 - [x] 测试验证
 - [x] 更新文档
 
-### v0.6.9: 凭证辅助核算 + 全局账套切换 ✅
-- [x] 凭证编辑器：选择科目后动态显示辅助核算下拉框
-- [x] 凭证保存/更新：传递 aux_*_id 字段到后端
-- [x] Header 全局账套选择器
-- [x] 移除各页面独立账套选择器
-- [x] 抽取公共 composables（useBookStore 增强 + useMobile）
-- [x] 测试验证
-- [x] 更新文档
+### v0.6.10: 辅助核算后端化 ✅
+- [x] listAccounts 接口返回 aux_options（后端关联辅助核算项）
+- [x] 前端去掉 7 个单独 aux API 调用，改用 accounts 的 aux_options
+- [x] 修复首次打开凭证不加载数据的问题
 
 ---
 
@@ -221,3 +217,4 @@
 - **v0.6.7** (2026-06-26): 修复页面白屏（缺少useBookStore import）+ 自动加载数据
 - **v0.6.8** (2026-06-26): 修复window.open导出未登录（auth中间件支持query token）+ Dockerfile阿里云镜像
 - **v0.6.9** (2026-06-26): 凭证辅助核算选择器+全局Header账套切换+useMobile composable精简代码
+- **v0.6.10** (2026-06-26): 辅助核算后端化（accounts接口返回aux_options）+修复首次打开凭证不加载
