@@ -60,7 +60,7 @@ func main() {
 	r := gin.Default()
 
 	// API routes
-	api.AppVersion = "0.7.0"
+	api.AppVersion = "0.7.2"
 	api.RegisterRoutes(r, db)
 
 	// Serve embedded frontend
