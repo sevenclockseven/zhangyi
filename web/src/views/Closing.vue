@@ -84,6 +84,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useBookStore } from '../stores/book'
 
 const isMobile = ref(window.innerWidth < 768)
 const books = ref([])
