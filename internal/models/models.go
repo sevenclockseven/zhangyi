@@ -10,8 +10,9 @@ type AccountBook struct {
 	Code         string    `json:"code" gorm:"uniqueIndex;size:20;not null"`
 	Name         string    `json:"name" gorm:"size:100;not null"`
 	Industry     string    `json:"industry" gorm:"size:200"` // comma separated
-	TaxpayerType string    `json:"taxpayer_type" gorm:"size:20"`
-	StartDate    string    `json:"start_date" gorm:"size:7;not null"` // YYYY-MM
+	TaxpayerType     string    `json:"taxpayer_type" gorm:"size:20"`
+	AccountingStandard string    `json:"accounting_standard" gorm:"size:30"` // small_business / enterprise
+	StartDate        string    `json:"start_date" gorm:"size:7;not null"` // YYYY-MM
 	Currency     string    `json:"currency" gorm:"size:10;default:CNY"`
 	Status       string    `json:"status" gorm:"size:20;default:active"`
 	Contact      string    `json:"contact" gorm:"size:50"`

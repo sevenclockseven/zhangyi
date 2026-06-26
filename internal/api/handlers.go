@@ -44,15 +44,16 @@ func listBooks(db *gorm.DB) gin.HandlerFunc {
 func createBook(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			Name         string   `json:"name" binding:"required"`
-			Code         string   `json:"code"`
-			Industry     []string `json:"industry" binding:"required"`
-			TaxpayerType string   `json:"taxpayer_type"`
-			StartDate    string   `json:"start_date" binding:"required"`
-			Contact      string   `json:"contact"`
-			Phone        string   `json:"phone"`
-			Address      string   `json:"address"`
-			Memo         string   `json:"memo"`
+			Name               string   `json:"name" binding:"required"`
+			Code               string   `json:"code"`
+			Industry           []string `json:"industry" binding:"required"`
+			TaxpayerType       string   `json:"taxpayer_type"`
+			AccountingStandard string   `json:"accounting_standard"`
+			StartDate          string   `json:"start_date" binding:"required"`
+			Contact            string   `json:"contact"`
+			Phone              string   `json:"phone"`
+			Address            string   `json:"address"`
+			Memo               string   `json:"memo"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -67,11 +68,12 @@ func createBook(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		book := models.AccountBook{
-			Code:         code,
-			Name:         req.Name,
-			Industry:     strings.Join(req.Industry, ","),
-			TaxpayerType: req.TaxpayerType,
-			StartDate:    req.StartDate,
+			Code:               code,
+			Name:               req.Name,
+			Industry:           strings.Join(req.Industry, ","),
+			TaxpayerType:       req.TaxpayerType,
+			AccountingStandard: req.AccountingStandard,
+			StartDate:          req.StartDate,
 			Currency:     "CNY",
 			Status:       "active",
 			Contact:      req.Contact,
@@ -90,7 +92,7 @@ func createBook(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// Load and apply template
-		if err := services.ApplyTemplateToBook(tx, book.ID, templateDir(), req.Industry); err != nil {
+		if err := services.ApplyTemplateToBook(tx, book.ID, templateDir(), req.Industry, req.TaxpayerType, req.AccountingStandard); err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "加载科目模板失败: " + err.Error()})
 			return
@@ -136,12 +138,13 @@ func updateBook(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var req struct {
-			Name         string `json:"name"`
-			TaxpayerType string `json:"taxpayer_type"`
-			Contact      string `json:"contact"`
-			Phone        string `json:"phone"`
-			Address      string `json:"address"`
-			Memo         string `json:"memo"`
+			Name               string `json:"name"`
+			TaxpayerType       string `json:"taxpayer_type"`
+			AccountingStandard string `json:"accounting_standard"`
+			Contact            string `json:"contact"`
+			Phone              string `json:"phone"`
+			Address            string `json:"address"`
+			Memo               string `json:"memo"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -155,6 +158,9 @@ func updateBook(db *gorm.DB) gin.HandlerFunc {
 		}
 		if req.TaxpayerType != "" {
 			updates["taxpayer_type"] = req.TaxpayerType
+		}
+		if req.AccountingStandard != "" {
+			updates["accounting_standard"] = req.AccountingStandard
 		}
 		if req.Contact != "" {
 			updates["contact"] = req.Contact
@@ -2818,6 +2824,18 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 }
 // ===== Template Version Management =====
 
+// getTemplateManifest returns the v2 template manifest
+func getTemplateManifest(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		manifest, err := services.GetManifest(templateDir())
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "模板清单不存在，请先生成v2模板"})
+			return
+		}
+		c.JSON(http.StatusOK, manifest)
+	}
+}
+
 // templateVersions returns version info for all templates
 func templateVersions(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -2874,7 +2892,7 @@ func syncAllTemplates(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		industries := strings.Split(book.Industry, ",")
-		if err := services.ApplyTemplateToBook(db, uint(bookID), templateDir(), industries); err != nil {
+		if err := services.ApplyTemplateToBook(db, uint(bookID), templateDir(), industries, book.TaxpayerType, book.AccountingStandard); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "同步失败: " + err.Error()})
 			return
 		}

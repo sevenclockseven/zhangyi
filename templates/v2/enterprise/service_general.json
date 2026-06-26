@@ -1,0 +1,777 @@
+{
+  "id": "enterprise_service_general",
+  "name": "服务业（一般纳税人·企业会计准则）",
+  "standard": "enterprise",
+  "industry": "service",
+  "taxpayer": "general",
+  "version": "2026.1",
+  "accounts": [
+    {
+      "code": "1001",
+      "name": "库存现金",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1002",
+      "name": "银行存款",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1012",
+      "name": "其他货币资金",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1101",
+      "name": "交易性金融资产",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1121",
+      "name": "应收票据",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1122",
+      "name": "应收账款",
+      "direction": "借",
+      "level": 1,
+      "aux": [
+        "customer"
+      ]
+    },
+    {
+      "code": "1123",
+      "name": "预付账款",
+      "direction": "借",
+      "level": 1,
+      "aux": [
+        "supplier"
+      ]
+    },
+    {
+      "code": "1131",
+      "name": "应收股利",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1132",
+      "name": "应收利息",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1221",
+      "name": "其他应收款",
+      "direction": "借",
+      "level": 1,
+      "aux": [
+        "employee"
+      ]
+    },
+    {
+      "code": "1401",
+      "name": "材料采购",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1402",
+      "name": "在途物资",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1403",
+      "name": "原材料",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1404",
+      "name": "材料成本差异",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1405",
+      "name": "库存商品",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1406",
+      "name": "发出商品",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1407",
+      "name": "商品进销差价",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1408",
+      "name": "委托加工物资",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1411",
+      "name": "周转材料",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1471",
+      "name": "存货跌价准备",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1501",
+      "name": "持有至到期投资",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1511",
+      "name": "长期股权投资",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1601",
+      "name": "固定资产",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1602",
+      "name": "累计折旧",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1604",
+      "name": "在建工程",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1605",
+      "name": "工程物资",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1606",
+      "name": "固定资产清理",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1701",
+      "name": "无形资产",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1702",
+      "name": "累计摊销",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1703",
+      "name": "无形资产减值准备",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1801",
+      "name": "长期待摊费用",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "1901",
+      "name": "待处理财产损溢",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2001",
+      "name": "短期借款",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2201",
+      "name": "应付票据",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2202",
+      "name": "应付账款",
+      "direction": "贷",
+      "level": 1,
+      "aux": [
+        "supplier"
+      ]
+    },
+    {
+      "code": "2203",
+      "name": "预收账款",
+      "direction": "贷",
+      "level": 1,
+      "aux": [
+        "customer"
+      ]
+    },
+    {
+      "code": "2211",
+      "name": "应付职工薪酬",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2221",
+      "name": "应交税费",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2231",
+      "name": "应付利息",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2232",
+      "name": "应付股利",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2241",
+      "name": "其他应付款",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2401",
+      "name": "递延收益",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2501",
+      "name": "长期借款",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2701",
+      "name": "长期应付款",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "3001",
+      "name": "实收资本",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "3002",
+      "name": "资本公积",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "3101",
+      "name": "盈余公积",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "3103",
+      "name": "本年利润",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "3104",
+      "name": "利润分配",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "5001",
+      "name": "主营业务收入",
+      "direction": "贷",
+      "level": 1,
+      "aux": [
+        "customer",
+        "department"
+      ]
+    },
+    {
+      "code": "5051",
+      "name": "其他业务收入",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "5111",
+      "name": "投资收益",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "5301",
+      "name": "营业外收入",
+      "direction": "贷",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "5401",
+      "name": "主营业务成本",
+      "direction": "借",
+      "level": 1,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5402",
+      "name": "其他业务成本",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "5403",
+      "name": "营业税金及附加",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "5601",
+      "name": "销售费用",
+      "direction": "借",
+      "level": 1,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602",
+      "name": "管理费用",
+      "direction": "借",
+      "level": 1,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5603",
+      "name": "财务费用",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "5711",
+      "name": "营业外支出",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "5801",
+      "name": "所得税费用",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "4301",
+      "name": "研发支出",
+      "direction": "借",
+      "level": 1,
+      "aux": []
+    },
+    {
+      "code": "2221.01",
+      "name": "应交增值税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.01.01",
+      "name": "进项税额",
+      "direction": "借",
+      "level": 3,
+      "aux": []
+    },
+    {
+      "code": "2221.01.02",
+      "name": "销项税额",
+      "direction": "贷",
+      "level": 3,
+      "aux": []
+    },
+    {
+      "code": "2221.01.03",
+      "name": "进项税额转出",
+      "direction": "贷",
+      "level": 3,
+      "aux": []
+    },
+    {
+      "code": "2221.01.04",
+      "name": "转出未交增值税",
+      "direction": "贷",
+      "level": 3,
+      "aux": []
+    },
+    {
+      "code": "2221.01.05",
+      "name": "转出多交增值税",
+      "direction": "借",
+      "level": 3,
+      "aux": []
+    },
+    {
+      "code": "2221.01.06",
+      "name": "减免税款",
+      "direction": "借",
+      "level": 3,
+      "aux": []
+    },
+    {
+      "code": "2221.02",
+      "name": "未交增值税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.03",
+      "name": "预交增值税",
+      "direction": "借",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.04",
+      "name": "待抵扣进项税额",
+      "direction": "借",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.05",
+      "name": "待认证进项税额",
+      "direction": "借",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.06",
+      "name": "增值税留抵税额",
+      "direction": "借",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.07",
+      "name": "简易计税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.08",
+      "name": "转让金融商品应交增值税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.09",
+      "name": "代扣代交增值税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.10",
+      "name": "应交消费税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.11",
+      "name": "应交企业所得税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.12",
+      "name": "应交个人所得税(代扣代缴)",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.13",
+      "name": "应交城市维护建设税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.14",
+      "name": "应交教育费附加",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.15",
+      "name": "应交地方教育附加",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.16",
+      "name": "应交印花税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.17",
+      "name": "应交房产税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.18",
+      "name": "应交城镇土地使用税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.19",
+      "name": "应交车船税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "2221.20",
+      "name": "应交环境保护税",
+      "direction": "贷",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "5401.01",
+      "name": "服务成本",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department",
+        "project"
+      ]
+    },
+    {
+      "code": "5601.01",
+      "name": "广告宣传费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5601.02",
+      "name": "业务推广费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5601.03",
+      "name": "销售人员薪酬",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.01",
+      "name": "管理人员薪酬",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.02",
+      "name": "办公费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.03",
+      "name": "折旧费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.04",
+      "name": "修理费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.05",
+      "name": "水电费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.06",
+      "name": "差旅费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.07",
+      "name": "业务招待费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.08",
+      "name": "咨询顾问费",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "5602.09",
+      "name": "其他",
+      "direction": "借",
+      "level": 2,
+      "aux": [
+        "department"
+      ]
+    },
+    {
+      "code": "4301.01",
+      "name": "费用化支出",
+      "direction": "借",
+      "level": 2,
+      "aux": []
+    },
+    {
+      "code": "4301.02",
+      "name": "资本化支出",
+      "direction": "借",
+      "level": 2,
+      "aux": []
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+{
+  "version": "2026.1",
+  "standards": {
+    "small_business": {
+      "name": "小企业会计准则",
+      "description": "适用于小型企业"
+    },
+    "enterprise": {
+      "name": "企业会计准则",
+      "description": "适用于上市公司、大型企业"
+    }
+  },
+  "industries": {
+    "manufacturing": {
+      "name": "制造业"
+    },
+    "retail": {
+      "name": "零售业"
+    },
+    "service": {
+      "name": "服务业"
+    },
+    "construction": {
+      "name": "建筑业"
+    },
+    "real_estate": {
+      "name": "房地产业"
+    },
+    "transport": {
+      "name": "运输业"
+    },
+    "agriculture": {
+      "name": "农业"
+    }
+  },
+  "taxpayer_types": {
+    "general": {
+      "name": "一般纳税人"
+    },
+    "small": {
+      "name": "小规模纳税人"
+    }
+  },
+  "templates": [
+    {
+      "id": "small_business_manufacturing_general",
+      "standard": "small_business",
+      "industry": "manufacturing",
+      "taxpayer": "general",
+      "file": "small_business/manufacturing_general.json"
+    },
+    {
+      "id": "small_business_manufacturing_small",
+      "standard": "small_business",
+      "industry": "manufacturing",
+      "taxpayer": "small",
+      "file": "small_business/manufacturing_small.json"
+    },
+    {
+      "id": "small_business_retail_general",
+      "standard": "small_business",
+      "industry": "retail",
+      "taxpayer": "general",
+      "file": "small_business/retail_general.json"
+    },
+    {
+      "id": "small_business_retail_small",
+      "standard": "small_business",
+      "industry": "retail",
+      "taxpayer": "small",
+      "file": "small_business/retail_small.json"
+    },
+    {
+      "id": "small_business_service_general",
+      "standard": "small_business",
+      "industry": "service",
+      "taxpayer": "general",
+      "file": "small_business/service_general.json"
+    },
+    {
+      "id": "small_business_service_small",
+      "standard": "small_business",
+      "industry": "service",
+      "taxpayer": "small",
+      "file": "small_business/service_small.json"
+    },
+    {
+      "id": "small_business_construction_general",
+      "standard": "small_business",
+      "industry": "construction",
+      "taxpayer": "general",
+      "file": "small_business/construction_general.json"
+    },
+    {
+      "id": "small_business_construction_small",
+      "standard": "small_business",
+      "industry": "construction",
+      "taxpayer": "small",
+      "file": "small_business/construction_small.json"
+    },
+    {
+      "id": "small_business_real_estate_general",
+      "standard": "small_business",
+      "industry": "real_estate",
+      "taxpayer": "general",
+      "file": "small_business/real_estate_general.json"
+    },
+    {
+      "id": "small_business_real_estate_small",
+      "standard": "small_business",
+      "industry": "real_estate",
+      "taxpayer": "small",
+      "file": "small_business/real_estate_small.json"
+    },
+    {
+      "id": "small_business_transport_general",
+      "standard": "small_business",
+      "industry": "transport",
+      "taxpayer": "general",
+      "file": "small_business/transport_general.json"
+    },
+    {
+      "id": "small_business_transport_small",
+      "standard": "small_business",
+      "industry": "transport",
+      "taxpayer": "small",
+      "file": "small_business/transport_small.json"
+    },
+    {
+      "id": "small_business_agriculture_general",
+      "standard": "small_business",
+      "industry": "agriculture",
+      "taxpayer": "general",
+      "file": "small_business/agriculture_general.json"
+    },
+    {
+      "id": "small_business_agriculture_small",
+      "standard": "small_business",
+      "industry": "agriculture",
+      "taxpayer": "small",
+      "file": "small_business/agriculture_small.json"
+    },
+    {
+      "id": "enterprise_manufacturing_general",
+      "standard": "enterprise",
+      "industry": "manufacturing",
+      "taxpayer": "general",
+      "file": "enterprise/manufacturing_general.json"
+    },
+    {
+      "id": "enterprise_manufacturing_small",
+      "standard": "enterprise",
+      "industry": "manufacturing",
+      "taxpayer": "small",
+      "file": "enterprise/manufacturing_small.json"
+    },
+    {
+      "id": "enterprise_retail_general",
+      "standard": "enterprise",
+      "industry": "retail",
+      "taxpayer": "general",
+      "file": "enterprise/retail_general.json"
+    },
+    {
+      "id": "enterprise_retail_small",
+      "standard": "enterprise",
+      "industry": "retail",
+      "taxpayer": "small",
+      "file": "enterprise/retail_small.json"
+    },
+    {
+      "id": "enterprise_service_general",
+      "standard": "enterprise",
+      "industry": "service",
+      "taxpayer": "general",
+      "file": "enterprise/service_general.json"
+    },
+    {
+      "id": "enterprise_service_small",
+      "standard": "enterprise",
+      "industry": "service",
+      "taxpayer": "small",
+      "file": "enterprise/service_small.json"
+    },
+    {
+      "id": "enterprise_construction_general",
+      "standard": "enterprise",
+      "industry": "construction",
+      "taxpayer": "general",
+      "file": "enterprise/construction_general.json"
+    },
+    {
+      "id": "enterprise_construction_small",
+      "standard": "enterprise",
+      "industry": "construction",
+      "taxpayer": "small",
+      "file": "enterprise/construction_small.json"
+    },
+    {
+      "id": "enterprise_real_estate_general",
+      "standard": "enterprise",
+      "industry": "real_estate",
+      "taxpayer": "general",
+      "file": "enterprise/real_estate_general.json"
+    },
+    {
+      "id": "enterprise_real_estate_small",
+      "standard": "enterprise",
+      "industry": "real_estate",
+      "taxpayer": "small",
+      "file": "enterprise/real_estate_small.json"
+    },
+    {
+      "id": "enterprise_transport_general",
+      "standard": "enterprise",
+      "industry": "transport",
+      "taxpayer": "general",
+      "file": "enterprise/transport_general.json"
+    },
+    {
+      "id": "enterprise_transport_small",
+      "standard": "enterprise",
+      "industry": "transport",
+      "taxpayer": "small",
+      "file": "enterprise/transport_small.json"
+    },
+    {
+      "id": "enterprise_agriculture_general",
+      "standard": "enterprise",
+      "industry": "agriculture",
+      "taxpayer": "general",
+      "file": "enterprise/agriculture_general.json"
+    },
+    {
+      "id": "enterprise_agriculture_small",
+      "standard": "enterprise",
+      "industry": "agriculture",
+      "taxpayer": "small",
+      "file": "enterprise/agriculture_small.json"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/sevenclockseven/zhangyi/internal/models"
@@ -23,12 +24,33 @@ type TemplateAccount struct {
 
 // TemplateFile represents a template JSON file
 type TemplateFile struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Version     string            `json:"version"`
-	Base        string            `json:"base"`
-	Description string            `json:"description"`
-	Accounts    []TemplateAccount `json:"accounts"`
+	ID                string            `json:"id"`
+	Name              string            `json:"name"`
+	Version           string            `json:"version"`
+	Base              string            `json:"base"`
+	Standard          string            `json:"standard"`
+	Industry          string            `json:"industry"`
+	Taxpayer          string            `json:"taxpayer"`
+	Description       string            `json:"description"`
+	Accounts          []TemplateAccount `json:"accounts"`
+}
+
+// ManifestTemplate represents a template entry in manifest.json
+type ManifestTemplate struct {
+	ID        string `json:"id"`
+	Standard  string `json:"standard"`
+	Industry  string `json:"industry"`
+	Taxpayer  string `json:"taxpayer"`
+	File      string `json:"file"`
+}
+
+// Manifest represents the v2 manifest.json
+type Manifest struct {
+	Version        string                       `json:"version"`
+	Standards      map[string]map[string]string  `json:"standards"`
+	Industries     map[string]map[string]string  `json:"industries"`
+	TaxpayerTypes  map[string]map[string]string  `json:"taxpayer_types"`
+	Templates      []ManifestTemplate            `json:"templates"`
 }
 
 // LoadTemplate loads a template from the templates directory
@@ -45,6 +67,49 @@ func LoadTemplate(dir, id string) (*TemplateFile, error) {
 	}
 
 	return &tpl, nil
+}
+
+// LoadV2Template loads a v2 template by standard, industry, and taxpayer type
+func LoadV2Template(dir, standard, industry, taxpayer string) (*TemplateFile, error) {
+	// Default to small_business if not specified
+	if standard == "" {
+		standard = "small_business"
+	}
+	// Default to general taxpayer if not specified
+	if taxpayer == "" {
+		taxpayer = "general"
+	}
+
+	// Try v2 directory first
+	v2Dir := filepath.Join(dir, "v2")
+	manifestPath := filepath.Join(v2Dir, "manifest.json")
+
+	if _, err := os.Stat(manifestPath); err == nil {
+		// v2 templates exist, find the matching template
+		manifestData, err := os.ReadFile(manifestPath)
+		if err == nil {
+			var manifest Manifest
+			if json.Unmarshal(manifestData, &manifest) == nil {
+				// Find matching template
+				for _, t := range manifest.Templates {
+					if t.Standard == standard && t.Industry == industry && t.Taxpayer == taxpayer {
+						tplPath := filepath.Join(v2Dir, t.File)
+						tplData, err := os.ReadFile(tplPath)
+						if err != nil {
+							continue
+						}
+						var tpl TemplateFile
+						if json.Unmarshal(tplData, &tpl) == nil {
+							return &tpl, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback to old template system
+	return nil, fmt.Errorf("v2 template not found for %s/%s/%s", standard, industry, taxpayer)
 }
 
 // LoadAndMergeTemplates loads base template + industry overlays and merges them
@@ -69,8 +134,6 @@ func LoadAndMergeTemplates(dir string, industryIDs []string) ([]TemplateAccount,
 		}
 
 		for _, a := range tpl.Accounts {
-			// Industry template adds new accounts or overrides existing
-			// If same code exists, keep base version (industry won't override base)
 			if _, exists := accountMap[a.Code]; !exists {
 				accountMap[a.Code] = a
 			}
@@ -83,28 +146,36 @@ func LoadAndMergeTemplates(dir string, industryIDs []string) ([]TemplateAccount,
 		result = append(result, a)
 	}
 
-	// Sort by code
 	sortAccounts(result)
-
 	return result, nil
 }
 
 // sortAccounts sorts template accounts by code
 func sortAccounts(accounts []TemplateAccount) {
-	for i := 0; i < len(accounts); i++ {
-		for j := i + 1; j < len(accounts); j++ {
-			if accounts[j].Code < accounts[i].Code {
-				accounts[i], accounts[j] = accounts[j], accounts[i]
-			}
-		}
-	}
+	sort.Slice(accounts, func(i, j int) bool {
+		return accounts[i].Code < accounts[j].Code
+	})
 }
 
 // ApplyTemplateToBook creates Account records from templates for a given book
-func ApplyTemplateToBook(db *gorm.DB, bookID uint, dir string, industryIDs []string) error {
-	templates, err := LoadAndMergeTemplates(dir, industryIDs)
-	if err != nil {
-		return err
+func ApplyTemplateToBook(db *gorm.DB, bookID uint, dir string, industryIDs []string, taxpayerType, accountingStandard string) error {
+	var templates []TemplateAccount
+
+	// Try v2 templates first
+	if len(industryIDs) > 0 {
+		v2Tpl, err := LoadV2Template(dir, accountingStandard, industryIDs[0], taxpayerType)
+		if err == nil {
+			templates = v2Tpl.Accounts
+		}
+	}
+
+	// Fallback to old template system
+	if templates == nil {
+		var err error
+		templates, err = LoadAndMergeTemplates(dir, industryIDs)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Build parent code map for determining level
@@ -114,14 +185,11 @@ func ApplyTemplateToBook(db *gorm.DB, bookID uint, dir string, industryIDs []str
 	}
 
 	for _, tpl := range templates {
-		// Determine parent code
 		parentCode := tpl.Parent
 		if parentCode == "" && tpl.Level > 1 {
-			// Auto-detect parent: remove last segment
 			parentCode = detectParent(tpl.Code)
 		}
 
-		// Determine if leaf: no other account has this as parent
 		isLeaf := true
 		for _, other := range templates {
 			if other.Parent == tpl.Code || (other.Parent == "" && detectParent(other.Code) == tpl.Code) {
@@ -130,7 +198,6 @@ func ApplyTemplateToBook(db *gorm.DB, bookID uint, dir string, industryIDs []str
 			}
 		}
 
-		// Determine level
 		level := tpl.Level
 		if level == 0 {
 			level = calcLevel(tpl.Code)
@@ -191,7 +258,6 @@ func SyncTemplateUpdates(db *gorm.DB, bookID uint, dir string, industryIDs []str
 		return err
 	}
 
-	// Get existing account codes
 	var existing []models.Account
 	db.Where("book_id = ?", bookID).Find(&existing)
 	existingCodes := make(map[string]bool)
@@ -199,7 +265,6 @@ func SyncTemplateUpdates(db *gorm.DB, bookID uint, dir string, industryIDs []str
 		existingCodes[a.Code] = true
 	}
 
-	// Only add new accounts
 	for _, tpl := range templates {
 		if existingCodes[tpl.Code] {
 			continue
@@ -250,4 +315,18 @@ func SyncTemplateUpdates(db *gorm.DB, bookID uint, dir string, industryIDs []str
 	}
 
 	return nil
+}
+
+// GetManifest loads and returns the v2 manifest
+func GetManifest(dir string) (*Manifest, error) {
+	manifestPath := filepath.Join(dir, "v2", "manifest.json")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+	var manifest Manifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, err
+	}
+	return &manifest, nil
 }
