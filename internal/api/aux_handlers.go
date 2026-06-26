@@ -173,6 +173,14 @@ func exportAuxItems(db *gorm.DB) gin.HandlerFunc {
 					quoteCSV(extra["account_holder"]), quoteCSV(extra["address"]),
 					quoteCSV(extra["memo"]), boolStatus(item.IsActive)))
 			}
+		case "cash_flow":
+			buf.WriteString("编码,名称,分类,状态\n")
+			for _, item := range items {
+				extra := parseExtra(item.Extra)
+				buf.WriteString(fmt.Sprintf("%s,%s,%s,%s\n",
+					quoteCSV(item.Code), quoteCSV(item.Name),
+					quoteCSV(extra["category"]), boolStatus(item.IsActive)))
+			}
 		default:
 			buf.WriteString("编码,名称,状态\n")
 			for _, item := range items {
@@ -305,6 +313,10 @@ func importAuxItems(db *gorm.DB) gin.HandlerFunc {
 				}
 				if len(fields) > 6 {
 					extra["memo"] = fields[6]
+				}
+			case "cash_flow":
+				if len(fields) > 2 {
+					extra["category"] = fields[2]
 				}
 			}
 

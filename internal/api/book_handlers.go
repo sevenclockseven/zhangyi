@@ -86,6 +86,9 @@ func createBook(db *gorm.DB) gin.HandlerFunc {
 		}
 		services.ApplyReportTemplates(tx, book.ID, templateDir(), req.TaxpayerType, industry)
 
+		// Initialize default cash flow items
+		initCashFlowItems(tx, book.ID)
+
 		tx.Commit()
 
 		c.JSON(http.StatusCreated, gin.H{"data": book})
@@ -193,5 +196,56 @@ func deleteBook(db *gorm.DB) gin.HandlerFunc {
 
 		tx.Commit()
 		c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
+	}
+}
+
+
+// initCashFlowItems creates default cash flow items for a new book
+func initCashFlowItems(tx *gorm.DB, bookID uint) {
+	type CashFlowDef struct {
+		Code string
+		Name string
+		Cat  string // operating/investing/financing
+	}
+
+	defs := []CashFlowDef{
+		// 经营活动
+		{"CF-0101", "销售商品、提供劳务收到的现金", "operating"},
+		{"CF-0102", "收到的税费返还", "operating"},
+		{"CF-0103", "收到其他与经营活动有关的现金", "operating"},
+		{"CF-0104", "购买商品、接受劳务支付的现金", "operating"},
+		{"CF-0105", "支付给职工以及为职工支付的现金", "operating"},
+		{"CF-0106", "支付的各项税费", "operating"},
+		{"CF-0107", "支付其他与经营活动有关的现金", "operating"},
+		// 投资活动
+		{"CF-0201", "收回投资收到的现金", "investing"},
+		{"CF-0202", "取得投资收益收到的现金", "investing"},
+		{"CF-0203", "处置固定资产、无形资产和其他长期资产收回的现金净额", "investing"},
+		{"CF-0204", "处置子公司及其他营业单位收到的现金净额", "investing"},
+		{"CF-0205", "收到其他与投资活动有关的现金", "investing"},
+		{"CF-0206", "购建固定资产、无形资产和其他长期资产支付的现金", "investing"},
+		{"CF-0207", "投资支付的现金", "investing"},
+		{"CF-0208", "取得子公司及其他营业单位支付的现金净额", "investing"},
+		{"CF-0209", "支付其他与投资活动有关的现金", "investing"},
+		// 筹资活动
+		{"CF-0301", "吸收投资收到的现金", "financing"},
+		{"CF-0302", "取得借款收到的现金", "financing"},
+		{"CF-0303", "收到其他与筹资活动有关的现金", "financing"},
+		{"CF-0304", "偿还债务支付的现金", "financing"},
+		{"CF-0305", "分配股利、利润或偿付利息支付的现金", "financing"},
+		{"CF-0306", "支付其他与筹资活动有关的现金", "financing"},
+	}
+
+	for _, d := range defs {
+		extra := fmt.Sprintf(`{"category":"%s"}`, d.Cat)
+		item := models.AuxItem{
+			BookID:   bookID,
+			Type:     "cash_flow",
+			Code:     d.Code,
+			Name:     d.Name,
+			Extra:    extra,
+			IsActive: true,
+		}
+		tx.Create(&item)
 	}
 }

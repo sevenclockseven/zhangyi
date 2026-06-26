@@ -464,127 +464,108 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Cash flow items are derived from voucher items with cash_flow_id
-		// For now, we provide a simplified version based on cash/bank account movements
+		// Get all cash flow items for this book
+		var auxItems []models.AuxItem
+		db.Where("book_id = ? AND type = ? AND is_active = ?", bookID, "cash_flow", true).Order("code").Find(&auxItems)
 
-		// Get all cash/bank account movements
+		// Build a map of aux_id -> item info
+		cfMap := make(map[uint]models.AuxItem)
+		for _, item := range auxItems {
+			cfMap[item.ID] = item
+		}
+
+		// Query voucher items with cash_flow_id, grouped by cash_flow_id
+		type CFResult struct {
+			CashFlowID uint
+			NetAmount  float64 // sum(debit) - sum(credit) for cash accounts
+		}
+
+		// Cash account codes: 1001 (库存现金), 1002 (银行存款), 1012 (其他货币资金)
+		var results []CFResult
+		db.Model(&models.VoucherItem{}).
+			Select("voucher_items.cash_flow_id, COALESCE(SUM(voucher_items.debit - voucher_items.credit), 0) as net_amount").
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.cash_flow_id IS NOT NULL AND voucher_items.account_code IN (?)",
+				bookID, "posted", period+"%",
+				[]string{"1001", "1002", "1012"}).
+			Group("voucher_items.cash_flow_id").
+			Scan(&results)
+
+		// Build flow items grouped by category
 		type FlowItem struct {
-			Category string  `json:"category"` // operating/investing/financing
+			Category string  `json:"category"`
+			ItemCode string  `json:"item_code"`
 			ItemName string  `json:"item_name"`
 			Amount   float64 `json:"amount"`
 		}
 
-		var items []FlowItem
-
-		// Operating activities - derive from non-cash account movements
-		// Revenue received
-		var revenueDebit float64
-		db.Model(&models.VoucherItem{}).
-			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
-			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
-				bookID, "posted", period+"%",
-				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND code LIKE ?", bookID, "5%")).
-			Select("COALESCE(SUM(credit), 0)").Row().Scan(&revenueDebit)
-
-		items = append(items, FlowItem{Category: "operating", ItemName: "销售商品、提供劳务收到的现金", Amount: revenueDebit})
-
-		// Purchases paid
-		var purchaseDebit float64
-		db.Model(&models.VoucherItem{}).
-			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
-			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
-				bookID, "posted", period+"%",
-				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND (code LIKE ? OR code LIKE ?)", bookID, "14%", "4%")).
-			Select("COALESCE(SUM(debit), 0)").Row().Scan(&purchaseDebit)
-
-		items = append(items, FlowItem{Category: "operating", ItemName: "购买商品、接受劳务支付的现金", Amount: -purchaseDebit})
-
-		// Employee payments
-		var employeePay float64
-		db.Model(&models.VoucherItem{}).
-			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
-			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code = ?",
-				bookID, "posted", period+"%", "2211").
-			Select("COALESCE(SUM(debit), 0)").Row().Scan(&employeePay)
-
-		items = append(items, FlowItem{Category: "operating", ItemName: "支付给职工以及为职工支付的现金", Amount: -employeePay})
-
-		// Tax payments
-		var taxPay float64
-		db.Model(&models.VoucherItem{}).
-			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
-			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code = ?",
-				bookID, "posted", period+"%", "2221").
-			Select("COALESCE(SUM(debit), 0)").Row().Scan(&taxPay)
-
-		items = append(items, FlowItem{Category: "operating", ItemName: "支付的各项税费", Amount: -taxPay})
-
-		// Operating total
-		var operatingTotal float64
-		for _, item := range items {
-			if item.Category == "operating" {
-				operatingTotal += item.Amount
-			}
+		var flowItems []FlowItem
+		categoryTotals := map[string]float64{
+			"operating":  0,
+			"investing":  0,
+			"financing":  0,
 		}
 
-		// Investing activities
-		var fixedAssetDebit float64
-		db.Model(&models.VoucherItem{}).
-			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
-			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
-				bookID, "posted", period+"%",
-				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND code IN (?)", bookID, []string{"1601", "1604", "1701"})).
-			Select("COALESCE(SUM(debit), 0)").Row().Scan(&fixedAssetDebit)
-
-		items = append(items, FlowItem{Category: "investing", ItemName: "购建固定资产、无形资产支付的现金", Amount: -fixedAssetDebit})
-
-		var investingTotal float64
-		for _, item := range items {
-			if item.Category == "investing" {
-				investingTotal += item.Amount
+		for _, r := range results {
+			item, ok := cfMap[r.CashFlowID]
+			if !ok {
+				continue
 			}
+			cat := "operating"
+			var extra struct {
+				Category string `json:"category"`
+			}
+			json.Unmarshal([]byte(item.Extra), &extra)
+			if extra.Category != "" {
+				cat = extra.Category
+			}
+			flowItems = append(flowItems, FlowItem{
+				Category: cat,
+				ItemCode: item.Code,
+				ItemName: item.Name,
+				Amount:   r.NetAmount,
+			})
+			categoryTotals[cat] += r.NetAmount
 		}
 
-		// Financing activities
-		var loanReceived float64
-		db.Model(&models.VoucherItem{}).
-			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
-			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
-				bookID, "posted", period+"%",
-				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND code IN (?)", bookID, []string{"2001", "2501"})).
-			Select("COALESCE(SUM(credit), 0)").Row().Scan(&loanReceived)
-
-		items = append(items, FlowItem{Category: "financing", ItemName: "取得借款收到的现金", Amount: loanReceived})
-
-		var loanRepaid float64
-		db.Model(&models.VoucherItem{}).
-			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
-			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.account_code IN (?)",
-				bookID, "posted", period+"%",
-				db.Model(&models.Account{}).Select("code").Where("book_id = ? AND code IN (?)", bookID, []string{"2001", "2501"})).
-			Select("COALESCE(SUM(debit), 0)").Row().Scan(&loanRepaid)
-
-		items = append(items, FlowItem{Category: "financing", ItemName: "偿还债务支付的现金", Amount: -loanRepaid})
-
-		var financingTotal float64
-		for _, item := range items {
-			if item.Category == "financing" {
-				financingTotal += item.Amount
+		// Also include cash flow items with zero amount (so the report shows all items)
+		existingIDs := make(map[uint]bool)
+		for _, r := range results {
+			existingIDs[r.CashFlowID] = true
+		}
+		for _, item := range auxItems {
+			if existingIDs[item.ID] {
+				continue
 			}
+			cat := "operating"
+			var extra struct {
+				Category string `json:"category"`
+			}
+			json.Unmarshal([]byte(item.Extra), &extra)
+			if extra.Category != "" {
+				cat = extra.Category
+			}
+			flowItems = append(flowItems, FlowItem{
+				Category: cat,
+				ItemCode: item.Code,
+				ItemName: item.Name,
+				Amount:   0,
+			})
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"data": items,
+			"data": flowItems,
 			"summary": gin.H{
-				"operating_total": operatingTotal,
-				"investing_total": investingTotal,
-				"financing_total": financingTotal,
-				"cash_increase":   operatingTotal + investingTotal + financingTotal,
+				"operating_total":  categoryTotals["operating"],
+				"investing_total":  categoryTotals["investing"],
+				"financing_total":  categoryTotals["financing"],
+				"cash_increase":    categoryTotals["operating"] + categoryTotals["investing"] + categoryTotals["financing"],
 			},
 			"period": period,
 		})
 	}
 }
+
 
 // journal returns cash/bank journal entries
 func journal(db *gorm.DB) gin.HandlerFunc {

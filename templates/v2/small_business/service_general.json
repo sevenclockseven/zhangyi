@@ -11,21 +11,27 @@
       "name": "库存现金",
       "direction": "借",
       "level": 1,
-      "aux": []
+      "aux": [
+        "cash_flow"
+      ]
     },
     {
       "code": "1002",
       "name": "银行存款",
       "direction": "借",
       "level": 1,
-      "aux": []
+      "aux": [
+        "cash_flow"
+      ]
     },
     {
       "code": "1012",
       "name": "其他货币资金",
       "direction": "借",
       "level": 1,
-      "aux": []
+      "aux": [
+        "cash_flow"
+      ]
     },
     {
       "code": "1101",
