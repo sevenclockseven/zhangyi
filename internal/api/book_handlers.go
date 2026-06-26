@@ -1,26 +1,15 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
-	"regexp"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
 	"github.com/sevenclockseven/zhangyi/internal/models"
 	"github.com/sevenclockseven/zhangyi/internal/services"
+	"gorm.io/gorm"
 )
-
-
-// Template directory - can be overridden by env var
 
 func listBooks(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -66,12 +55,12 @@ func createBook(db *gorm.DB) gin.HandlerFunc {
 			TaxpayerType:       req.TaxpayerType,
 			AccountingStandard: req.AccountingStandard,
 			StartDate:          req.StartDate,
-			Currency:     "CNY",
-			Status:       "active",
-			Contact:      req.Contact,
-			Phone:        req.Phone,
-			Address:      req.Address,
-			Memo:         req.Memo,
+			Currency:           "CNY",
+			Status:             "active",
+			Contact:            req.Contact,
+			Phone:              req.Phone,
+			Address:            req.Address,
+			Memo:               req.Memo,
 		}
 
 		// Begin transaction
@@ -206,5 +195,3 @@ func deleteBook(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
 	}
 }
-
-// ===== Accounts =====

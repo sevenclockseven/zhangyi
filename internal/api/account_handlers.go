@@ -1,26 +1,15 @@
 package api
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"regexp"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
 	"github.com/sevenclockseven/zhangyi/internal/models"
 	"github.com/sevenclockseven/zhangyi/internal/services"
+	"gorm.io/gorm"
 )
-
-
-// Template directory - can be overridden by env var
 
 func listAccounts(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -215,8 +204,7 @@ func syncTemplate(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// ===== Vouchers =====
-
+// syncAllTemplates syncs all templates to all books
 func syncAllTemplates(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)

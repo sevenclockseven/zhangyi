@@ -3,33 +3,21 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"regexp"
-	"time"
-
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
+	"strings"
 
 	"github.com/sevenclockseven/zhangyi/internal/models"
-	"github.com/sevenclockseven/zhangyi/internal/services"
+	"gorm.io/gorm"
 )
 
-
 // Template directory - can be overridden by env var
-
 func templateDir() string {
 	if d := os.Getenv("TEMPLATE_DIR"); d != "" {
 		return d
 	}
 	return "templates"
 }
-
-// ===== Account Books =====
 
 func generateID(db *gorm.DB) uint {
 	var count int64
@@ -97,7 +85,6 @@ func buildAccountTree(accounts []models.Account, parentCode string) []AccountTre
 }
 
 // updateAccountBalances updates account balances when a voucher is posted
-
 func updateAccountBalances(db *gorm.DB, voucher *models.Voucher) error {
 	var items []models.VoucherItem
 	db.Where("voucher_id = ?", voucher.ID).Find(&items)
@@ -125,11 +112,11 @@ func updateAccountBalances(db *gorm.DB, voucher *models.Voucher) error {
 
 		// Update period amounts
 		db.Model(&balance).Updates(map[string]interface{}{
-			"period_debit":  gorm.Expr("period_debit + ?", item.Debit),
-			"period_credit": gorm.Expr("period_credit + ?", item.Credit),
-			"ytd_debit":     gorm.Expr("ytd_debit + ?", item.Debit),
-			"ytd_credit":    gorm.Expr("ytd_credit + ?", item.Credit),
-			"closing_debit": gorm.Expr("closing_debit + ?", item.Debit),
+			"period_debit":   gorm.Expr("period_debit + ?", item.Debit),
+			"period_credit":  gorm.Expr("period_credit + ?", item.Credit),
+			"ytd_debit":      gorm.Expr("ytd_debit + ?", item.Debit),
+			"ytd_credit":     gorm.Expr("ytd_credit + ?", item.Credit),
+			"closing_debit":  gorm.Expr("closing_debit + ?", item.Debit),
 			"closing_credit": gorm.Expr("closing_credit + ?", item.Credit),
 		})
 	}
@@ -138,7 +125,6 @@ func updateAccountBalances(db *gorm.DB, voucher *models.Voucher) error {
 }
 
 // reverseAccountBalances reverses account balances when a voucher is unposted
-
 func reverseAccountBalances(db *gorm.DB, voucher *models.Voucher) error {
 	var items []models.VoucherItem
 	db.Where("voucher_id = ?", voucher.ID).Find(&items)
@@ -166,9 +152,6 @@ func reverseAccountBalances(db *gorm.DB, voucher *models.Voucher) error {
 
 	return nil
 }
-// ===== Additional Phase 1 Handlers =====
-
-// voidVoucher marks a voucher as voided
 
 func parseExtra(extraStr string) map[string]string {
 	result := make(map[string]string)
@@ -214,10 +197,8 @@ func parseCSVLine(line string) []string {
 	fields = append(fields, strings.TrimSpace(current.String()))
 	return fields
 }
-// ===== Opening Balance Handlers =====
 
-// getOpeningBalances returns opening balances for all accounts in a book
-
+// evalFormula evaluates a report formula like JE('6602', '借') or QM('1002', '借')
 func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float64 {
 	// Parse formula: FUNC('code', 'direction')
 	formula = strings.TrimSpace(formula)
@@ -293,6 +274,3 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 
 	return 0
 }
-// ===== Template Version Management =====
-
-// getTemplateManifest returns the v2 template manifest

@@ -1,27 +1,19 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
 	"github.com/sevenclockseven/zhangyi/internal/models"
-	"github.com/sevenclockseven/zhangyi/internal/services"
+	"gorm.io/gorm"
 )
 
-
-// Template directory - can be overridden by env var
-
+// getOpeningBalances returns opening balances for all accounts in a book
 func getOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -53,13 +45,13 @@ func getOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 
 		// Build result
 		type BalanceRow struct {
-			AccountID    uint    `json:"account_id"`
-			AccountCode  string  `json:"account_code"`
-			AccountName  string  `json:"account_name"`
-			Direction    string  `json:"direction"`
-			Level        int     `json:"level"`
-			IsLeaf       bool    `json:"is_leaf"`
-			OpeningDebit float64 `json:"opening_debit"`
+			AccountID     uint    `json:"account_id"`
+			AccountCode   string  `json:"account_code"`
+			AccountName   string  `json:"account_name"`
+			Direction     string  `json:"direction"`
+			Level         int     `json:"level"`
+			IsLeaf        bool    `json:"is_leaf"`
+			OpeningDebit  float64 `json:"opening_debit"`
 			OpeningCredit float64 `json:"opening_credit"`
 		}
 
@@ -85,7 +77,6 @@ func getOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 }
 
 // saveOpeningBalances saves opening balances (batch)
-
 func saveOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -183,10 +174,8 @@ func saveOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "期初余额保存成功"})
 	}
 }
-// ===== Opening Balance Import/Export =====
 
 // exportOpeningBalances exports opening balances as CSV
-
 func exportOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -234,7 +223,6 @@ func exportOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 }
 
 // importOpeningBalances imports opening balances from CSV
-
 func importOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -362,6 +350,3 @@ func importOpeningBalances(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
-// ===== Enhanced Report Handlers =====
-
-// incomeStatementEnhanced generates proper income statement per tax bureau format

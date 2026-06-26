@@ -3,24 +3,17 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"regexp"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
 	"github.com/sevenclockseven/zhangyi/internal/models"
 	"github.com/sevenclockseven/zhangyi/internal/services"
+	"gorm.io/gorm"
 )
-
-
-// Template directory - can be overridden by env var
 
 func listVoucherTemplates(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -30,8 +23,6 @@ func listVoucherTemplates(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": templates})
 	}
 }
-
-// createVoucherTemplate creates a new template
 
 func createVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -59,8 +50,6 @@ func createVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// updateVoucherTemplate updates a template
-
 func updateVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tid := c.Param("tid")
@@ -79,15 +68,19 @@ func updateVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		updates := map[string]interface{}{}
-		if req.Name != "" { updates["name"] = req.Name }
-		if req.Category != "" { updates["category"] = req.Category }
-		if req.Items != "" { updates["items"] = req.Items }
+		if req.Name != "" {
+			updates["name"] = req.Name
+		}
+		if req.Category != "" {
+			updates["category"] = req.Category
+		}
+		if req.Items != "" {
+			updates["items"] = req.Items
+		}
 		db.Model(&tpl).Updates(updates)
 		c.JSON(http.StatusOK, gin.H{"data": tpl})
 	}
 }
-
-// deleteVoucherTemplate deletes a template
 
 func deleteVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -99,10 +92,8 @@ func deleteVoucherTemplate(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "已删除"})
 	}
 }
-// ===== Export Handlers =====
 
-// exportVouchers exports vouchers as CSV (Excel compatible)
-
+// getTemplateManifest returns the v2 template manifest
 func getTemplateManifest(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		manifest, err := services.GetManifest(templateDir())
@@ -115,7 +106,6 @@ func getTemplateManifest(db *gorm.DB) gin.HandlerFunc {
 }
 
 // templateVersions returns version info for all templates
-
 func templateVersions(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		dir := templateDir()
@@ -158,5 +148,3 @@ func templateVersions(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": templates})
 	}
 }
-
-// syncAllTemplates syncs all templates to all books

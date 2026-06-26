@@ -5,22 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
 	"github.com/sevenclockseven/zhangyi/internal/models"
-	"github.com/sevenclockseven/zhangyi/internal/services"
+	"gorm.io/gorm"
 )
-
-
-// Template directory - can be overridden by env var
 
 func listAuxItems(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -108,8 +100,7 @@ func deleteAuxItem(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// ===== Helpers =====
-
+// exportAuxItems exports all aux items of a type as CSV
 func exportAuxItems(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -198,7 +189,6 @@ func exportAuxItems(db *gorm.DB) gin.HandlerFunc {
 }
 
 // importAuxItems imports aux items from CSV
-
 func importAuxItems(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -254,30 +244,68 @@ func importAuxItems(db *gorm.DB) gin.HandlerFunc {
 			extra := make(map[string]string)
 			switch auxType {
 			case "customer", "supplier":
-				if len(fields) > 2 { extra["contact"] = fields[2] }
-				if len(fields) > 3 { extra["phone"] = fields[3] }
-				if len(fields) > 4 { extra["address"] = fields[4] }
-				if len(fields) > 5 { extra["memo"] = fields[5] }
+				if len(fields) > 2 {
+					extra["contact"] = fields[2]
+				}
+				if len(fields) > 3 {
+					extra["phone"] = fields[3]
+				}
+				if len(fields) > 4 {
+					extra["address"] = fields[4]
+				}
+				if len(fields) > 5 {
+					extra["memo"] = fields[5]
+				}
 			case "department":
-				if len(fields) > 2 { extra["parent"] = fields[2] }
+				if len(fields) > 2 {
+					extra["parent"] = fields[2]
+				}
 			case "project":
-				if len(fields) > 2 { extra["status"] = fields[2] }
-				if len(fields) > 3 { extra["start_date"] = fields[3] }
-				if len(fields) > 4 { extra["end_date"] = fields[4] }
-				if len(fields) > 5 { extra["memo"] = fields[5] }
+				if len(fields) > 2 {
+					extra["status"] = fields[2]
+				}
+				if len(fields) > 3 {
+					extra["start_date"] = fields[3]
+				}
+				if len(fields) > 4 {
+					extra["end_date"] = fields[4]
+				}
+				if len(fields) > 5 {
+					extra["memo"] = fields[5]
+				}
 			case "employee":
-				if len(fields) > 2 { extra["department"] = fields[2] }
-				if len(fields) > 3 { extra["phone"] = fields[3] }
-				if len(fields) > 4 { extra["memo"] = fields[4] }
+				if len(fields) > 2 {
+					extra["department"] = fields[2]
+				}
+				if len(fields) > 3 {
+					extra["phone"] = fields[3]
+				}
+				if len(fields) > 4 {
+					extra["memo"] = fields[4]
+				}
 			case "warehouse":
-				if len(fields) > 2 { extra["address"] = fields[2] }
-				if len(fields) > 3 { extra["memo"] = fields[3] }
+				if len(fields) > 2 {
+					extra["address"] = fields[2]
+				}
+				if len(fields) > 3 {
+					extra["memo"] = fields[3]
+				}
 			case "bank_account":
-				if len(fields) > 2 { extra["account_number"] = fields[2] }
-				if len(fields) > 3 { extra["bank_name"] = fields[3] }
-				if len(fields) > 4 { extra["account_holder"] = fields[4] }
-				if len(fields) > 5 { extra["address"] = fields[5] }
-				if len(fields) > 6 { extra["memo"] = fields[6] }
+				if len(fields) > 2 {
+					extra["account_number"] = fields[2]
+				}
+				if len(fields) > 3 {
+					extra["bank_name"] = fields[3]
+				}
+				if len(fields) > 4 {
+					extra["account_holder"] = fields[4]
+				}
+				if len(fields) > 5 {
+					extra["address"] = fields[5]
+				}
+				if len(fields) > 6 {
+					extra["memo"] = fields[6]
+				}
 			}
 
 			extraJSON, _ := json.Marshal(extra)
@@ -320,7 +348,6 @@ func importAuxItems(db *gorm.DB) gin.HandlerFunc {
 }
 
 // batchDeleteAuxItems batch deletes aux items
-
 func batchDeleteAuxItems(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -343,5 +370,3 @@ func batchDeleteAuxItems(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("已删除%d条", result.RowsAffected)})
 	}
 }
-
-// Helper functions

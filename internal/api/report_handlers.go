@@ -3,24 +3,15 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
 	"github.com/sevenclockseven/zhangyi/internal/models"
-	"github.com/sevenclockseven/zhangyi/internal/services"
+	"gorm.io/gorm"
 )
-
-
-// Template directory - can be overridden by env var
 
 func balanceSheet(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -83,10 +74,10 @@ func balanceSheet(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"period":     period,
-			"assets":     assets,
+			"period":      period,
+			"assets":      assets,
 			"liabilities": liabilities,
-			"equity":     equity,
+			"equity":      equity,
 		})
 	}
 }
@@ -190,8 +181,7 @@ func accountBalanceReport(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// ===== Aux Items =====
-
+// incomeStatementEnhanced generates proper income statement per tax bureau format
 func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -202,11 +192,11 @@ func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		type ReportRow struct {
-			Code  string  `json:"code"`
-			Name  string  `json:"name"`
+			Code   string  `json:"code"`
+			Name   string  `json:"name"`
 			Amount float64 `json:"amount"`
-			Level int     `json:"level"`
-			Bold  bool    `json:"bold"`
+			Level  int     `json:"level"`
+			Bold   bool    `json:"bold"`
 		}
 
 		getAmount := func(code string, direction string) float64 {
@@ -221,8 +211,8 @@ func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 			return total
 		}
 
-		revenue := getAmount("5001", "credit") + getAmount("5051", "credit")  // 营业收入 = 主营+其他
-		cost := getAmount("5401", "debit") + getAmount("5402", "debit")        // 营业成本
+		revenue := getAmount("5001", "credit") + getAmount("5051", "credit")   // 营业收入 = 主营+其他
+		cost := getAmount("5401", "debit") + getAmount("5402", "debit")         // 营业成本
 		tax := getAmount("5403", "debit")                                       // 税金及附加
 		sellExp := getAmount("5601", "debit")                                   // 销售费用
 		adminExp := getAmount("5602", "debit")                                  // 管理费用
@@ -257,7 +247,6 @@ func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 }
 
 // expenseReport generates expense statistics report
-
 func expenseReport(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -312,7 +301,6 @@ func expenseReport(db *gorm.DB) gin.HandlerFunc {
 }
 
 // generalLedgerReport generates general ledger report
-
 func generalLedgerReport(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -378,22 +366,21 @@ func generalLedgerReport(db *gorm.DB) gin.HandlerFunc {
 }
 
 // arApReport generates accounts receivable/payable statistics and aging analysis
-
 func arApReport(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 		reportType := c.DefaultQuery("type", "ar") // ar or ap
 
 		type AgingRow struct {
-			Code       string  `json:"code"`
-			Name       string  `json:"name"`
-			Total      float64 `json:"total"`
-			Current    float64 `json:"current"`     // 未到期
-			Month1     float64 `json:"month_1"`     // 1个月内
-			Month3     float64 `json:"month_3"`     // 1-3个月
-			Month6     float64 `json:"month_6"`     // 3-6个月
-			Month12    float64 `json:"month_12"`    // 6-12个月
-			Over1Year  float64 `json:"over_1_year"` // 1年以上
+			Code      string  `json:"code"`
+			Name      string  `json:"name"`
+			Total     float64 `json:"total"`
+			Current   float64 `json:"current"`     // 未到期
+			Month1    float64 `json:"month_1"`     // 1个月内
+			Month3    float64 `json:"month_3"`     // 1-3个月
+			Month6    float64 `json:"month_6"`     // 3-6个月
+			Month12   float64 `json:"month_12"`    // 6-12个月
+			Over1Year float64 `json:"over_1_year"` // 1年以上
 		}
 
 		// Get account codes based on type
@@ -465,10 +452,8 @@ func arApReport(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": rows, "type": reportType})
 	}
 }
-// ===== Voucher Template Handlers =====
 
-// listVoucherTemplates returns all templates for a book
-
+// cashFlowStatement generates cash flow statement
 func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -484,9 +469,9 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 
 		// Get all cash/bank account movements
 		type FlowItem struct {
-			Category    string  `json:"category"`    // operating/investing/financing
-			ItemName    string  `json:"item_name"`
-			Amount      float64 `json:"amount"`
+			Category string  `json:"category"` // operating/investing/financing
+			ItemName string  `json:"item_name"`
+			Amount   float64 `json:"amount"`
 		}
 
 		var items []FlowItem
@@ -591,22 +576,17 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"data": items,
 			"summary": gin.H{
-				"operating_total":  operatingTotal,
-				"investing_total":  investingTotal,
-				"financing_total":  financingTotal,
-				"cash_increase":    operatingTotal + investingTotal + financingTotal,
+				"operating_total": operatingTotal,
+				"investing_total": investingTotal,
+				"financing_total": financingTotal,
+				"cash_increase":   operatingTotal + investingTotal + financingTotal,
 			},
 			"period": period,
 		})
 	}
 }
-// ===== Additional Phase 1 Handlers =====
 
-// voidVoucher marks a voucher as voided
-// ===== Auxiliary Import/Export Handlers =====
-
-// exportAuxItems exports all aux items of a type as CSV
-
+// journal returns cash/bank journal entries
 func journal(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -703,7 +683,6 @@ func journal(db *gorm.DB) gin.HandlerFunc {
 }
 
 // multiColumnLedger returns multi-column ledger for expense accounts
-
 func multiColumnLedger(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -735,8 +714,8 @@ func multiColumnLedger(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		type MultiColumnRow struct {
-			Period string        `json:"period"`
-			Total  ColumnData    `json:"total"`
+			Period  string       `json:"period"`
+			Total   ColumnData   `json:"total"`
 			Columns []ColumnData `json:"columns"`
 		}
 
@@ -790,8 +769,7 @@ func multiColumnLedger(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// cashFlowStatement generates cash flow statement
-
+// customReport generates a custom report based on a template
 func customReport(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -847,8 +825,7 @@ func customReport(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// listReportTemplates returns all report templates
-
+// exportReport exports current report data as CSV
 func exportReport(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -873,9 +850,12 @@ func exportReport(db *gorm.DB) gin.HandlerFunc {
 					category := "其他"
 					code := acct.Code[:1]
 					switch code {
-					case "1": category = "资产"
-					case "2": category = "负债"
-					case "3": category = "所有者权益"
+					case "1":
+						category = "资产"
+					case "2":
+						category = "负债"
+					case "3":
+						category = "所有者权益"
 					}
 					buf.WriteString(fmt.Sprintf("%s,%s,%s,%.2f\n", category, acct.Code, acct.Name, total))
 				}
@@ -923,9 +903,6 @@ func exportReport(db *gorm.DB) gin.HandlerFunc {
 		c.String(http.StatusOK, buf.String())
 	}
 }
-// ===== Custom Report Engine =====
-
-// customReport generates a custom report based on a template
 
 func listReportTemplates(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -935,8 +912,6 @@ func listReportTemplates(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": templates})
 	}
 }
-
-// createReportTemplate creates a new report template
 
 func createReportTemplate(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -963,8 +938,6 @@ func createReportTemplate(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, gin.H{"data": tpl})
 	}
 }
-
-// deleteReportTemplate deletes a report template
 
 func updateReportTemplate(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -995,8 +968,6 @@ func updateReportTemplate(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": tpl})
 	}
 }
-
-// evalFormula evaluates a report formula like JE('6602', '借') or QM('1002', '借')
 
 func deleteReportTemplate(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

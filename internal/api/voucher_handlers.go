@@ -1,26 +1,16 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
 	"github.com/sevenclockseven/zhangyi/internal/models"
-	"github.com/sevenclockseven/zhangyi/internal/services"
+	"gorm.io/gorm"
 )
-
-
-// Template directory - can be overridden by env var
 
 func listVouchers(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -316,8 +306,8 @@ func unreviewVoucher(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		db.Model(&voucher).Updates(map[string]interface{}{
-			"status":       "draft",
-			"reviewed_by":  "",
+			"status":      "draft",
+			"reviewed_by": "",
 		})
 		c.JSON(http.StatusOK, gin.H{"message": "反审核成功"})
 	}
@@ -427,8 +417,7 @@ func batchPost(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// ===== Reports =====
-
+// voidVoucher marks a voucher as voided
 func voidVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -460,7 +449,6 @@ func voidVoucher(db *gorm.DB) gin.HandlerFunc {
 }
 
 // restoreVoucher restores a voided voucher to draft
-
 func restoreVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -486,8 +474,7 @@ func restoreVoucher(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// journal returns cash/bank journal entries
-
+// exportVouchers exports vouchers as CSV (Excel compatible)
 func exportVouchers(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -522,5 +509,3 @@ func exportVouchers(db *gorm.DB) gin.HandlerFunc {
 		c.String(http.StatusOK, buf.String())
 	}
 }
-
-// exportReport exports current report data as CSV
