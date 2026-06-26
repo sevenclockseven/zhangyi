@@ -167,9 +167,10 @@
 - [x] 修复期初余额/期末处理/系统设置/账簿页面缺少useBookStore import导致白屏
 - [x] 所有页面loadBooks函数添加自动加载数据
 
-### v0.6.8: 导出未登录修复 🔄
-- [ ] auth中间件支持query token（window.open不带header）
-- [ ] 期初余额/凭证/辅助核算导出统一修复
+### v0.6.8: 导出未登录修复 ✅
+- [x] auth中间件支持query token（window.open不带header）
+- [x] 期初余额/凭证/辅助核算导出统一修复
+- [x] Dockerfile Alpine镜像源改为阿里云
 
 ---
 
@@ -200,3 +201,4 @@
 - **v0.6.5** (2026-06-26): 账套路由跳转
 - **v0.6.6** (2026-06-26): 全局账套选择器重构+期初余额/期末处理修复
 - **v0.6.7** (2026-06-26): 修复页面白屏（缺少useBookStore import）+ 自动加载数据
+- **v0.6.8** (2026-06-26): 修复window.open导出未登录（auth中间件支持query token）+ Dockerfile阿里云镜像
