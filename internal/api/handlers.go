@@ -232,7 +232,35 @@ func listAccounts(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		query.Order("code").Find(&accounts)
-		c.JSON(http.StatusOK, gin.H{"data": accounts})
+
+		// Load all aux items for this book, grouped by type
+		var auxItems []models.AuxItem
+		db.Where("book_id = ? AND is_active = ?", bookID, true).Find(&auxItems)
+		auxByType := make(map[string][]models.AuxItem)
+		for _, item := range auxItems {
+			auxByType[item.Type] = append(auxByType[item.Type], item)
+		}
+
+		// Build response with aux_options
+		type AccountResp struct {
+			models.Account
+			AuxOptions map[string][]models.AuxItem `json:"aux_options"`
+		}
+		var resp []AccountResp
+		for _, acct := range accounts {
+			opts := map[string][]models.AuxItem{}
+			if acct.AuxTypes != "" {
+				for _, t := range strings.Split(acct.AuxTypes, ",") {
+					t = strings.TrimSpace(t)
+					if t != "" {
+						opts[t] = auxByType[t]
+					}
+				}
+			}
+			resp = append(resp, AccountResp{Account: acct, AuxOptions: opts})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": resp})
 	}
 }
 

@@ -263,7 +263,7 @@ const vouchers = ref([])
 const accounts = ref([])
 const selectedVouchers = ref([])
 
-// Auxiliary items cache: { customer: [...], supplier: [...], ... }
+// Auxiliary items cache: populated from accounts' aux_options
 const auxItemsCache = ref({})
 
 // Auxiliary type mapping
@@ -311,22 +311,19 @@ const getAccountAuxTypes = (accountId) => {
   return acct.aux_types.split(',').filter(Boolean)
 }
 
-// Get auxiliary items for a type
+// Get auxiliary items for a type (from account's aux_options)
 const getAuxItems = (type) => {
   return auxItemsCache.value[type] || []
 }
 
-// Load all auxiliary items for the current book
-const loadAuxItems = async () => {
-  if (!currentBook.value) return
-  const types = ['customer', 'supplier', 'department', 'project', 'employee', 'warehouse', 'bank_account']
+// Build aux items cache from accounts' aux_options (loaded by backend)
+const buildAuxCache = () => {
   const cache = {}
-  for (const type of types) {
-    try {
-      const { data } = await axios.get(`/api/books/${currentBook.value}/aux/${type}`)
-      cache[type] = (data.data || []).filter(i => i.is_active !== false)
-    } catch {
-      cache[type] = []
+  for (const acct of accounts.value) {
+    if (acct.aux_options) {
+      for (const [type, items] of Object.entries(acct.aux_options)) {
+        if (!cache[type]) cache[type] = items || []
+      }
     }
   }
   auxItemsCache.value = cache
@@ -354,6 +351,7 @@ const loadAccounts = async () => {
   try {
     const { data } = await axios.get(`/api/books/${currentBook.value}/accounts`)
     accounts.value = data.data || []
+    buildAuxCache()
   } catch (e) { console.error(e) }
 }
 
@@ -651,7 +649,6 @@ watch(currentBook, () => {
   loadVouchers()
   loadAccounts()
   loadTemplates()
-  loadAuxItems()
 })
 
 onMounted(() => {
@@ -659,7 +656,6 @@ onMounted(() => {
     loadVouchers()
     loadAccounts()
     loadTemplates()
-    loadAuxItems()
   }
 })
 </script>
