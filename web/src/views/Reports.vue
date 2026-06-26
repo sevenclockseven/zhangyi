@@ -373,8 +373,18 @@ const exportReport = async (format) => {
   }
 }
 
+const getReportTables = () => {
+  if (activeTab.value === 'custom' && crResult.value) {
+    // Custom report: only get the result table (inside the last el-card)
+    const cards = document.querySelectorAll('.el-tabs__content .el-card')
+    const lastCard = cards[cards.length - 1]
+    return lastCard ? lastCard.querySelectorAll('.el-table__body-wrapper table') : []
+  }
+  return document.querySelectorAll('.el-tabs__content .el-table__body-wrapper table')
+}
+
 const exportCSV = () => {
-  const tables = document.querySelectorAll('.el-table__body-wrapper table')
+  const tables = getReportTables()
   if (!tables.length) { ElMessage.warning('无数据可导出'); return }
   let csv = '\uFEFF' // BOM for Excel
   tables.forEach((table, ti) => {
@@ -404,19 +414,27 @@ const exportCSV = () => {
 }
 
 const printReport = () => {
-  // Get the currently visible report card content
-  const activePane = document.querySelector('.el-tabs__content')
-  if (!activePane) { ElMessage.warning('无数据可打印'); return }
-  // Clone to avoid modifying original
-  const clone = activePane.cloneNode(true)
-  // Remove buttons, dropdowns, date pickers and other UI elements
-  clone.querySelectorAll('button, .el-dropdown, .el-date-picker, .el-date-editor, .el-input, .el-select, .no-print').forEach(el => el.remove())
-  // Remove empty divs that were holding buttons
-  clone.querySelectorAll('div').forEach(div => {
-    if (div.children.length === 0 && div.textContent.trim() === '') div.remove()
-  })
+  let printHTML = ''
+  if (activeTab.value === 'custom' && crResult.value) {
+    // Custom report: only print title + result table
+    const resultCard = document.querySelector('.el-tabs__content .el-card:last-child')
+    if (!resultCard) { ElMessage.warning('无数据可打印'); return }
+    const clone = resultCard.cloneNode(true)
+    clone.querySelectorAll('button').forEach(el => el.remove())
+    printHTML = `<h2>${crResult.value.name || '自定义报表'}</h2><p style="text-align:center;color:#909399;margin-bottom:12px">期间：${crResult.value.period || ''}</p>` + clone.innerHTML
+  } else {
+    // Standard report: get visible report section
+    const activePane = document.querySelector('.el-tabs__content')
+    if (!activePane) { ElMessage.warning('无数据可打印'); return }
+    const clone = activePane.cloneNode(true)
+    clone.querySelectorAll('button, .el-dropdown, .el-date-picker, .el-date-editor, .el-input, .el-select, .no-print').forEach(el => el.remove())
+    clone.querySelectorAll('div').forEach(div => {
+      if (div.children.length === 0 && div.textContent.trim() === '') div.remove()
+    })
+    printHTML = clone.innerHTML
+  }
   const printWin = window.open('', '_blank')
-  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>报表打印</title>
+  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${activeTab.value === 'custom' ? crResult.value?.name || '自定义报表' : '报表打印'}</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: 'Microsoft YaHei', 'SimSun', sans-serif; padding: 15mm; color: #333; }
@@ -433,14 +451,14 @@ const printReport = () => {
         body { padding: 10mm; }
         @page { margin: 10mm; }
       }
-    </style></head><body>${clone.innerHTML}</body></html>`)
+    </style></head><body>${printHTML}</body></html>`)
   printWin.document.close()
   printWin.focus()
   setTimeout(() => { printWin.print(); printWin.close(); }, 300)
 }
 
 const exportExcel = () => {
-  const tables = document.querySelectorAll('.el-table__body-wrapper table')
+  const tables = getReportTables()
   if (!tables.length) { ElMessage.warning('无数据可导出'); return }
   let tableHTML = ''
   tables.forEach(t => { tableHTML += t.outerHTML + '<br>' })
