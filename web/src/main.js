@@ -20,9 +20,13 @@ axios.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401) {
+      // 避免在登录页死循环跳转
+      const currentPath = window.location.pathname
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      if (currentPath !== '/login') {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

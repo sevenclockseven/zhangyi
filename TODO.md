@@ -191,7 +191,8 @@
 ### v0.7.0: 代码架构优化 ✅
 - [x] 拆分 handlers.go（2963行70函数 → 8个文件）
 - [x] 前端抽 API 层（axios 硬编码 → api 模块）
-- [x] Element Plus 按需引入（1.2MB → 446KB，-63%）
+- [x] Element Plus 按需引入（1.2MB → 442KB，-63%）
+- [x] 修复401死循环跳转bug（登录页loadBooks触发401→跳转登录→再次触发）
 
 ---
 
