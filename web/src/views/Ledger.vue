@@ -74,7 +74,7 @@ const accounts = ref([])
 const loadBooks = async () => {
   const { data } = await axios.get('/api/books')
   books.value = data.data || []
-  if (books.value.length > 0) currentBook.value = books.value[0].id
+  if (books.value.length > 0) { currentBook.value = books.value[0].id; await loadData() }
 }
 
 const loadData = async () => {

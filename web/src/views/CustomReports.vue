@@ -113,7 +113,7 @@ const form = ref({ name: '', rows: [{ label: '', formula: '', level: 1, bold: fa
 const loadBooks = async () => {
   const { data } = await axios.get('/api/books')
   books.value = data.data || []
-  if (books.value.length > 0) currentBook.value = books.value[0].id
+  if (books.value.length > 0) { currentBook.value = books.value[0].id; await loadTemplates() }
 }
 
 const loadTemplates = async () => {

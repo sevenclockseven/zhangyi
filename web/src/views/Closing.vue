@@ -81,7 +81,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -105,7 +105,10 @@ const currentStep = computed(() => {
 const loadBooks = async () => {
   const { data } = await axios.get('/api/books')
   books.value = data.data || []
-  if (books.value.length > 0) currentBook.value = books.value[0].id
+  if (books.value.length > 0) {
+    currentBook.value = books.value[0].id
+    await loadStatus()
+  }
 }
 
 const loadStatus = async () => {
@@ -166,9 +169,6 @@ const doUnclose = async () => {
 
 onMounted(() => {
   loadBooks()
-  watch(currentBook, (newVal) => {
-    if (newVal) loadStatus()
-  })
   window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
 })
 </script>

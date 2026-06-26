@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
@@ -89,7 +89,10 @@ const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.ge
 const loadBooks = async () => {
   const { data } = await axios.get('/api/books')
   books.value = data.data || []
-  if (books.value.length > 0) currentBook.value = books.value[0].id
+  if (books.value.length > 0) {
+    currentBook.value = books.value[0].id
+    await loadData()
+  }
 }
 
 const loadData = async () => {
