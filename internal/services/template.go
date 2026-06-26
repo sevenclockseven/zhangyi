@@ -330,3 +330,71 @@ func GetManifest(dir string) (*Manifest, error) {
 	}
 	return &manifest, nil
 }
+
+// ReportTemplateDef represents a predefined report template
+type ReportTemplateDef struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Taxpayer    string `json:"taxpayer"`
+	Industry    string `json:"industry"`
+	Rows        []struct {
+		Label string  `json:"label"`
+		Level int     `json:"level"`
+		Bold  bool    `json:"bold"`
+		Formula string `json:"formula"`
+	} `json:"rows"`
+}
+
+// ReportTemplatesFile represents the report_templates.json file
+type ReportTemplatesFile struct {
+	Version   string                       `json:"version"`
+	Templates map[string]ReportTemplateDef `json:"templates"`
+}
+
+// LoadReportTemplates loads report templates applicable to the given taxpayer type and industry
+func LoadReportTemplates(dir, taxpayerType, industry string) ([]ReportTemplateDef, error) {
+	tplPath := filepath.Join(dir, "v2", "report_templates.json")
+	data, err := os.ReadFile(tplPath)
+	if err != nil {
+		return nil, err
+	}
+	var file ReportTemplatesFile
+	if err := json.Unmarshal(data, &file); err != nil {
+		return nil, err
+	}
+
+	var result []ReportTemplateDef
+	for _, tpl := range file.Templates {
+		// Include if: no filter specified, or matches taxpayer/industry
+		include := true
+		if tpl.Taxpayer != "" && tpl.Taxpayer != taxpayerType {
+			include = false
+		}
+		if tpl.Industry != "" && tpl.Industry != industry {
+			include = false
+		}
+		if include {
+			result = append(result, tpl)
+		}
+	}
+	return result, nil
+}
+
+// ApplyReportTemplates creates ReportTemplate records for a book
+func ApplyReportTemplates(db *gorm.DB, bookID uint, dir, taxpayerType, industry string) error {
+	templates, err := LoadReportTemplates(dir, taxpayerType, industry)
+	if err != nil {
+		return err // non-fatal, report templates are optional
+	}
+	for _, tpl := range templates {
+		configBytes, _ := json.Marshal(map[string]interface{}{"rows": tpl.Rows})
+		rt := models.ReportTemplate{
+			BookID: &bookID,
+			Name:   tpl.Name,
+			Type:   "custom",
+			Config: string(configBytes),
+		}
+		db.Create(&rt)
+	}
+	return nil
+}

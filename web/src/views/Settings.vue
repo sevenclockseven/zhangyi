@@ -144,10 +144,30 @@
       </el-tab-pane>
 
       <el-tab-pane label="科目模板" name="templates">
+        <el-card shadow="never" v-if="v2Manifest" style="margin-bottom: 12px">
+          <template #header><strong>v2 行业模板体系</strong></template>
+          <el-descriptions :column="isMobile ? 1 : 3" border size="small">
+            <el-descriptions-item label="版本">{{ v2Manifest.version }}</el-descriptions-item>
+            <el-descriptions-item label="会计准则">{{ Object.values(v2Manifest.standards || {}).map(s => s.name).join('、') }}</el-descriptions-item>
+            <el-descriptions-item label="模板总数">{{ v2Manifest.templates?.length || 0 }} 个</el-descriptions-item>
+          </el-descriptions>
+          <el-table :data="v2Manifest.templates || []" border size="small" style="margin-top: 12px" max-height="400">
+            <el-table-column prop="id" label="模板ID" min-width="220" />
+            <el-table-column label="准则" width="120">
+              <template #default="{ row }">{{ v2Manifest.standards?.[row.standard]?.name || row.standard }}</template>
+            </el-table-column>
+            <el-table-column label="行业" width="100">
+              <template #default="{ row }">{{ v2Manifest.industries?.[row.industry]?.name || row.industry }}</template>
+            </el-table-column>
+            <el-table-column label="纳税人" width="100">
+              <template #default="{ row }">{{ v2Manifest.taxpayer_types?.[row.taxpayer]?.name || row.taxpayer }}</template>
+            </el-table-column>
+          </el-table>
+        </el-card>
         <el-card shadow="never">
           <template #header>
             <div style="display: flex; justify-content: space-between; align-items: center">
-              <span>已安装模板</span>
+              <span>旧版模板（兼容）</span>
               <el-button size="small" type="primary" @click="syncAllTemplates" :loading="syncing">
                 <el-icon><Refresh /></el-icon>同步模板到账套
               </el-button>
@@ -479,6 +499,7 @@ const resetMenu = () => {
 
 // Template versions
 const templateVersions = ref([])
+const v2Manifest = ref(null)
 const syncing = ref(false)
 
 const loadTemplateVersions = async () => {
@@ -486,6 +507,10 @@ const loadTemplateVersions = async () => {
     const { data } = await axios.get('/api/templates/versions')
     templateVersions.value = data.data || []
   } catch (e) { console.error(e) }
+  try {
+    const { data } = await axios.get('/api/templates/manifest')
+    v2Manifest.value = data
+  } catch (e) { /* v2 not available */ }
 }
 
 const syncAllTemplates = async () => {

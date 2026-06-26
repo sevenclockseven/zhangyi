@@ -1,0 +1,136 @@
+{
+  "version": "2026.1",
+  "templates": {
+    "vat_general": {
+      "name": "增值税纳税申报表（一般纳税人）",
+      "description": "适用于增值税一般纳税人的月度申报",
+      "taxpayer": "general",
+      "rows": [
+        {"label": "一、销售额", "level": 1, "bold": true, "formula": ""},
+        {"label": "  按适用税率计税销售额", "level": 2, "bold": false, "formula": "JE('5001','贷') + JE('5051','贷')"},
+        {"label": "  其中：应税货物销售额", "level": 2, "bold": false, "formula": "JE('5001','贷')"},
+        {"label": "  应税劳务销售额", "level": 2, "bold": false, "formula": "JE('5051','贷')"},
+        {"label": "二、销项税额", "level": 1, "bold": true, "formula": "JE('2221.01.02','贷')"},
+        {"label": "三、进项税额", "level": 1, "bold": true, "formula": "JE('2221.01.01','借')"},
+        {"label": "  其中：认证相符的增值税专用发票", "level": 2, "bold": false, "formula": "JE('2221.01.01','借')"},
+        {"label": "四、进项税额转出", "level": 1, "bold": true, "formula": "JE('2221.01.03','贷')"},
+        {"label": "五、应抵扣税额合计", "level": 1, "bold": true, "formula": "JE('2221.01.01','借') - JE('2221.01.03','贷')"},
+        {"label": "六、实际抵扣税额", "level": 1, "bold": true, "formula": "JE('2221.01.01','借') - JE('2221.01.03','贷')"},
+        {"label": "七、应纳税额", "level": 1, "bold": true, "formula": "JE('2221.01.02','贷') - JE('2221.01.01','借') + JE('2221.01.03','贷')"},
+        {"label": "八、期末留抵税额", "level": 1, "bold": true, "formula": "QM('2221.06','借')"},
+        {"label": "九、应纳税额合计", "level": 1, "bold": true, "formula": "JE('2221.02','贷')"}
+      ]
+    },
+    "vat_small": {
+      "name": "增值税纳税申报表（小规模纳税人）",
+      "description": "适用于增值税小规模纳税人的季度申报",
+      "taxpayer": "small",
+      "rows": [
+        {"label": "一、应征增值税不含税销售额", "level": 1, "bold": true, "formula": ""},
+        {"label": "  货物及劳务", "level": 2, "bold": false, "formula": "JE('5001','贷') + JE('5051','贷')"},
+        {"label": "二、本期应纳税额", "level": 1, "bold": true, "formula": "JE('2221.01','贷')"},
+        {"label": "三、本期应纳税额减征额", "level": 1, "bold": true, "formula": ""},
+        {"label": "四、本期应纳税额合计", "level": 1, "bold": true, "formula": "JE('2221.01','贷')"}
+      ]
+    },
+    "vat_detail_general": {
+      "name": "增值税进项/销项明细表",
+      "description": "一般纳税人增值税明细",
+      "taxpayer": "general",
+      "rows": [
+        {"label": "一、销项税额明细", "level": 1, "bold": true, "formula": ""},
+        {"label": "  17%税率销项", "level": 2, "bold": false, "formula": "JE('2221.01.02','贷')"},
+        {"label": "  销项税额合计", "level": 2, "bold": true, "formula": "JE('2221.01.02','贷')"},
+        {"label": "二、进项税额明细", "level": 1, "bold": true, "formula": ""},
+        {"label": "  增值税专用发票", "level": 2, "bold": false, "formula": "JE('2221.01.01','借')"},
+        {"label": "  进项税额合计", "level": 2, "bold": true, "formula": "JE('2221.01.01','借')"},
+        {"label": "三、进项税额转出明细", "level": 1, "bold": true, "formula": ""},
+        {"label": "  进项税额转出合计", "level": 2, "bold": true, "formula": "JE('2221.01.03','贷')"},
+        {"label": "四、应纳增值税", "level": 1, "bold": true, "formula": "JE('2221.01.02','贷') - JE('2221.01.01','借') + JE('2221.01.03','贷')"}
+      ]
+    },
+    "cost_manufacturing": {
+      "name": "生产成本明细表",
+      "description": "制造业成本分析报表",
+      "industry": "manufacturing",
+      "rows": [
+        {"label": "一、直接材料", "level": 1, "bold": true, "formula": "JE('4001.01','借')"},
+        {"label": "二、直接人工", "level": 1, "bold": true, "formula": "JE('4001.02','借')"},
+        {"label": "三、制造费用", "level": 1, "bold": true, "formula": "JE('4001.03','借')"},
+        {"label": "  折旧费", "level": 2, "bold": false, "formula": "JE('4101.01','借')"},
+        {"label": "  修理费", "level": 2, "bold": false, "formula": "JE('4101.02','借')"},
+        {"label": "  水电费", "level": 2, "bold": false, "formula": "JE('4101.03','借')"},
+        {"label": "  机物料消耗", "level": 2, "bold": false, "formula": "JE('4101.04','借')"},
+        {"label": "  职工薪酬", "level": 2, "bold": false, "formula": "JE('4101.05','借')"},
+        {"label": "  其他", "level": 2, "bold": false, "formula": "JE('4101.06','借')"},
+        {"label": "四、生产成本合计", "level": 1, "bold": true, "formula": "JE('4001','借')"}
+      ]
+    },
+    "cost_construction": {
+      "name": "工程成本明细表",
+      "description": "建筑业工程成本分析",
+      "industry": "construction",
+      "rows": [
+        {"label": "一、合同成本", "level": 1, "bold": true, "formula": "JE('4401.01','借')"},
+        {"label": "二、间接费用", "level": 1, "bold": true, "formula": "JE('4401.02','借')"},
+        {"label": "三、机械作业", "level": 1, "bold": true, "formula": "JE('4403','借')"},
+        {"label": "四、工程施工合计", "level": 1, "bold": true, "formula": "JE('4401','借')"}
+      ]
+    },
+    "cost_real_estate": {
+      "name": "开发成本明细表",
+      "description": "房地产业开发成本分析",
+      "industry": "real_estate",
+      "rows": [
+        {"label": "一、土地征用及拆迁补偿费", "level": 1, "bold": true, "formula": "JE('1401.01','借')"},
+        {"label": "二、前期工程费", "level": 1, "bold": true, "formula": "JE('1401.02','借')"},
+        {"label": "三、建筑安装工程费", "level": 1, "bold": true, "formula": "JE('1401.03','借')"},
+        {"label": "四、基础设施建设费", "level": 1, "bold": true, "formula": "JE('1401.04','借')"},
+        {"label": "五、公共配套设施费", "level": 1, "bold": true, "formula": "JE('1401.05','借')"},
+        {"label": "六、开发间接费", "level": 1, "bold": true, "formula": "JE('1401.06','借')"},
+        {"label": "七、开发成本合计", "level": 1, "bold": true, "formula": "JE('1401','借')"}
+      ]
+    },
+    "cost_transport": {
+      "name": "运输成本明细表",
+      "description": "运输业成本分析",
+      "industry": "transport",
+      "rows": [
+        {"label": "一、燃油费", "level": 1, "bold": true, "formula": "JE('4001.01','借')"},
+        {"label": "二、折旧费", "level": 1, "bold": true, "formula": "JE('4001.02','借')"},
+        {"label": "三、人工费", "level": 1, "bold": true, "formula": "JE('4001.03','借')"},
+        {"label": "四、维修费", "level": 1, "bold": true, "formula": "JE('4001.04','借')"},
+        {"label": "五、运输成本合计", "level": 1, "bold": true, "formula": "JE('4001','借')"}
+      ]
+    },
+    "cost_agriculture": {
+      "name": "农业生产成本明细表",
+      "description": "农业成本分析",
+      "industry": "agriculture",
+      "rows": [
+        {"label": "一、种子", "level": 1, "bold": true, "formula": "JE('1403.01','借')"},
+        {"label": "二、饲料", "level": 1, "bold": true, "formula": "JE('1403.02','借')"},
+        {"label": "三、化肥", "level": 1, "bold": true, "formula": "JE('1403.03','借')"},
+        {"label": "四、农药", "level": 1, "bold": true, "formula": "JE('1403.04','借')"},
+        {"label": "五、人工费", "level": 1, "bold": true, "formula": "JE('4001.02','借')"},
+        {"label": "六、农业生产成本合计", "level": 1, "bold": true, "formula": "JE('4001','借')"}
+      ]
+    },
+    "land_vat": {
+      "name": "土地增值税计算表",
+      "description": "房地产业土地增值税",
+      "industry": "real_estate",
+      "rows": [
+        {"label": "一、转让房地产收入", "level": 1, "bold": true, "formula": "JE('5001','贷')"},
+        {"label": "二、扣除项目金额", "level": 1, "bold": true, "formula": ""},
+        {"label": "  取得土地使用权所支付的金额", "level": 2, "bold": false, "formula": "JE('1401.01','借')"},
+        {"label": "  房地产开发成本", "level": 2, "bold": false, "formula": "JE('1401','借') - JE('1401.01','借')"},
+        {"label": "  房地产开发费用", "level": 2, "bold": false, "formula": "JE('5601','借') + JE('5602','借') + JE('5603','借')"},
+        {"label": "  与转让房地产有关的税金", "level": 2, "bold": false, "formula": "JE('5403','借')"},
+        {"label": "三、增值额", "level": 1, "bold": true, "formula": ""},
+        {"label": "四、增值额与扣除项目金额之比", "level": 1, "bold": true, "formula": ""},
+        {"label": "五、应缴土地增值税", "level": 1, "bold": true, "formula": "JE('2221.21','贷')"}
+      ]
+    }
+  }
+}

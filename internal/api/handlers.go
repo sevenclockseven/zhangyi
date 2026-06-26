@@ -98,6 +98,13 @@ func createBook(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Load and apply report templates
+		industry := ""
+		if len(req.Industry) > 0 {
+			industry = req.Industry[0]
+		}
+		services.ApplyReportTemplates(tx, book.ID, templateDir(), req.TaxpayerType, industry)
+
 		tx.Commit()
 
 		c.JSON(http.StatusCreated, gin.H{"data": book})
