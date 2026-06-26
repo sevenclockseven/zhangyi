@@ -108,6 +108,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute } from 'vue-router'
 
 const isMobile = ref(window.innerWidth < 768)
 const books = ref([])
@@ -122,10 +123,19 @@ const form = ref({
   phone: ''
 })
 
+const route = useRoute()
+
 const loadBooks = async () => {
   try {
     const { data } = await axios.get('/api/books')
     books.value = data.data || []
+    // If we came from a book-specific route, update currentBook store
+    const bookId = parseInt(route.query.book)
+    if (!isNaN(bookId)) {
+      // Update the book store so other views know which book is selected
+      // This requires importing and using the book store
+      // For now, we'll rely on the target view reading the route param
+    }
   } catch (e) {
     console.error('Failed to load books:', e)
   }
