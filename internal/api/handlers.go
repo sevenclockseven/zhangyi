@@ -1056,22 +1056,38 @@ func generateID(db *gorm.DB) uint {
 }
 
 func generateVoucherNumber(db *gorm.DB, bookID uint, date string) string {
-	// Format: 记-YYYYMM-001
+	// Format: 记-YYYY-MM-001
 	parts := strings.Split(date, "-")
 	period := parts[0] + "-" + parts[1] // e.g. "2026-06"
+	// Also match old format without hyphen: 记-YYYYMM-001
+	oldPeriod := parts[0] + parts[1] // e.g. "202606"
 
-	var maxNumber string
+	// Get max number from both formats
+	var maxNew, maxOld string
 	db.Model(&models.Voucher{}).
 		Where("book_id = ? AND number LIKE ?", bookID, "记-"+period+"-%").
 		Select("COALESCE(MAX(number), '')").
-		Row().Scan(&maxNumber)
+		Row().Scan(&maxNew)
+	db.Model(&models.Voucher{}).
+		Where("book_id = ? AND number LIKE ?", bookID, "记-"+oldPeriod+"-%").
+		Select("COALESCE(MAX(number), '')").
+		Row().Scan(&maxOld)
 
-	// Extract sequence number from max
+	// Use the higher sequence
 	maxSeq := 0
-	if maxNumber != "" {
-		lastParts := strings.Split(maxNumber, "-")
-		if len(lastParts) == 3 {
-			fmt.Sscanf(lastParts[2], "%d", &maxSeq)
+	for _, num := range []string{maxNew, maxOld} {
+		if num == "" {
+			continue
+		}
+		// Extract last segment after final hyphen
+		idx := strings.LastIndex(num, "-")
+		if idx < 0 {
+			continue
+		}
+		seq := 0
+		fmt.Sscanf(num[idx+1:], "%d", &seq)
+		if seq > maxSeq {
+			maxSeq = seq
 		}
 	}
 
