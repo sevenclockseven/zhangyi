@@ -59,6 +59,9 @@ func createVoucher(db *gorm.DB) gin.HandlerFunc {
 				AuxEmployee  *uint   `json:"aux_employee_id"`
 				AuxWarehouse *uint   `json:"aux_warehouse_id"`
 				AuxBank      *uint   `json:"aux_bank_account_id"`
+				AuxFixed     *uint   `json:"aux_fixed_asset_id"`
+				AuxVat       *uint   `json:"aux_vat_detail_id"`
+				AuxCost      *uint   `json:"aux_cost_object_id"`
 				CashFlow     *uint   `json:"cash_flow_id"`
 			} `json:"items" binding:"required,min=2"`
 		}
@@ -124,6 +127,9 @@ func createVoucher(db *gorm.DB) gin.HandlerFunc {
 				AuxEmployeeID:    item.AuxEmployee,
 				AuxWarehouseID:   item.AuxWarehouse,
 				AuxBankAccountID: item.AuxBank,
+				AuxFixedAssetID:  item.AuxFixed,
+				AuxVatDetailID:   item.AuxVat,
+				AuxCostObjectID:  item.AuxCost,
 				CashFlowID:       item.CashFlow,
 			}
 			if err := tx.Create(&vi).Error; err != nil {
@@ -185,6 +191,9 @@ func updateVoucher(db *gorm.DB) gin.HandlerFunc {
 				AuxEmployee  *uint   `json:"aux_employee_id"`
 				AuxWarehouse *uint   `json:"aux_warehouse_id"`
 				AuxBank      *uint   `json:"aux_bank_account_id"`
+				AuxFixed     *uint   `json:"aux_fixed_asset_id"`
+				AuxVat       *uint   `json:"aux_vat_detail_id"`
+				AuxCost      *uint   `json:"aux_cost_object_id"`
 				CashFlow     *uint   `json:"cash_flow_id"`
 			} `json:"items"`
 		}
@@ -233,6 +242,9 @@ func updateVoucher(db *gorm.DB) gin.HandlerFunc {
 					AuxEmployeeID:    item.AuxEmployee,
 					AuxWarehouseID:   item.AuxWarehouse,
 					AuxBankAccountID: item.AuxBank,
+					AuxFixedAssetID:  item.AuxFixed,
+					AuxVatDetailID:   item.AuxVat,
+					AuxCostObjectID:  item.AuxCost,
 					CashFlowID:       item.CashFlow,
 				}
 				tx.Create(&vi)

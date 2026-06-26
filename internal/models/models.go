@@ -83,6 +83,9 @@ type VoucherItem struct {
 	AuxEmployeeID     *uint   `json:"aux_employee_id"`
 	AuxWarehouseID    *uint   `json:"aux_warehouse_id"`
 	AuxBankAccountID  *uint   `json:"aux_bank_account_id"`
+	AuxFixedAssetID   *uint   `json:"aux_fixed_asset_id"`
+	AuxVatDetailID    *uint   `json:"aux_vat_detail_id"`
+	AuxCostObjectID   *uint   `json:"aux_cost_object_id"`
 	CashFlowID        *uint   `json:"cash_flow_id"`
 
 	Voucher Voucher `json:"voucher,omitempty" gorm:"foreignKey:VoucherID"`
@@ -121,7 +124,7 @@ type AccountBalance struct {
 type AuxItem struct {
 	ID        uint      `json:"id" gorm:"primaryKey"`
 	BookID    uint      `json:"book_id" gorm:"index;not null"`
-	Type      string    `json:"type" gorm:"size:20;not null"` // customer/supplier/department/project/employee/warehouse/bank_account
+	Type      string    `json:"type" gorm:"size:20;not null"` // customer/supplier/department/project/employee/warehouse/bank_account/cash_flow/fixed_asset/vax_detail/cost_object
 	Code      string    `json:"code" gorm:"size:20;not null"`
 	Name      string    `json:"name" gorm:"size:100;not null"`
 	ParentID  *uint     `json:"parent_id"`

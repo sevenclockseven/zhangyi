@@ -181,6 +181,37 @@ func exportAuxItems(db *gorm.DB) gin.HandlerFunc {
 					quoteCSV(item.Code), quoteCSV(item.Name),
 					quoteCSV(extra["category"]), boolStatus(item.IsActive)))
 			}
+		case "fixed_asset":
+			buf.WriteString("编码,名称,原值,累计折旧,净值,折旧方法,使用年限,残值率,使用部门,存放地点,状态\n")
+			for _, item := range items {
+				extra := parseExtra(item.Extra)
+				buf.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+					quoteCSV(item.Code), quoteCSV(item.Name),
+					quoteCSV(extra["original_value"]), quoteCSV(extra["accumulated_depreciation"]),
+					quoteCSV(extra["net_value"]), quoteCSV(extra["depreciation_method"]),
+					quoteCSV(extra["useful_life"]), quoteCSV(extra["residual_rate"]),
+					quoteCSV(extra["department"]), quoteCSV(extra["location"]),
+					boolStatus(item.IsActive)))
+			}
+		case "vat_detail":
+			buf.WriteString("编码,名称,进项税额,销项税额,已交税金,进项税额转出,状态\n")
+			for _, item := range items {
+				extra := parseExtra(item.Extra)
+				buf.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s\n",
+					quoteCSV(item.Code), quoteCSV(item.Name),
+					quoteCSV(extra["input_vat"]), quoteCSV(extra["output_vat"]),
+					quoteCSV(extra["paid_vat"]), quoteCSV(extra["input_vat_transfer"]),
+					boolStatus(item.IsActive)))
+			}
+		case "cost_object":
+			buf.WriteString("编码,名称,成本中心,产品/订单,状态\n")
+			for _, item := range items {
+				extra := parseExtra(item.Extra)
+				buf.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s\n",
+					quoteCSV(item.Code), quoteCSV(item.Name),
+					quoteCSV(extra["cost_center"]), quoteCSV(extra["product_order"]),
+					boolStatus(item.IsActive)))
+			}
 		default:
 			buf.WriteString("编码,名称,状态\n")
 			for _, item := range items {
@@ -318,6 +349,24 @@ func importAuxItems(db *gorm.DB) gin.HandlerFunc {
 				if len(fields) > 2 {
 					extra["category"] = fields[2]
 				}
+			case "fixed_asset":
+			if len(fields) > 2 { extra["original_value"] = fields[2] }
+			if len(fields) > 3 { extra["accumulated_depreciation"] = fields[3] }
+			if len(fields) > 4 { extra["net_value"] = fields[4] }
+			if len(fields) > 5 { extra["depreciation_method"] = fields[5] }
+			if len(fields) > 6 { extra["useful_life"] = fields[6] }
+			if len(fields) > 7 { extra["residual_rate"] = fields[7] }
+			if len(fields) > 8 { extra["department"] = fields[8] }
+			if len(fields) > 9 { extra["location"] = fields[9] }
+		case "vat_detail":
+			if len(fields) > 2 { extra["input_vat"] = fields[2] }
+			if len(fields) > 3 { extra["output_vat"] = fields[3] }
+			if len(fields) > 4 { extra["paid_vat"] = fields[4] }
+			if len(fields) > 5 { extra["input_vat_transfer"] = fields[5] }
+		case "cost_object":
+			if len(fields) > 2 { extra["cost_center"] = fields[2] }
+			if len(fields) > 3 { extra["product_order"] = fields[3] }
+
 			}
 
 			extraJSON, _ := json.Marshal(extra)

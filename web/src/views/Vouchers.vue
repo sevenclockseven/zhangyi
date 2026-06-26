@@ -276,7 +276,10 @@ const auxFieldMap = {
   employee: 'aux_employee_id',
   warehouse: 'aux_warehouse_id',
   bank_account: 'aux_bank_account_id',
-  cash_flow: 'cash_flow_id'
+  cash_flow: 'cash_flow_id',
+  fixed_asset: 'aux_fixed_asset_id',
+  vat_detail: 'aux_vat_detail_id',
+  cost_object: 'aux_cost_object_id'
 }
 const auxLabelMap = {
   customer: '客户',
@@ -286,7 +289,10 @@ const auxLabelMap = {
   employee: '员工',
   warehouse: '仓库',
   bank_account: '银行账号',
-  cash_flow: '现金流量项目'
+  cash_flow: '现金流量项目',
+  fixed_asset: '固定资产',
+  vat_detail: '增值税明细',
+  cost_object: '成本对象'
 }
 
 const filterDateRange = ref(null)
@@ -382,7 +388,10 @@ const editVoucher = async (row) => {
         aux_employee_id: i.aux_employee_id || null,
         aux_warehouse_id: i.aux_warehouse_id || null,
         aux_bank_account_id: i.aux_bank_account_id || null,
-        cash_flow_id: i.cash_flow_id || null
+        cash_flow_id: i.cash_flow_id || null,
+        aux_fixed_asset_id: i.aux_fixed_asset_id || null,
+        aux_vat_detail_id: i.aux_vat_detail_id || null,
+        aux_cost_object_id: i.aux_cost_object_id || null
       }))
     }
     showEditor.value = true
@@ -473,7 +482,8 @@ const newItem = () => ({
   account_id: null, account_code: '', account_name: '', debit: 0, credit: 0, memo: '',
   aux_customer_id: null, aux_supplier_id: null, aux_department_id: null,
   aux_project_id: null, aux_employee_id: null, aux_warehouse_id: null,
-  aux_bank_account_id: null, cash_flow_id: null
+  aux_bank_account_id: null, cash_flow_id: null,
+  aux_fixed_asset_id: null, aux_vat_detail_id: null, aux_cost_object_id: null
 })
 
 const addItem = () => { voucherForm.value.items.push(newItem()) }
@@ -634,7 +644,8 @@ const loadFromTemplate = (tpl) => {
       account_name: i.account_name || '', debit: 0, credit: 0, memo: i.memo || '',
       aux_customer_id: null, aux_supplier_id: null, aux_department_id: null,
       aux_project_id: null, aux_employee_id: null, aux_warehouse_id: null,
-      aux_bank_account_id: null, cash_flow_id: null
+      aux_bank_account_id: null, cash_flow_id: null,
+      aux_fixed_asset_id: null, aux_vat_detail_id: null, aux_cost_object_id: null
     }))
     ElMessage.success(`已加载模板: ${tpl.name}`)
   } catch (e) { ElMessage.error('模板格式错误') }
