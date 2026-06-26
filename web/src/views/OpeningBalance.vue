@@ -145,6 +145,9 @@ const summaryMethod = ({ columns, data }) => {
 
 onMounted(() => {
   loadBooks()
+  watch(currentBook, (newVal) => {
+    if (newVal) loadData()
+  })
   window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
 })
 </script>

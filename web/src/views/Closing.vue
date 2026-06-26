@@ -166,6 +166,9 @@ const doUnclose = async () => {
 
 onMounted(() => {
   loadBooks()
+  watch(currentBook, (newVal) => {
+    if (newVal) loadStatus()
+  })
   window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
 })
 </script>
