@@ -81,20 +81,26 @@
       <!-- 现金流量表 -->
       <div v-if="activeTab === 'cash-flow' && reportData">
         <el-card shadow="never">
-          <template #header><strong>现金流量表</strong></template>
-          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight">
+          <template #header><strong>现金流量表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
+          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" row-key="item_code">
             <el-table-column prop="category" label="类别" width="100">
               <template #default="{ row }">
-                {{ { operating: '经营活动', investing: '投资活动', financing: '筹资活动' }[row.category] || row.category }}
+                <el-tag :type="{ operating: '', investing: 'success', financing: 'warning' }[row.category]" size="small">
+                  {{ { operating: '经营活动', investing: '投资活动', financing: '筹资活动' }[row.category] || row.category }}
+                </el-tag>
               </template>
             </el-table-column>
+            <el-table-column prop="item_code" label="编码" width="90" />
             <el-table-column prop="item_name" label="项目" min-width="200" />
             <el-table-column label="金额" width="140" align="right">
               <template #default="{ row }">{{ fmt(row.amount) }}</template>
             </el-table-column>
           </el-table>
-          <div style="margin-top: 12px; padding: 12px; background: #f5f7fa; border-radius: 4px; font-weight: bold">
-            现金净增加额：{{ fmt(reportData.summary?.cash_increase) }}
+          <div style="margin-top: 12px; padding: 12px; background: #f5f7fa; border-radius: 4px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px">
+            <span>经营活动净额：<strong>{{ fmt(reportData.summary?.operating_total) }}</strong></span>
+            <span>投资活动净额：<strong>{{ fmt(reportData.summary?.investing_total) }}</strong></span>
+            <span>筹资活动净额：<strong>{{ fmt(reportData.summary?.financing_total) }}</strong></span>
+            <span style="color: #409EFF; font-size: 16px">现金净增加额：<strong>{{ fmt(reportData.summary?.cash_increase) }}</strong></span>
           </div>
         </el-card>
       </div>
