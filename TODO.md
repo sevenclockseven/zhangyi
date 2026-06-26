@@ -188,10 +188,10 @@
 
 ---
 
-### v0.7.0: 代码架构优化 🔄
+### v0.7.0: 代码架构优化 ✅
 - [x] 拆分 handlers.go（2963行70函数 → 8个文件）
-- [ ] 前端抽 API 层（axios 硬编码 → api 模块）
-- [ ] Element Plus 按需引入（1.2MB → ~400KB）
+- [x] 前端抽 API 层（axios 硬编码 → api 模块）
+- [x] Element Plus 按需引入（1.2MB → 446KB，-63%）
 
 ---
 
@@ -225,3 +225,4 @@
 - **v0.6.8** (2026-06-26): 修复window.open导出未登录（auth中间件支持query token）+ Dockerfile阿里云镜像
 - **v0.6.9** (2026-06-26): 凭证辅助核算选择器+全局Header账套切换+useMobile composable精简代码
 - **v0.6.10** (2026-06-26): 辅助核算后端化（accounts接口返回aux_options）+修复首次打开凭证不加载
+- **v0.7.0** (2026-06-26): 代码架构优化 - 拆分handlers.go+前端API层+Element Plus按需引入(bundle 1.2MB→446KB)
