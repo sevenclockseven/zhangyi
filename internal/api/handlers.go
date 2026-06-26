@@ -1053,12 +1053,22 @@ func generateVoucherNumber(db *gorm.DB, bookID uint, date string) string {
 	parts := strings.Split(date, "-")
 	period := parts[0] + "-" + parts[1] // e.g. "2026-06"
 
-	var count int64
+	var maxNumber string
 	db.Model(&models.Voucher{}).
-		Where("book_id = ? AND number LIKE ?", bookID, "记-"+period+"%").
-		Count(&count)
+		Where("book_id = ? AND number LIKE ?", bookID, "记-"+period+"-%").
+		Select("COALESCE(MAX(number), '')").
+		Row().Scan(&maxNumber)
 
-	return fmt.Sprintf("记-%s-%03d", period, count+1)
+	// Extract sequence number from max
+	maxSeq := 0
+	if maxNumber != "" {
+		lastParts := strings.Split(maxNumber, "-")
+		if len(lastParts) == 3 {
+			fmt.Sscanf(lastParts[2], "%d", &maxSeq)
+		}
+	}
+
+	return fmt.Sprintf("记-%s-%03d", period, maxSeq+1)
 }
 
 // AccountTree represents a tree node

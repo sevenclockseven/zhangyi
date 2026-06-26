@@ -69,13 +69,21 @@
             <el-option label="零售业" value="retail" />
             <el-option label="服务业" value="service" />
             <el-option label="建筑业" value="construction" />
-            <el-option label="房地产业" value="realestate" />
+            <el-option label="房地产业" value="real_estate" />
+            <el-option label="运输业" value="transport" />
+            <el-option label="农业" value="agriculture" />
           </el-select>
         </el-form-item>
         <el-form-item label="纳税人类型">
           <el-radio-group v-model="form.taxpayer_type">
-            <el-radio value="small_scale">小规模</el-radio>
+            <el-radio value="small">小规模</el-radio>
             <el-radio value="general">一般纳税人</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="会计准则">
+          <el-radio-group v-model="form.accounting_standard">
+            <el-radio value="small_business">小企业会计准则</el-radio>
+            <el-radio value="enterprise">企业会计准则</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="启用期间" required>
@@ -107,7 +115,8 @@ const showCreate = ref(false)
 const form = ref({
   name: '',
   industry: [],
-  taxpayer_type: 'small_scale',
+  taxpayer_type: 'small',
+  accounting_standard: 'small_business',
   start_date: '',
   contact: '',
   phone: ''
@@ -128,13 +137,10 @@ const createBook = async () => {
     return
   }
   try {
-    await axios.post('/api/books', {
-      ...form.value,
-      industry: form.value.industry.join(',')
-    })
+    await axios.post('/api/books', form.value)
     ElMessage.success('创建成功')
     showCreate.value = false
-    form.value = { name: '', industry: [], taxpayer_type: 'small_scale', start_date: '', contact: '', phone: '' }
+    form.value = { name: '', industry: [], taxpayer_type: 'small', accounting_standard: 'small_business', start_date: '', contact: '', phone: '' }
     loadBooks()
   } catch (e) {
     ElMessage.error('创建失败: ' + (e.response?.data?.error || e.message))
