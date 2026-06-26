@@ -450,7 +450,7 @@ const calcTotal = () => {}
 
 const exportVouchers = () => {
   const token = localStorage.getItem('token')
-  window.open(`/api/books/${currentBook.value}/vouchers/export`, '_blank')
+  window.open(`/api/books/${currentBook.value}/vouchers/export?token=${token}`, '_blank')
 }
 
 const saveVoucher = async () => {

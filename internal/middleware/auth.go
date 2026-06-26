@@ -12,14 +12,23 @@ import (
 // AuthRequired JWT认证中间件
 func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var tokenString string
+
+		// 优先从 Authorization header 获取
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+		} else if t := c.Query("token"); t != "" {
+			// 降级从 query 参数获取（window.open 下载文件场景）
+			tokenString = t
+		}
+
+		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
 			c.Abort()
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		claims, err := services.ParseToken(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "登录已过期"})
