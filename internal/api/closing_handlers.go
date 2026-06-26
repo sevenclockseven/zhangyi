@@ -37,14 +37,27 @@ func trialBalance(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+
+// resolvePeriod returns the current period for a book, from query param or auto-detected
+func resolvePeriod(db *gorm.DB, bookID string, period string) string {
+	if period != "" {
+		return period
+	}
+	// Try latest posted voucher
+	var book models.AccountBook
+	db.First(&book, bookID)
+	var latestVoucher models.Voucher
+	if err := db.Where("book_id = ? AND status = ?", bookID, "posted").Order("date DESC").First(&latestVoucher).Error; err == nil && len(latestVoucher.Date) >= 7 {
+		return latestVoucher.Date[:7]
+	}
+	// Fallback to book start_date
+	return book.StartDate
+}
+
 func autoTransfer(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
-		period := c.DefaultQuery("period", "")
-		if period == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
-			return
-		}
+		period := resolvePeriod(db, bookID, c.DefaultQuery("period", ""))
 
 		var book models.AccountBook
 		if err := db.First(&book, bookID).Error; err != nil {
@@ -223,11 +236,7 @@ func autoTransfer(db *gorm.DB) gin.HandlerFunc {
 func closePeriod(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
-		period := c.DefaultQuery("period", "")
-		if period == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
-			return
-		}
+		period := resolvePeriod(db, bookID, c.DefaultQuery("period", ""))
 
 		// 1. 检查是否有未记账凭证
 		var draftCount int64
@@ -293,11 +302,7 @@ func closePeriod(db *gorm.DB) gin.HandlerFunc {
 func unclosePeriod(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
-		period := c.DefaultQuery("period", "")
-		if period == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
-			return
-		}
+		period := resolvePeriod(db, bookID, c.DefaultQuery("period", ""))
 
 		// 1. 计算下一期间
 		var year, month int
