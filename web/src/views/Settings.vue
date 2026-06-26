@@ -365,7 +365,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { auxApi, bookApi, templateApi, voucherTemplateApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Top, Bottom, Rank } from '@element-plus/icons-vue'
+import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Top, Bottom, Rank, Delete, Plus, Download, Upload, Refresh } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
 

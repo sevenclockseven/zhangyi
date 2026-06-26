@@ -193,6 +193,8 @@
 - [x] 前端抽 API 层（axios 硬编码 → api 模块）
 - [x] Element Plus 按需引入（1.2MB → 442KB，-63%）
 - [x] 修复401死循环跳转bug（登录页loadBooks触发401→跳转登录→再次触发）
+- [x] 修复移动端图标缺失（Fold/Expand/User/ArrowDown等未导入）
+- [x] 修复多处视图文件图标导入缺失（Dashboard/Reports/Vouchers/Settings）
 
 ---
 

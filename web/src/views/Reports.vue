@@ -298,6 +298,7 @@ import { useMobile } from '../composables/useMobile'
 import { reportApi } from '../api'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Download, ArrowDown } from '@element-plus/icons-vue'
 
 const { isMobile } = useMobile()
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)'

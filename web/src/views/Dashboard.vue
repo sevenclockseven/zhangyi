@@ -58,6 +58,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { bookApi, voucherApi, healthApi } from '../api'
+import { Coin, DataAnalysis, Document, SwitchButton } from '@element-plus/icons-vue'
 
 const stats = ref({
   totalBooks: 0,

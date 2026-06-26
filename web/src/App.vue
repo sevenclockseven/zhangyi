@@ -116,7 +116,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { bookApi, authApi } from './api'
 import { ElMessage } from 'element-plus'
-import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin } from '@element-plus/icons-vue'
+import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Fold, Expand, User, ArrowDown } from '@element-plus/icons-vue'
 import { useBookStore } from './stores/book'
 import { useMobile } from './composables/useMobile'
 
