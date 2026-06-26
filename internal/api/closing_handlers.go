@@ -349,13 +349,32 @@ func closingStatus(db *gorm.DB) gin.HandlerFunc {
 		var nextCount int64
 		db.Model(&models.AccountBalance{}).Where("book_id = ? AND period = ?", bookID, nextPeriod).Count(&nextCount)
 
+		// Get latest posted voucher date as current_period if period is empty
+		currentPeriod := period
+		if currentPeriod == "" {
+			var latestVoucher models.Voucher
+			if err := db.Where("book_id = ? AND status = ?", bookID, "posted").Order("date DESC").First(&latestVoucher).Error; err == nil && len(latestVoucher.Date) >= 7 {
+				currentPeriod = latestVoucher.Date[:7]
+			} else {
+				// Fallback to book start_date
+				currentPeriod = book.StartDate
+			}
+		}
+
+		isClosed := book.Status == "closed" || nextCount > 0
+
 		c.JSON(http.StatusOK, gin.H{
-			"period":        period,
-			"voucher_count": voucherCount,
-			"draft_count":   draftCount,
-			"posted_count":  postedCount,
-			"closed":        book.Status == "closed" || nextCount > 0,
-			"book_status":   book.Status,
+			"data": gin.H{
+				"current_period":  currentPeriod,
+				"is_closed":       isClosed,
+				"unposted_count":  draftCount,
+				"closed_at":       "",
+				"period":          currentPeriod,
+				"voucher_count":   voucherCount,
+				"draft_count":     draftCount,
+				"posted_count":    postedCount,
+				"book_status":     book.Status,
+			},
 		})
 	}
 }

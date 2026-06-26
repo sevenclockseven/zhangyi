@@ -20,9 +20,14 @@ func templateDir() string {
 }
 
 func generateID(db *gorm.DB) uint {
-	var count int64
-	db.Model(&models.AccountBook{}).Count(&count)
-	return uint(count + 1)
+	var maxCode string
+	db.Model(&models.AccountBook{}).Select("COALESCE(MAX(code), 'BK000000')").Row().Scan(&maxCode)
+	// Extract number from BK000001 format
+	num := 0
+	if len(maxCode) > 2 {
+		fmt.Sscanf(maxCode[2:], "%d", &num)
+	}
+	return uint(num + 1)
 }
 
 func generateVoucherNumber(db *gorm.DB, bookID uint, date string) string {
