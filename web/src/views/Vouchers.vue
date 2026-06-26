@@ -275,7 +275,8 @@ const auxFieldMap = {
   project: 'aux_project_id',
   employee: 'aux_employee_id',
   warehouse: 'aux_warehouse_id',
-  bank_account: 'aux_bank_account_id'
+  bank_account: 'aux_bank_account_id',
+  cash_flow: 'cash_flow_id'
 }
 const auxLabelMap = {
   customer: '客户',
@@ -284,7 +285,8 @@ const auxLabelMap = {
   project: '项目',
   employee: '员工',
   warehouse: '仓库',
-  bank_account: '银行账号'
+  bank_account: '银行账号',
+  cash_flow: '现金流量项目'
 }
 
 const filterDateRange = ref(null)
