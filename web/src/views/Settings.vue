@@ -57,6 +57,9 @@
           >
             <el-button size="small"><el-icon><Upload /></el-icon>导入CSV</el-button>
           </el-upload>
+          <el-button size="small" @click="downloadTemplate" style="margin-left: 8px">
+            <el-icon><Download /></el-icon>下载模板
+          </el-button>
           <el-button size="small" type="danger" :disabled="selectedItems.length === 0" @click="batchDelete" style="margin-left: 8px">
             删除选中({{ selectedItems.length }})
           </el-button>
@@ -606,9 +609,36 @@ const batchDelete = async () => {
   } catch (e) { ElMessage.error('删除失败') }
 }
 
-const exportData = () => {
-  const token = localStorage.getItem('token')
-  window.open(`/api/books/${currentBook.value}/aux/${auxType.value}/export?token=${token}`, '_blank')
+const exportData = async () => {
+  try {
+    const { data } = await axios.get(`/api/books/${currentBook.value}/aux/${auxType.value}/export`, { responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([data], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${auxType.value}_export.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) { ElMessage.error('导出失败') }
+}
+
+const downloadTemplate = () => {
+  const templates = {
+    customer: '编码,名称,联系人,电话,地址,备注\nK001,示例客户,张三,13800000000,,测试数据',
+    supplier: '编码,名称,联系人,电话,地址,备注\nG001,示例供应商,李四,13900000000,,测试数据',
+    department: '编码,名称,备注\nBM01,总经理室,',
+    project: '编码,名称,状态,开始日期,结束日期,备注\nXM01,示例项目,进行中,2026-01-01,,测试项目',
+    employee: '编码,名称,部门,电话,备注\nYG01,张三,BM01,13800000000,',
+    warehouse: '编码,名称,地址,备注\nCK01,主仓库,,',
+    bank_account: '编码,名称,账号,开户行,户主,地址,备注\nYH01,工行基本户,1234567890,工商银行,,,'
+  }
+  const csv = '\uFEFF' + (templates[auxType.value] || '编码,名称,备注\n001,示例,')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${auxType.value}_template.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 const onImportSuccess = (resp) => {

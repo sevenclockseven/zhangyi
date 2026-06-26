@@ -235,7 +235,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <el-card v-if="crResult" shadow="never" style="margin-top: 12px">
+        <el-card v-if="crResult" shadow="never" style="margin-top: 12px" class="cr-result-card">
           <template #header><strong>{{ crResult.name }}</strong><span style="float: right; color: #909399; font-size: 13px">{{ crResult.period }}</span></template>
           <el-table :data="crResult.data" border size="small">
             <el-table-column prop="label" label="项目" min-width="200">
@@ -375,10 +375,9 @@ const exportReport = async (format) => {
 
 const getReportTables = () => {
   if (activeTab.value === 'custom' && crResult.value) {
-    // Custom report: only get the result table (inside the last el-card)
-    const cards = document.querySelectorAll('.el-tabs__content .el-card')
-    const lastCard = cards[cards.length - 1]
-    return lastCard ? lastCard.querySelectorAll('.el-table__body-wrapper table') : []
+    // Custom report: only get the result card table
+    const resultCard = document.querySelector('.cr-result-card')
+    return resultCard ? resultCard.querySelectorAll('.el-table__body-wrapper table') : []
   }
   return document.querySelectorAll('.el-tabs__content .el-table__body-wrapper table')
 }
@@ -417,7 +416,7 @@ const printReport = () => {
   let printHTML = ''
   if (activeTab.value === 'custom' && crResult.value) {
     // Custom report: only print title + result table
-    const resultCard = document.querySelector('.el-tabs__content .el-card:last-child')
+    const resultCard = document.querySelector('.cr-result-card')
     if (!resultCard) { ElMessage.warning('无数据可打印'); return }
     const clone = resultCard.cloneNode(true)
     clone.querySelectorAll('button').forEach(el => el.remove())
