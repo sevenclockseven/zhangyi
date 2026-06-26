@@ -20,7 +20,7 @@
 
       <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
         <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadReport" :size="isMobile ? 'small' : 'default'" />
-        <el-dropdown @command="exportReport" :disabled="!reportData">
+        <el-dropdown @command="exportReport" :disabled="!reportData && !crResult">
           <el-button size="small" :disabled="!reportData">
             <el-icon><Download /></el-icon>导出 <el-icon><ArrowDown /></el-icon>
           </el-button>
@@ -249,14 +249,26 @@
           </el-table>
         </el-card>
         <el-card shadow="never" style="margin-top: 12px">
-          <template #header><strong>取数公式</strong></template>
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="JE('code','dir')">本期发生额</el-descriptions-item>
-            <el-descriptions-item label="QM('code','dir')">期末余额</el-descriptions-item>
-            <el-descriptions-item label="QC('code','dir')">期初余额</el-descriptions-item>
-            <el-descriptions-item label="JL('code','dir')">本年累计</el-descriptions-item>
-            <el-descriptions-item label="运算">支持 + - ，如 JE('6601','借') - JE('6602','借')</el-descriptions-item>
-          </el-descriptions>
+          <template #header><strong>使用说明</strong></template>
+          <div style="font-size: 13px; color: #606266; line-height: 1.8">
+            <p><strong>1. 新建报表：</strong>点击「新建报表」，填写报表名称，添加行定义。每行需要设置：</p>
+            <ul style="padding-left: 20px; margin: 4px 0">
+              <li><strong>行标签</strong> — 显示在报表中的名称，如「营业收入」「管理费用」</li>
+              <li><strong>取数公式</strong> — 从科目取数据的公式（见下方公式说明）</li>
+              <li><strong>层级</strong> — 控制缩进，1=顶级，2=二级，以此类推</li>
+              <li><strong>粗体</strong> — 勾选后该行加粗显示（适合小计/合计行）</li>
+            </ul>
+            <p><strong>2. 运行报表：</strong>选择期间后点击「运行」，即可查看结果。</p>
+            <p><strong>3. 导出：</strong>运行后点击右上角「导出」按钮，可导出CSV/Excel或打印。</p>
+            <p style="margin-top: 8px"><strong>取数公式说明：</strong></p>
+            <el-table :data="formulaExamples" border size="small" style="margin: 8px 0">
+              <el-table-column prop="formula" label="公式" width="200" />
+              <el-table-column prop="desc" label="说明" />
+              <el-table-column prop="example" label="示例" width="220" />
+            </el-table>
+            <p><strong>运算：</strong>支持 <code>+</code> <code>-</code> 组合，如 <code>JE('6601','借') - JE('6602','借')</code></p>
+            <p><strong>科目编码：</strong>填写末级科目编码，如 6602（管理费用）。dir 填「借」或「贷」。</p>
+          </div>
         </el-card>
       </div>
     </el-tabs>
@@ -349,8 +361,8 @@ const incomeSummary = ({ columns, data }) => {
 }
 
 const exportReport = async (format) => {
-  if (activeTab.value === 'custom') { ElMessage.warning('自定义报表请使用运行结果导出'); return }
-  if (!reportData.value) { ElMessage.warning('请先加载报表数据'); return }
+  if (activeTab.value === 'custom' && !crResult.value) { ElMessage.warning('请先运行自定义报表，再导出'); return }
+  if (activeTab.value !== 'custom' && !reportData.value) { ElMessage.warning('请先加载报表数据'); return }
 
   if (format === 'csv') {
     exportCSV()
@@ -392,21 +404,36 @@ const exportCSV = () => {
 }
 
 const printReport = () => {
-  const el = document.querySelector('.reports .el-tabs__content')
-  if (!el) { ElMessage.warning('无数据可打印'); return }
+  // Get the currently visible report card content
+  const activePane = document.querySelector('.el-tabs__content')
+  if (!activePane) { ElMessage.warning('无数据可打印'); return }
+  // Clone to avoid modifying original
+  const clone = activePane.cloneNode(true)
+  // Remove buttons, dropdowns, date pickers and other UI elements
+  clone.querySelectorAll('button, .el-dropdown, .el-date-picker, .el-date-editor, .el-input, .el-select, .no-print').forEach(el => el.remove())
+  // Remove empty divs that were holding buttons
+  clone.querySelectorAll('div').forEach(div => {
+    if (div.children.length === 0 && div.textContent.trim() === '') div.remove()
+  })
   const printWin = window.open('', '_blank')
   printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>报表打印</title>
     <style>
-      body { font-family: 'Microsoft YaHei', sans-serif; padding: 20px; }
-      table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
-      th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 13px; }
-      th { background: #f5f7fa; font-weight: bold; }
-      .el-card { border: none !important; box-shadow: none !important; }
-      .el-card__header { padding: 8px 0 !important; border-bottom: 1px solid #eee; }
-      h3 { margin: 0 0 8px; }
-      .no-print { display: none !important; }
-      @media print { body { padding: 0; } }
-    </style></head><body>${el.innerHTML}</body></html>`)
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Microsoft YaHei', 'SimSun', sans-serif; padding: 15mm; color: #333; }
+      h2 { font-size: 18px; margin-bottom: 12px; text-align: center; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 12px; font-size: 12px; }
+      th, td { border: 1px solid #999; padding: 4px 8px; text-align: left; }
+      th { background: #f0f0f0; font-weight: bold; }
+      td { background: #fff; }
+      .el-card { border: none !important; box-shadow: none !important; margin-bottom: 12px; }
+      .el-card__header { padding: 6px 0 !important; border-bottom: 1px solid #ddd; font-size: 14px; }
+      .el-card__body { padding: 8px 0 !important; }
+      .el-descriptions { display: none; }
+      @media print {
+        body { padding: 10mm; }
+        @page { margin: 10mm; }
+      }
+    </style></head><body>${clone.innerHTML}</body></html>`)
   printWin.document.close()
   printWin.focus()
   setTimeout(() => { printWin.print(); printWin.close(); }, 300)
@@ -448,6 +475,12 @@ const crRunPeriod = ref(new Date().toISOString().slice(0, 7))
 const crResult = ref(null)
 const showCrEdit = ref(false)
 const crForm = ref({ name: '', rows: [{ label: '', formula: '', level: 1, bold: false }] })
+const formulaExamples = [
+  { formula: "JE('code','dir')", desc: '本期发生额（借方或贷方发生额）', example: "JE('6602','借') → 管理费用本期借方发生" },
+  { formula: "QM('code','dir')", desc: '期末余额', example: "QM('1002','借') → 银行存款期末余额" },
+  { formula: "QC('code','dir')", desc: '期初余额', example: "QC('1001','借') → 库存现金期初余额" },
+  { formula: "JL('code','dir')", desc: '本年累计发生额', example: "JL('5001','贷') → 主营业务本年累计" }
+]
 
 const loadCrList = async () => {
   if (!currentBook.value) return
