@@ -115,12 +115,14 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { useBookStore } from '../stores/book'
+import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const isMobile = ref(window.innerWidth < 768)
 const books = ref([])
 const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const route = useRoute()
 const accounts = ref([])
 const accountTree = ref([])
 const selectedAccount = ref(null)
@@ -136,7 +138,13 @@ watch(searchText, (val) => { treeRef.value?.filter(val) })
 const loadBooks = async () => {
   const { data } = await axios.get('/api/books')
   books.value = data.data || []
-  if (books.value.length > 0 && !currentBook.value) setCurrentBook(books.value[0].id)
+  // If coming from route with book param, use that; otherwise use store or first book
+  const bookIdFromRoute = Number(route.query.book)
+  if (!isNaN(bookIdFromRoute) && bookIdFromRoute > 0) {
+    setCurrentBook(bookIdFromRoute)
+  } else if (books.value.length > 0 && !currentBook.value) {
+    setCurrentBook(books.value[0].id)
+  }
 }
 
 const loadAccounts = async () => {

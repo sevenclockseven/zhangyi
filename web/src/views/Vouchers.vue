@@ -231,12 +231,15 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useBookStore } from '../stores/book'
+import { useRoute } from 'vue-router'
 
 const isMobile = ref(window.innerWidth < 768)
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 300px)' : 'calc(100vh - 350px)')
 
 const books = ref([])
 const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const route = useRoute()
 const vouchers = ref([])
 const accounts = ref([])
 const selectedVouchers = ref([])
@@ -262,7 +265,13 @@ const loadBooks = async () => {
   try {
     const { data } = await axios.get('/api/books')
     books.value = data.data || []
-    if (books.value.length > 0 && !currentBook.value) setCurrentBook(books.value[0].id)
+    // If route has a book parameter, use that as current book
+    const bookIdFromRoute = Number(route.query.book)
+    if (!isNaN(bookIdFromRoute) && bookIdFromRoute > 0) {
+      setCurrentBook(bookIdFromRoute)
+    } else if (books.value.length > 0 && !currentBook.value) {
+      setCurrentBook(books.value[0].id)
+    }
   } catch (e) { console.error(e) }
 }
 
