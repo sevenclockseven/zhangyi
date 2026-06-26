@@ -363,7 +363,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import axios from 'axios'
+import { auxApi, bookApi, templateApi, voucherTemplateApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Top, Bottom, Rank } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
@@ -421,13 +421,13 @@ const getExtra = (row, key) => {
 
 const loadAux = async () => {
   if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}/aux/${auxType.value}`)
+  const { data } = await auxApi.list(currentBook.value, auxType.value)
   auxItems.value = data.data || []
 }
 
 const loadBookInfo = async () => {
   if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}`)
+  const { data } = await bookApi.get(currentBook.value)
   bookInfo.value = data.data
 }
 
@@ -496,11 +496,11 @@ const syncing = ref(false)
 
 const loadTemplateVersions = async () => {
   try {
-    const { data } = await axios.get('/api/templates/versions')
+    const { data } = await templateApi.versions()
     templateVersions.value = data.data || []
   } catch (e) { console.error(e) }
   try {
-    const { data } = await axios.get('/api/templates/manifest')
+    const { data } = await templateApi.manifest()
     v2Manifest.value = data
   } catch (e) { /* v2 not available */ }
 }
@@ -509,7 +509,7 @@ const syncAllTemplates = async () => {
   if (!currentBook.value) return
   syncing.value = true
   try {
-    const { data } = await axios.post(`/api/books/${currentBook.value}/sync-all-templates`)
+    const { data } = await bookApi.syncAllTemplates(currentBook.value)
     ElMessage.success(data.message || '同步成功')
   } catch (e) { ElMessage.error(e.response?.data?.error || '同步失败') }
   finally { syncing.value = false }
@@ -523,7 +523,7 @@ const vtplForm = ref({ name: '', category: '', items: [{ account_id: null, memo:
 
 const loadVtplList = async () => {
   if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}/voucher-templates`)
+  const { data } = await voucherTemplateApi.list(currentBook.value)
   vtplList.value = data.data || []
 }
 const parseVtplItems = (s) => { try { return JSON.parse(s || '[]') } catch { return [] } }
@@ -548,9 +548,9 @@ const saveVtpl = async () => {
   try {
     const payload = { name: vtplForm.value.name, category: vtplForm.value.category, items: JSON.stringify(items) }
     if (editingVtpl.value) {
-      await axios.put(`/api/books/${currentBook.value}/voucher-templates/${editingVtpl.value.id}`, payload)
+      await voucherTemplateApi.update(currentBook.value, editingVtpl.value.id, payload)
     } else {
-      await axios.post(`/api/books/${currentBook.value}/voucher-templates`, payload)
+      await voucherTemplateApi.create(currentBook.value, payload)
     }
     ElMessage.success('保存成功')
     showVtplEdit.value = false
@@ -559,7 +559,7 @@ const saveVtpl = async () => {
 }
 const deleteVtpl = async (row) => {
   await ElMessageBox.confirm(`确定删除"${row.name}"？`, '确认')
-  await axios.delete(`/api/books/${currentBook.value}/voucher-templates/${row.id}`)
+  await voucherTemplateApi.delete(currentBook.value, row.id)
   ElMessage.success('已删除')
   loadVtplList()
 }
@@ -596,9 +596,9 @@ const saveItem = async () => {
       extra: JSON.stringify(editForm.value.extra)
     }
     if (editingItem.value) {
-      await axios.put(`/api/books/${currentBook.value}/aux/${auxType.value}/${editingItem.value.id}`, payload)
+      await auxApi.update(currentBook.value, auxType.value, editingItem.value.id, payload)
     } else {
-      await axios.post(`/api/books/${currentBook.value}/aux/${auxType.value}`, payload)
+      await auxApi.create(currentBook.value, auxType.value, payload)
     }
     ElMessage.success('保存成功')
     showEdit.value = false
@@ -610,7 +610,7 @@ const saveItem = async () => {
 const deleteAux = async (row) => {
   await ElMessageBox.confirm(`确定删除 ${row.name}？`, '确认')
   try {
-    await axios.delete(`/api/books/${currentBook.value}/aux/${auxType.value}/${row.id}`)
+    await auxApi.delete(currentBook.value, auxType.value, row.id)
     ElMessage.success('已删除')
     loadAux()
   } catch (e) { ElMessage.error('删除失败') }
@@ -620,7 +620,7 @@ const batchDelete = async () => {
   await ElMessageBox.confirm(`确定删除选中的 ${selectedItems.value.length} 条？`, '确认')
   try {
     const ids = selectedItems.value.map(r => r.id)
-    await axios.post(`/api/books/${currentBook.value}/aux/${auxType.value}/batch-delete`, { ids })
+    await auxApi.batchDelete(currentBook.value, auxType.value, ids)
     ElMessage.success('批量删除成功')
     loadAux()
   } catch (e) { ElMessage.error('删除失败') }
@@ -628,13 +628,9 @@ const batchDelete = async () => {
 
 const exportData = async () => {
   try {
-    const { data } = await axios.get(`/api/books/${currentBook.value}/aux/${auxType.value}/export`, { responseType: 'blob' })
-    const url = URL.createObjectURL(new Blob([data], { type: 'text/csv;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${auxType.value}_export.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    const url = auxApi.exportUrl(currentBook.value, auxType.value)
+    const token = localStorage.getItem('token')
+    window.open(`${url}?token=${token}`, '_blank')
   } catch (e) { ElMessage.error('导出失败') }
 }
 

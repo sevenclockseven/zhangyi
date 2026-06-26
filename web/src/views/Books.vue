@@ -106,7 +106,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import { bookApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
 
@@ -127,7 +127,7 @@ const route = useRoute()
 
 const loadBooks = async () => {
   try {
-    const { data } = await axios.get('/api/books')
+    const { data } = await bookApi.list()
     books.value = data.data || []
     // If we came from a book-specific route, update currentBook store
     const bookId = parseInt(route.query.book)
@@ -147,7 +147,7 @@ const createBook = async () => {
     return
   }
   try {
-    await axios.post('/api/books', form.value)
+    await bookApi.create(form.value)
     ElMessage.success('创建成功')
     showCreate.value = false
     form.value = { name: '', industry: [], taxpayer_type: 'small', accounting_standard: 'small_business', start_date: '', contact: '', phone: '' }
@@ -160,7 +160,7 @@ const createBook = async () => {
 const deleteBook = async (book) => {
   try {
     await ElMessageBox.confirm(`确定删除账套"${book.name}"？`, '确认', { type: 'warning' })
-    await axios.delete(`/api/books/${book.id}`)
+    await bookApi.delete(book.id)
     ElMessage.success('已删除')
     loadBooks()
   } catch (e) {

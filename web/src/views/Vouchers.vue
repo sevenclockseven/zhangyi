@@ -248,7 +248,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import axios from 'axios'
+import { voucherApi, accountApi, voucherTemplateApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
@@ -332,16 +332,14 @@ const buildAuxCache = () => {
 const loadVouchers = async () => {
   if (!currentBook.value) return
   try {
-    let url = `/api/books/${currentBook.value}/vouchers`
-    const params = []
-    if (filterStatus.value) params.push(`status=${filterStatus.value}`)
+    const params = {}
+    if (filterStatus.value) params.status = filterStatus.value
     if (filterDateRange.value) {
-      params.push(`date_from=${filterDateRange.value[0]}`)
-      params.push(`date_to=${filterDateRange.value[1]}`)
+      params.date_from = filterDateRange.value[0]
+      params.date_to = filterDateRange.value[1]
     }
-    if (filterKeyword.value) params.push(`keyword=${filterKeyword.value}`)
-    if (params.length) url += '?' + params.join('&')
-    const { data } = await axios.get(url)
+    if (filterKeyword.value) params.keyword = filterKeyword.value
+    const { data } = await voucherApi.list(currentBook.value, params)
     vouchers.value = data.data || []
   } catch (e) { console.error(e) }
 }
@@ -349,7 +347,7 @@ const loadVouchers = async () => {
 const loadAccounts = async () => {
   if (!currentBook.value) return
   try {
-    const { data } = await axios.get(`/api/books/${currentBook.value}/accounts`)
+    const { data } = await accountApi.list(currentBook.value)
     accounts.value = data.data || []
     buildAuxCache()
   } catch (e) { console.error(e) }
@@ -357,7 +355,7 @@ const loadAccounts = async () => {
 
 const viewVoucher = async (row) => {
   try {
-    const { data } = await axios.get(`/api/books/${currentBook.value}/vouchers/${row.id}`)
+    const { data } = await voucherApi.get(currentBook.value, row.id)
     viewingVoucher.value = data.data
     showViewer.value = true
   } catch (e) { ElMessage.error('加载失败') }
@@ -365,7 +363,7 @@ const viewVoucher = async (row) => {
 
 const editVoucher = async (row) => {
   try {
-    const { data } = await axios.get(`/api/books/${currentBook.value}/vouchers/${row.id}`)
+    const { data } = await voucherApi.get(currentBook.value, row.id)
     editingVoucher.value = data.data
     voucherForm.value = {
       date: data.data.date,
@@ -390,7 +388,7 @@ const editVoucher = async (row) => {
 
 const reviewVoucher = async (row) => {
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/review`)
+    await voucherApi.review(currentBook.value, row.id)
     ElMessage.success('审核成功')
     loadVouchers()
   } catch (e) { ElMessage.error(e.response?.data?.error || '审核失败') }
@@ -398,7 +396,7 @@ const reviewVoucher = async (row) => {
 
 const postVoucher = async (row) => {
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/post`)
+    await voucherApi.post(currentBook.value, row.id)
     ElMessage.success('记账成功')
     loadVouchers()
   } catch (e) { ElMessage.error(e.response?.data?.error || '记账失败') }
@@ -407,7 +405,7 @@ const postVoucher = async (row) => {
 const deleteVoucher = async (row) => {
   await ElMessageBox.confirm('确定删除？', '确认')
   try {
-    await axios.delete(`/api/books/${currentBook.value}/vouchers/${row.id}`)
+    await voucherApi.delete(currentBook.value, row.id)
     ElMessage.success('已删除')
     loadVouchers()
   } catch (e) { ElMessage.error(e.response?.data?.error || '删除失败') }
@@ -415,7 +413,7 @@ const deleteVoucher = async (row) => {
 
 const unreviewVoucher = async (row) => {
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/unreview`)
+    await voucherApi.unreview(currentBook.value, row.id)
     ElMessage.success('反审核成功')
     loadVouchers()
   } catch (e) { ElMessage.error(e.response?.data?.error || '反审核失败') }
@@ -423,7 +421,7 @@ const unreviewVoucher = async (row) => {
 
 const unpostVoucher = async (row) => {
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/unpost`)
+    await voucherApi.unpost(currentBook.value, row.id)
     ElMessage.success('反记账成功')
     loadVouchers()
   } catch (e) { ElMessage.error(e.response?.data?.error || '反记账失败') }
@@ -432,7 +430,7 @@ const unpostVoucher = async (row) => {
 const voidVoucher = async (row) => {
   await ElMessageBox.confirm('确定作废该凭证？', '确认', { type: 'warning' })
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/void`)
+    await voucherApi.void(currentBook.value, row.id)
     ElMessage.success('已作废')
     loadVouchers()
   } catch (e) { ElMessage.error(e.response?.data?.error || '作废失败') }
@@ -440,7 +438,7 @@ const voidVoucher = async (row) => {
 
 const restoreVoucher = async (row) => {
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers/${row.id}/restore`)
+    await voucherApi.restore(currentBook.value, row.id)
     ElMessage.success('已恢复')
     loadVouchers()
   } catch (e) { ElMessage.error(e.response?.data?.error || '恢复失败') }
@@ -452,7 +450,7 @@ const batchReview = async () => {
   const ids = selectedVouchers.value.filter(v => v.status === 'draft').map(v => v.id)
   if (!ids.length) return
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers/batch-review`, { ids })
+    await voucherApi.batchReview(currentBook.value, ids)
     ElMessage.success('批量审核成功')
     loadVouchers()
   } catch (e) { ElMessage.error('批量审核失败') }
@@ -462,7 +460,7 @@ const batchPost = async () => {
   const ids = selectedVouchers.value.filter(v => v.status === 'reviewed' || v.status === 'draft').map(v => v.id)
   if (!ids.length) return
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers/batch-post`, { ids })
+    await voucherApi.batchPost(currentBook.value, ids)
     ElMessage.success('批量记账成功')
     loadVouchers()
   } catch (e) { ElMessage.error('批量记账失败') }
@@ -529,17 +527,17 @@ const calcTotal = () => {}
 
 const exportVouchers = () => {
   const token = localStorage.getItem('token')
-  window.open(`/api/books/${currentBook.value}/vouchers/export?token=${token}`, '_blank')
+  window.open(`${voucherApi.exportUrl(currentBook.value)}?token=${token}`, '_blank')
 }
 
 const saveVoucher = async () => {
   try {
     const payload = { ...voucherForm.value }
     if (editingVoucher.value) {
-      await axios.put(`/api/books/${currentBook.value}/vouchers/${editingVoucher.value.id}`, payload)
+      await voucherApi.update(currentBook.value, editingVoucher.value.id, payload)
       ElMessage.success('修改成功')
     } else {
-      await axios.post(`/api/books/${currentBook.value}/vouchers`, payload)
+      await voucherApi.create(currentBook.value, payload)
       ElMessage.success('保存成功')
     }
     showEditor.value = false
@@ -550,7 +548,7 @@ const saveVoucher = async () => {
 
 const saveAndNew = async () => {
   try {
-    await axios.post(`/api/books/${currentBook.value}/vouchers`, voucherForm.value)
+    await voucherApi.create(currentBook.value, voucherForm.value)
     ElMessage.success('保存成功')
     resetForm()
   } catch (e) { ElMessage.error(e.response?.data?.error || '保存失败') }
@@ -601,7 +599,7 @@ const templates = ref([])
 const loadTemplates = async () => {
   if (!currentBook.value) return
   try {
-    const { data } = await axios.get(`/api/books/${currentBook.value}/voucher-templates`)
+    const { data } = await voucherTemplateApi.list(currentBook.value)
     templates.value = data.data || []
   } catch (e) { console.error(e) }
 }
@@ -613,7 +611,7 @@ const saveAsTemplate = async () => {
       account_id: i.account_id, account_code: i.account_code, account_name: i.account_name,
       memo: i.memo
     }))
-    await axios.post(`/api/books/${currentBook.value}/voucher-templates`, {
+    await voucherTemplateApi.create(currentBook.value, {
       name: templateForm.value.name,
       category: templateForm.value.category,
       items: JSON.stringify(items)

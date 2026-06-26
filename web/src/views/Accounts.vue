@@ -114,7 +114,7 @@ import { ref, watch, onMounted } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useRoute } from 'vue-router'
 import { useMobile } from '../composables/useMobile'
-import axios from 'axios'
+import { accountApi, bookApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { isMobile } = useMobile()
@@ -134,7 +134,7 @@ watch(searchText, (val) => { treeRef.value?.filter(val) })
 
 const loadAccounts = async () => {
   if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}/accounts`)
+  const { data } = await accountApi.list(currentBook.value)
   accounts.value = data.data || []
   accountTree.value = buildTree(accounts.value)
 }
@@ -172,9 +172,9 @@ const saveAccount = async () => {
   try {
     const payload = { ...form.value, aux_types: form.value.aux_types.join(',') }
     if (editingAccount.value) {
-      await axios.put(`/api/books/${currentBook.value}/accounts/${editingAccount.value.id}`, payload)
+      await accountApi.update(currentBook.value, editingAccount.value.id, payload)
     } else {
-      await axios.post(`/api/books/${currentBook.value}/accounts`, payload)
+      await accountApi.create(currentBook.value, payload)
     }
     ElMessage.success('保存成功')
     showAdd.value = false
@@ -185,7 +185,7 @@ const saveAccount = async () => {
 
 const toggleActive = async (acct) => {
   try {
-    await axios.put(`/api/books/${currentBook.value}/accounts/${acct.id}`, { is_active: !acct.is_active })
+    await accountApi.update(currentBook.value, acct.id, { is_active: !acct.is_active })
     ElMessage.success(acct.is_active ? '已停用' : '已启用')
     loadAccounts()
   } catch (e) { ElMessage.error('操作失败') }
@@ -194,7 +194,7 @@ const toggleActive = async (acct) => {
 const deleteAccount = async (acct) => {
   await ElMessageBox.confirm(`确定删除 ${acct.code} ${acct.name}？`, '确认')
   try {
-    await axios.delete(`/api/books/${currentBook.value}/accounts/${acct.id}`)
+    await accountApi.delete(currentBook.value, acct.id)
     ElMessage.success('已删除')
     selectedAccount.value = null
     loadAccounts()
@@ -203,7 +203,7 @@ const deleteAccount = async (acct) => {
 
 const syncTemplate = async () => {
   try {
-    await axios.post(`/api/books/${currentBook.value}/sync-template`)
+    await bookApi.syncTemplate(currentBook.value)
     ElMessage.success('同步成功')
     loadAccounts()
   } catch (e) { ElMessage.error('同步失败') }

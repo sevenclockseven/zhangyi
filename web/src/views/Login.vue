@@ -41,7 +41,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { authApi } from '../api'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -55,7 +55,7 @@ const handleLogin = async () => {
   }
   loading.value = true
   try {
-    const { data } = await axios.post('/api/auth/login', form.value)
+    const { data } = await authApi.login(form.value)
     localStorage.setItem('token', data.token)
     localStorage.setItem('user', JSON.stringify(data.user))
     ElMessage.success('登录成功')

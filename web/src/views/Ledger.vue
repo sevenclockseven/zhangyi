@@ -59,6 +59,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
+import { accountApi } from '../api'
 
 const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 260px)' : 'calc(100vh - 300px)')
@@ -75,7 +76,7 @@ const loadData = async () => {
     const { data } = await axios.get(`/api/books/${currentBook.value}/reports/account-balance?period=${period.value}`)
     balanceData.value = data.data || []
   } else if (activeTab.value === 'general') {
-    const { data } = await axios.get(`/api/books/${currentBook.value}/accounts`)
+    const { data } = await accountApi.list(currentBook.value)
     accounts.value = data.data || []
   }
 }

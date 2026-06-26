@@ -63,7 +63,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
-import axios from 'axios'
+import { voucherTemplateApi, accountApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { isMobile } = useMobile()
@@ -82,9 +82,9 @@ const parseItems = (itemsStr) => {
 
 const loadData = async () => {
   if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}/voucher-templates`)
+  const { data } = await voucherTemplateApi.list(currentBook.value)
   templates.value = data.data || []
-  const { data: accData } = await axios.get(`/api/books/${currentBook.value}/accounts`)
+  const { data: accData } = await accountApi.list(currentBook.value)
   accounts.value = accData.data || []
 }
 
@@ -113,9 +113,9 @@ const saveItem = async () => {
   try {
     const payload = { name: form.value.name, category: form.value.category, items: JSON.stringify(items) }
     if (editing.value) {
-      await axios.put(`/api/books/${currentBook.value}/voucher-templates/${editing.value.id}`, payload)
+      await voucherTemplateApi.update(currentBook.value, editing.value.id, payload)
     } else {
-      await axios.post(`/api/books/${currentBook.value}/voucher-templates`, payload)
+      await voucherTemplateApi.create(currentBook.value, payload)
     }
     ElMessage.success('保存成功')
     showEdit.value = false
@@ -126,7 +126,7 @@ const saveItem = async () => {
 const deleteItem = async (row) => {
   await ElMessageBox.confirm(`确定删除模板"${row.name}"？`, '确认')
   try {
-    await axios.delete(`/api/books/${currentBook.value}/voucher-templates/${row.id}`)
+    await voucherTemplateApi.delete(currentBook.value, row.id)
     ElMessage.success('已删除')
     loadData()
   } catch (e) { ElMessage.error('删除失败') }

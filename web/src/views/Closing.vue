@@ -79,7 +79,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import axios from 'axios'
+import { closingApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
@@ -103,7 +103,7 @@ const currentStep = computed(() => {
 const loadStatus = async () => {
   if (!currentBook.value) return
   try {
-    const { data } = await axios.get(`/api/books/${currentBook.value}/closing/status`)
+    const { data } = await closingApi.status(currentBook.value)
     status.value = data.data || status.value
   } catch (e) {
     console.error(e)
@@ -114,7 +114,7 @@ const doAutoTransfer = async () => {
   await ElMessageBox.confirm('执行损益结转将自动生成结转凭证，确定继续？', '损益结转', { type: 'info' })
   loading.value = true
   try {
-    const { data } = await axios.post(`/api/books/${currentBook.value}/closing/auto-transfer`)
+    const { data } = await closingApi.autoTransfer(currentBook.value)
     ElMessage.success(data.message || '损益结转完成')
     loadStatus()
   } catch (e) {
@@ -132,7 +132,7 @@ const doClose = async () => {
   }
   loading.value = true
   try {
-    const { data } = await axios.post(`/api/books/${currentBook.value}/closing/close`)
+    const { data } = await closingApi.close(currentBook.value)
     ElMessage.success(data.message || '期末结账完成')
     loadStatus()
   } catch (e) {
@@ -146,7 +146,7 @@ const doUnclose = async () => {
   await ElMessageBox.confirm('反结账将解锁本期，可以修改数据。确定继续？', '反结账', { type: 'warning' })
   loading.value = true
   try {
-    const { data } = await axios.post(`/api/books/${currentBook.value}/closing/unclose`)
+    const { data } = await closingApi.unclose(currentBook.value)
     ElMessage.success(data.message || '反结账完成')
     loadStatus()
   } catch (e) {

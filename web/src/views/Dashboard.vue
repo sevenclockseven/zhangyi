@@ -57,7 +57,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import { bookApi, voucherApi, healthApi } from '../api'
 
 const stats = ref({
   totalBooks: 0,
@@ -74,7 +74,7 @@ const systemInfo = ref({
 onMounted(async () => {
   try {
     // Load books count
-    const { data } = await axios.get('/api/books')
+    const { data } = await bookApi.list()
     const books = data.data || []
     stats.value.totalBooks = books.length
 
@@ -83,7 +83,7 @@ onMounted(async () => {
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     let allVouchers = []
     for (const book of books) {
-      const { data: vData } = await axios.get(`/api/books/${book.id}/vouchers`)
+      const { data: vData } = await voucherApi.list(book.id)
       allVouchers = allVouchers.concat(vData.data || [])
     }
     stats.value.monthVouchers = allVouchers.filter(v => v.date && v.date.startsWith(monthPrefix)).length
@@ -91,7 +91,7 @@ onMounted(async () => {
     stats.value.pendingPost = allVouchers.filter(v => v.status === 'reviewed').length
 
     // Load system info from health API
-    const { data: health } = await axios.get('/api/health')
+    const { data: health } = await healthApi.check()
     systemInfo.value = health
   } catch (e) {
     console.error('Failed to load stats:', e)

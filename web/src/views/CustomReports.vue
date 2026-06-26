@@ -93,6 +93,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
+import { reportApi } from '../api'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -109,7 +110,7 @@ const form = ref({ name: '', rows: [{ label: '', formula: '', level: 1, bold: fa
 
 const loadTemplates = async () => {
   if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}/reports/templates`)
+  const { data } = await reportApi.templates.list(currentBook.value)
   templates.value = data.data || []
 }
 
@@ -121,7 +122,7 @@ const openAdd = () => {
 const saveTemplate = async () => {
   if (!form.value.name) { ElMessage.warning('请输入报表名称'); return }
   try {
-    await axios.post(`/api/books/${currentBook.value}/reports/templates`, {
+    await reportApi.templates.create(currentBook.value, {
       name: form.value.name,
       type: 'custom',
       config: JSON.stringify({ rows: form.value.rows })
@@ -135,7 +136,7 @@ const saveTemplate = async () => {
 const deleteTemplate = async (tpl) => {
   await ElMessageBox.confirm(`确定删除"${tpl.name}"？`, '确认')
   try {
-    await axios.delete(`/api/books/${currentBook.value}/reports/templates/${tpl.id}`)
+    await reportApi.templates.delete(currentBook.value, tpl.id)
     ElMessage.success('已删除')
     loadTemplates()
     reportResult.value = null

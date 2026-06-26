@@ -295,6 +295,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
+import { reportApi } from '../api'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -313,7 +314,7 @@ const loadReport = async () => {
   try {
     const base = `/api/books/${currentBook.value}/reports`
     if (activeTab.value === 'income') {
-      const { data } = await axios.get(`${base}/income-statement-v2?period=${period.value}`)
+      const { data } = await reportApi.incomeStatementV2(currentBook.value, period.value)
       reportData.value = data
     } else if (activeTab.value === 'balance-sheet') {
       const { data } = await axios.get(`${base}/balance-sheet?period=${period.value}`)
@@ -493,7 +494,7 @@ const formulaExamples = [
 
 const loadCrList = async () => {
   if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}/reports/templates`)
+  const { data } = await reportApi.templates.list(currentBook.value)
   crList.value = data.data || []
 }
 const openCrAdd = () => {
@@ -516,9 +517,9 @@ const saveCr = async () => {
       name: crForm.value.name, type: 'custom', config: JSON.stringify({ rows: crForm.value.rows })
     }
     if (crForm.value.id) {
-      await axios.put(`/api/books/${currentBook.value}/reports/templates/${crForm.value.id}`, payload)
+      await reportApi.templates.update(currentBook.value, crForm.value.id, payload)
     } else {
-      await axios.post(`/api/books/${currentBook.value}/reports/templates`, payload)
+      await reportApi.templates.create(currentBook.value, payload)
     }
     ElMessage.success('保存成功')
     showCrEdit.value = false
@@ -534,7 +535,7 @@ const runCr = async (tpl) => {
 }
 const deleteCr = async (tpl) => {
   await ElMessageBox.confirm(`确定删除"${tpl.name}"？`, '确认')
-  await axios.delete(`/api/books/${currentBook.value}/reports/templates/${tpl.id}`)
+  await reportApi.templates.delete(currentBook.value, tpl.id)
   ElMessage.success('已删除')
   loadCrList()
   crResult.value = null

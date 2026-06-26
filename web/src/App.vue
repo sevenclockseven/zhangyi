@@ -114,7 +114,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
+import { bookApi, authApi } from './api'
 import { ElMessage } from 'element-plus'
 import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin } from '@element-plus/icons-vue'
 import { useBookStore } from './stores/book'
@@ -135,7 +135,7 @@ const sidebarWidth = '220px'
 // Load books globally
 const loadBooks = async () => {
   try {
-    const { data } = await axios.get('/api/books')
+    const { data } = await bookApi.list()
     setBooks(data.data || [])
   } catch {}
 }
@@ -222,7 +222,7 @@ const handleCommand = async (cmd) => {
 
 const changePassword = async () => {
   try {
-    await axios.put('/api/auth/password', passwordForm.value)
+    await authApi.changePassword(passwordForm.value)
     ElMessage.success('密码修改成功')
     showPasswordDialog.value = false
   } catch (e) {

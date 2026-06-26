@@ -62,7 +62,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import axios from 'axios'
+import { openingApi } from '../api'
 import { ElMessage } from 'element-plus'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
@@ -84,7 +84,7 @@ const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.ge
 
 const loadData = async () => {
   if (!currentBook.value) return
-  const { data } = await axios.get(`/api/books/${currentBook.value}/opening-balances`)
+  const { data } = await openingApi.get(currentBook.value)
   balances.value = data.data || []
 }
 
@@ -92,7 +92,7 @@ const onBalanceChange = () => {}
 
 const exportData = () => {
   const token = localStorage.getItem('token')
-  window.open(`/api/books/${currentBook.value}/opening-balances/export?token=${token}`, '_blank')
+  window.open(`${openingApi.exportUrl(currentBook.value)}?token=${token}`, '_blank')
 }
 
 const onImportSuccess = (resp) => {
@@ -111,7 +111,7 @@ const saveAll = async () => {
         .filter(b => b.is_leaf && (b.opening_debit > 0 || b.opening_credit > 0))
         .map(b => ({ account_id: b.account_id, opening_debit: b.opening_debit || 0, opening_credit: b.opening_credit || 0 }))
     }
-    await axios.post(`/api/books/${currentBook.value}/opening-balances`, payload)
+    await openingApi.save(currentBook.value, payload)
     ElMessage.success('保存成功')
   } catch (e) { ElMessage.error(e.response?.data?.error || '保存失败') }
   finally { saving.value = false }
