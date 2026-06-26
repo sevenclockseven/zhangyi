@@ -2,9 +2,6 @@
   <div class="closing">
     <div class="page-header">
       <h2>期末处理</h2>
-      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadStatus()">
-        <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
-      </el-select>
     </div>
 
     <div v-if="currentBook" class="closing-content">
@@ -81,14 +78,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useBookStore } from '../stores/book'
+import { useMobile } from '../composables/useMobile'
 
-const isMobile = ref(window.innerWidth < 768)
-const books = ref([])
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { isMobile } = useMobile()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const loading = ref(false)
 const status = ref({
   current_period: '',
@@ -102,15 +99,6 @@ const currentStep = computed(() => {
   if (status.value.unposted_count === 0) return 2
   return 1
 })
-
-const loadBooks = async () => {
-  const { data } = await axios.get('/api/books')
-  books.value = data.data || []
-  if (books.value.length > 0) {
-    currentBook.value = books.value[0].id
-    await loadStatus()
-  }
-}
 
 const loadStatus = async () => {
   if (!currentBook.value) return
@@ -168,9 +156,10 @@ const doUnclose = async () => {
   }
 }
 
+watch(currentBook, (val) => { if (val) loadStatus() })
+
 onMounted(() => {
-  loadBooks()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) loadStatus()
 })
 </script>
 

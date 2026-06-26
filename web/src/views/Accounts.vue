@@ -3,9 +3,6 @@
     <div class="page-header">
       <h2>科目管理</h2>
       <div class="header-actions">
-        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadAccounts()">
-          <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
-        </el-select>
         <el-button @click="syncTemplate" :disabled="!currentBook" type="success" plain size="small">
           <el-icon><Refresh /></el-icon>同步模板
         </el-button>
@@ -116,12 +113,12 @@
 import { ref, watch, onMounted } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useRoute } from 'vue-router'
+import { useMobile } from '../composables/useMobile'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-const isMobile = ref(window.innerWidth < 768)
-const books = ref([])
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { isMobile } = useMobile()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const route = useRoute()
 const accounts = ref([])
 const accountTree = ref([])
@@ -134,18 +131,6 @@ const editingAccount = ref(null)
 const form = ref({ code: '', name: '', direction: '借', aux_types: [] })
 
 watch(searchText, (val) => { treeRef.value?.filter(val) })
-
-const loadBooks = async () => {
-  const { data } = await axios.get('/api/books')
-  books.value = data.data || []
-  // If coming from route with book param, use that; otherwise use store or first book
-  const bookIdFromRoute = Number(route.query.book)
-  if (!isNaN(bookIdFromRoute) && bookIdFromRoute > 0) {
-    setCurrentBook(bookIdFromRoute)
-  } else if (books.value.length > 0 && !currentBook.value) {
-    setCurrentBook(books.value[0].id)
-  }
-}
 
 const loadAccounts = async () => {
   if (!currentBook.value) return
@@ -229,11 +214,10 @@ watch(showAdd, (val) => {
   else if (!editingAccount.value) form.value = { code: '', name: '', direction: '借', aux_types: [] }
 })
 
-watch(currentBook, () => { loadAccounts(); selectedAccount.value = null })
+watch(currentBook, (val) => { if (val) { loadAccounts(); selectedAccount.value = null } })
 
 onMounted(() => {
-  loadBooks()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) loadAccounts()
 })
 </script>
 

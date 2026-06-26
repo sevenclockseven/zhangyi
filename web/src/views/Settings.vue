@@ -2,9 +2,6 @@
   <div class="settings">
     <div class="page-header">
       <h2>系统设置</h2>
-      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadAux()">
-        <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
-      </el-select>
     </div>
 
     <el-tabs v-model="activeTab" v-if="currentBook" @tab-change="onTabChange">
@@ -370,12 +367,12 @@ import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Top, Bottom, Rank } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
+import { useMobile } from '../composables/useMobile'
 
-const isMobile = ref(window.innerWidth < 768)
+const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)')
 
-const books = ref([])
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const activeTab = ref('aux')
 const auxType = ref('customer')
 const auxItems = ref([])
@@ -420,12 +417,6 @@ const getExtra = (row, key) => {
     const extra = JSON.parse(row.extra || '{}')
     return extra[key] || ''
   } catch { return '' }
-}
-
-const loadBooks = async () => {
-  const { data } = await axios.get('/api/books')
-  books.value = data.data || []
-  if (books.value.length > 0) { currentBook.value = books.value[0].id; await loadAux() }
 }
 
 const loadAux = async () => {
@@ -680,11 +671,10 @@ watch(showEdit, (val) => {
   if (!val) editingItem.value = null
 })
 
-watch(currentBook, () => { loadAux(); loadBookInfo(); loadVtplList() })
+watch(currentBook, (val) => { if (val) { loadAux(); loadBookInfo(); loadVtplList() } })
 
 onMounted(() => {
-  loadBooks()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) { loadAux(); loadBookInfo(); loadVtplList() }
 })
 </script>
 

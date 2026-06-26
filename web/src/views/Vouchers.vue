@@ -3,9 +3,6 @@
     <div class="page-header">
       <h2>凭证管理</h2>
       <div class="header-actions">
-        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px', marginRight: isMobile ? '0' : '12px', marginBottom: isMobile ? '8px' : '0' }" @change="setCurrentBook($event); loadVouchers()">
-          <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
-        </el-select>
         <el-button type="primary" @click="showEditor = true" :disabled="!currentBook">
           <el-icon><Plus /></el-icon>新增凭证
         </el-button>
@@ -28,7 +25,7 @@
       </div>
     </el-card>
 
-    <!-- Voucher list - scrollable table -->
+    <!-- Voucher list -->
     <div class="table-wrapper">
       <el-table :data="vouchers" stripe v-if="currentBook" style="width: 100%"
         @selection-change="handleSelectionChange" empty-text="暂无凭证" :max-height="tableMaxHeight">
@@ -36,19 +33,13 @@
         <el-table-column prop="number" label="凭证字号" :width="isMobile ? 100 : 140" />
         <el-table-column prop="date" label="日期" :width="isMobile ? 90 : 110" />
         <el-table-column label="摘要" min-width="150">
-          <template #default="{ row }">
-            {{ getVoucherMemo(row) }}
-          </template>
+          <template #default="{ row }">{{ getVoucherMemo(row) }}</template>
         </el-table-column>
         <el-table-column prop="total_debit" label="借方" :width="isMobile ? 100 : 120" align="right">
-          <template #default="{ row }">
-            {{ formatMoney(row.total_debit) }}
-          </template>
+          <template #default="{ row }">{{ formatMoney(row.total_debit) }}</template>
         </el-table-column>
         <el-table-column prop="total_credit" label="贷方" :width="isMobile ? 100 : 120" align="right">
-          <template #default="{ row }">
-            {{ formatMoney(row.total_credit) }}
-          </template>
+          <template #default="{ row }">{{ formatMoney(row.total_credit) }}</template>
         </el-table-column>
         <el-table-column prop="status" label="状态" :width="isMobile ? 70 : 90" align="center">
           <template #default="{ row }">
@@ -107,29 +98,53 @@
         </el-row>
       </el-form>
 
-      <!-- Voucher items - scrollable -->
+      <!-- Voucher items -->
       <div class="table-wrapper">
         <el-table :data="voucherForm.items" border size="small" style="margin: 8px 0">
           <el-table-column label="#" width="40" type="index" />
-          <el-table-column label="摘要" min-width="150">
+          <el-table-column label="摘要" min-width="120">
             <template #default="{ row, $index }">
               <el-input v-model="row.memo" placeholder="摘要" size="small" @keydown.enter.prevent="focusNext($index, 'account')" :ref="el => setFieldRef($index, 'memo', el)" />
             </template>
           </el-table-column>
-          <el-table-column label="科目" min-width="180">
+          <el-table-column label="科目" min-width="160">
             <template #default="{ row, $index }">
               <el-select v-model="row.account_id" filterable placeholder="选择科目" @change="(val) => onAccountChange(val, $index)" @keydown.enter.prevent="focusNext($index, 'debit')" :ref="el => setFieldRef($index, 'account', el)" style="width: 100%">
                 <el-option v-for="a in accounts" :key="a.id" :label="a.code + ' ' + a.name" :value="a.id" :disabled="!a.is_leaf" />
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="借方" width="120">
-            <template #default="{ row }">
+          <el-table-column label="辅助核算" min-width="200">
+            <template #default="{ row, $index }">
+              <div v-if="getAccountAuxTypes(row.account_id).length > 0" style="display: flex; flex-wrap: wrap; gap: 4px">
+                <el-select
+                  v-for="auxType in getAccountAuxTypes(row.account_id)"
+                  :key="auxType"
+                  v-model="row[auxFieldMap[auxType]]"
+                  :placeholder="auxLabelMap[auxType]"
+                  filterable
+                  clearable
+                  size="small"
+                  style="width: 120px"
+                >
+                  <el-option
+                    v-for="item in getAuxItems(auxType)"
+                    :key="item.id"
+                    :label="item.name"
+                    :value="item.id"
+                  />
+                </el-select>
+              </div>
+              <span v-else style="color: #c0c4cc; font-size: 12px">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="借方" width="110">
+            <template #default="{ row, $index }">
               <el-input-number v-model="row.debit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'credit')" :ref="el => setFieldRef($index, 'debit', el)" />
             </template>
           </el-table-column>
-          <el-table-column label="贷方" width="120">
-            <template #default="{ row }">
+          <el-table-column label="贷方" width="110">
+            <template #default="{ row, $index }">
               <el-input-number v-model="row.credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'next-row')" :ref="el => setFieldRef($index, 'credit', el)" />
             </template>
           </el-table-column>
@@ -198,6 +213,9 @@
             <el-table-column label="科目" min-width="150">
               <template #default="{ row }">{{ row.account_code }} {{ row.account_name }}</template>
             </el-table-column>
+            <el-table-column label="辅助核算" min-width="120">
+              <template #default="{ row }">{{ formatAuxDisplay(row) }}</template>
+            </el-table-column>
             <el-table-column label="摘要" min-width="100" prop="memo" />
             <el-table-column label="借方" width="100" align="right">
               <template #default="{ row }">{{ row.debit ? formatMoney(row.debit) : '' }}</template>
@@ -209,6 +227,7 @@
         </div>
       </div>
     </el-dialog>
+
     <!-- Save as template dialog -->
     <el-dialog v-model="showSaveAsTemplate" title="保存为凭证模板" :width="isMobile ? '90%' : '400px'">
       <el-form :model="templateForm" label-width="80px">
@@ -232,17 +251,40 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useBookStore } from '../stores/book'
+import { useMobile } from '../composables/useMobile'
 import { useRoute } from 'vue-router'
 
-const isMobile = ref(window.innerWidth < 768)
+const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 300px)' : 'calc(100vh - 350px)')
 
-const books = ref([])
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const route = useRoute()
 const vouchers = ref([])
 const accounts = ref([])
 const selectedVouchers = ref([])
+
+// Auxiliary items cache: { customer: [...], supplier: [...], ... }
+const auxItemsCache = ref({})
+
+// Auxiliary type mapping
+const auxFieldMap = {
+  customer: 'aux_customer_id',
+  supplier: 'aux_supplier_id',
+  department: 'aux_department_id',
+  project: 'aux_project_id',
+  employee: 'aux_employee_id',
+  warehouse: 'aux_warehouse_id',
+  bank_account: 'aux_bank_account_id'
+}
+const auxLabelMap = {
+  customer: '客户',
+  supplier: '供应商',
+  department: '部门',
+  project: '项目',
+  employee: '员工',
+  warehouse: '仓库',
+  bank_account: '银行账号'
+}
 
 const filterDateRange = ref(null)
 const filterStatus = ref('')
@@ -261,18 +303,33 @@ const totalCredit = computed(() => voucherForm.value.items.reduce((s, i) => s + 
 const canBatchReview = computed(() => selectedVouchers.value.some(v => v.status === 'draft'))
 const canBatchPost = computed(() => selectedVouchers.value.some(v => v.status === 'reviewed' || v.status === 'draft'))
 
-const loadBooks = async () => {
-  try {
-    const { data } = await axios.get('/api/books')
-    books.value = data.data || []
-    // If route has a book parameter, use that as current book
-    const bookIdFromRoute = Number(route.query.book)
-    if (!isNaN(bookIdFromRoute) && bookIdFromRoute > 0) {
-      setCurrentBook(bookIdFromRoute)
-    } else if (books.value.length > 0 && !currentBook.value) {
-      setCurrentBook(books.value[0].id)
+// Get auxiliary types for an account
+const getAccountAuxTypes = (accountId) => {
+  if (!accountId) return []
+  const acct = accounts.value.find(a => a.id === accountId)
+  if (!acct || !acct.aux_types) return []
+  return acct.aux_types.split(',').filter(Boolean)
+}
+
+// Get auxiliary items for a type
+const getAuxItems = (type) => {
+  return auxItemsCache.value[type] || []
+}
+
+// Load all auxiliary items for the current book
+const loadAuxItems = async () => {
+  if (!currentBook.value) return
+  const types = ['customer', 'supplier', 'department', 'project', 'employee', 'warehouse', 'bank_account']
+  const cache = {}
+  for (const type of types) {
+    try {
+      const { data } = await axios.get(`/api/books/${currentBook.value}/aux/${type}`)
+      cache[type] = (data.data || []).filter(i => i.is_active !== false)
+    } catch {
+      cache[type] = []
     }
-  } catch (e) { console.error(e) }
+  }
+  auxItemsCache.value = cache
 }
 
 const loadVouchers = async () => {
@@ -316,7 +373,18 @@ const editVoucher = async (row) => {
       date: data.data.date,
       voucher_type: data.data.voucher_type || 'general',
       attachments: data.data.attachments || 0,
-      items: data.data.items.map(i => ({ account_id: i.account_id, account_code: i.account_code, account_name: i.account_name, debit: i.debit, credit: i.credit, memo: i.memo }))
+      items: data.data.items.map(i => ({
+        account_id: i.account_id, account_code: i.account_code, account_name: i.account_name,
+        debit: i.debit, credit: i.credit, memo: i.memo,
+        aux_customer_id: i.aux_customer_id || null,
+        aux_supplier_id: i.aux_supplier_id || null,
+        aux_department_id: i.aux_department_id || null,
+        aux_project_id: i.aux_project_id || null,
+        aux_employee_id: i.aux_employee_id || null,
+        aux_warehouse_id: i.aux_warehouse_id || null,
+        aux_bank_account_id: i.aux_bank_account_id || null,
+        cash_flow_id: i.cash_flow_id || null
+      }))
     }
     showEditor.value = true
   } catch (e) { ElMessage.error('加载失败') }
@@ -402,7 +470,13 @@ const batchPost = async () => {
   } catch (e) { ElMessage.error('批量记账失败') }
 }
 
-const newItem = () => ({ account_id: null, account_code: '', account_name: '', debit: 0, credit: 0, memo: '' })
+const newItem = () => ({
+  account_id: null, account_code: '', account_name: '', debit: 0, credit: 0, memo: '',
+  aux_customer_id: null, aux_supplier_id: null, aux_department_id: null,
+  aux_project_id: null, aux_employee_id: null, aux_warehouse_id: null,
+  aux_bank_account_id: null, cash_flow_id: null
+})
+
 const addItem = () => { voucherForm.value.items.push(newItem()) }
 const removeItem = (index) => { voucherForm.value.items.splice(index, 1) }
 
@@ -411,6 +485,15 @@ const onAccountChange = (val, index) => {
   if (acct) {
     voucherForm.value.items[index].account_code = acct.code
     voucherForm.value.items[index].account_name = acct.name
+    // Clear auxiliary fields that don't apply to the new account
+    const auxTypes = acct.aux_types ? acct.aux_types.split(',').filter(Boolean) : []
+    const allAuxFields = Object.values(auxFieldMap)
+    const activeAuxFields = auxTypes.map(t => auxFieldMap[t])
+    allAuxFields.forEach(field => {
+      if (!activeAuxFields.includes(field)) {
+        voucherForm.value.items[index][field] = null
+      }
+    })
   }
 }
 
@@ -423,12 +506,10 @@ const setFieldRef = (rowIndex, field, el) => {
 
 const focusNext = (rowIndex, field) => {
   if (field === 'next-row') {
-    // Jump to next row's memo
     const nextKey = `${rowIndex + 1}_memo`
     if (fieldRefs[nextKey]) {
       fieldRefs[nextKey].focus?.() || fieldRefs[nextKey].$el?.querySelector('input')?.focus()
     } else {
-      // Add new row if at the end
       addItem()
       nextTick(() => {
         setTimeout(() => {
@@ -479,7 +560,11 @@ const saveAndNew = async () => {
 
 const resetForm = () => {
   editingVoucher.value = null
-  voucherForm.value = { date: new Date().toISOString().slice(0, 10), voucher_type: 'general', attachments: 0, items: [newItem(), newItem()] }
+  voucherForm.value = {
+    date: new Date().toISOString().slice(0, 10),
+    voucher_type: 'general', attachments: 0,
+    items: [newItem(), newItem()]
+  }
 }
 
 const formatMoney = (v) => {
@@ -495,6 +580,18 @@ const getVoucherMemo = (row) => {
   return ''
 }
 
+// Format auxiliary display for view dialog
+const formatAuxDisplay = (item) => {
+  const parts = []
+  if (item.aux_customer_id) { const i = auxItemsCache.value.customer?.find(x => x.id === item.aux_customer_id); if (i) parts.push('客户:' + i.name) }
+  if (item.aux_supplier_id) { const i = auxItemsCache.value.supplier?.find(x => x.id === item.aux_supplier_id); if (i) parts.push('供应商:' + i.name) }
+  if (item.aux_department_id) { const i = auxItemsCache.value.department?.find(x => x.id === item.aux_department_id); if (i) parts.push('部门:' + i.name) }
+  if (item.aux_project_id) { const i = auxItemsCache.value.project?.find(x => x.id === item.aux_project_id); if (i) parts.push('项目:' + i.name) }
+  if (item.aux_employee_id) { const i = auxItemsCache.value.employee?.find(x => x.id === item.aux_employee_id); if (i) parts.push('员工:' + i.name) }
+  if (item.aux_warehouse_id) { const i = auxItemsCache.value.warehouse?.find(x => x.id === item.aux_warehouse_id); if (i) parts.push('仓库:' + i.name) }
+  if (item.aux_bank_account_id) { const i = auxItemsCache.value.bank_account?.find(x => x.id === item.aux_bank_account_id); if (i) parts.push('银行:' + i.name) }
+  return parts.join(', ') || '—'
+}
 
 watch(showEditor, (val) => { if (val && !editingVoucher.value) resetForm() })
 
@@ -535,17 +632,35 @@ const loadFromTemplate = (tpl) => {
     const items = JSON.parse(tpl.items)
     voucherForm.value.items = items.map(i => ({
       account_id: i.account_id || null, account_code: i.account_code || '',
-      account_name: i.account_name || '', debit: 0, credit: 0, memo: i.memo || ''
+      account_name: i.account_name || '', debit: 0, credit: 0, memo: i.memo || '',
+      aux_customer_id: null, aux_supplier_id: null, aux_department_id: null,
+      aux_project_id: null, aux_employee_id: null, aux_warehouse_id: null,
+      aux_bank_account_id: null, cash_flow_id: null
     }))
     ElMessage.success(`已加载模板: ${tpl.name}`)
   } catch (e) { ElMessage.error('模板格式错误') }
 }
 
-watch(currentBook, () => { loadVouchers(); loadAccounts(); loadTemplates() })
+// Route param support
+const bookIdFromRoute = Number(route.query.book)
+if (!isNaN(bookIdFromRoute) && bookIdFromRoute > 0) {
+  setCurrentBook(bookIdFromRoute)
+}
+
+watch(currentBook, () => {
+  loadVouchers()
+  loadAccounts()
+  loadTemplates()
+  loadAuxItems()
+})
 
 onMounted(() => {
-  loadBooks()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) {
+    loadVouchers()
+    loadAccounts()
+    loadTemplates()
+    loadAuxItems()
+  }
 })
 </script>
 
@@ -614,9 +729,6 @@ onMounted(() => {
   }
   .header-actions {
     width: 100%;
-  }
-  .header-actions .el-select {
-    flex: 1;
   }
 }
 </style>

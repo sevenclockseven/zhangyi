@@ -2,11 +2,6 @@
   <div class="opening-balance">
     <div class="page-header">
       <h2>期初余额</h2>
-      <div class="header-actions">
-        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadData()">
-          <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
-        </el-select>
-      </div>
     </div>
 
     <div v-if="currentBook">
@@ -66,16 +61,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useBookStore } from '../stores/book'
+import { useMobile } from '../composables/useMobile'
 
-const isMobile = ref(window.innerWidth < 768)
+const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 260px)' : 'calc(100vh - 300px)')
 
-const books = ref([])
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const balances = ref([])
 const saving = ref(false)
 
@@ -86,15 +81,6 @@ const balanceDesc = computed(() => `借方合计：${fmt(totalDebit.value)}　�
 
 const importUrl = computed(() => currentBook.value ? `/api/books/${currentBook.value}/opening-balances/import` : '')
 const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.getItem('token')}` }))
-
-const loadBooks = async () => {
-  const { data } = await axios.get('/api/books')
-  books.value = data.data || []
-  if (books.value.length > 0) {
-    currentBook.value = books.value[0].id
-    await loadData()
-  }
-}
 
 const loadData = async () => {
   if (!currentBook.value) return
@@ -147,12 +133,10 @@ const summaryMethod = ({ columns, data }) => {
   return sums
 }
 
+watch(currentBook, (val) => { if (val) loadData() })
+
 onMounted(() => {
-  loadBooks()
-  watch(currentBook, (newVal) => {
-    if (newVal) loadData()
-  })
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) loadData()
 })
 </script>
 

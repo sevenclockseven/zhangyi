@@ -2,9 +2,6 @@
   <div class="ledger">
     <div class="page-header">
       <h2>账簿查询</h2>
-      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadData()">
-        <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
-      </el-select>
     </div>
 
     <el-tabs v-model="activeTab" v-if="currentBook" @tab-change="loadData">
@@ -61,22 +58,16 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { useBookStore } from '../stores/book'
+import { useMobile } from '../composables/useMobile'
 
-const isMobile = ref(window.innerWidth < 768)
+const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 260px)' : 'calc(100vh - 300px)')
 
-const books = ref([])
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const activeTab = ref('balance')
 const period = ref(new Date().toISOString().slice(0, 7))
 const balanceData = ref([])
 const accounts = ref([])
-
-const loadBooks = async () => {
-  const { data } = await axios.get('/api/books')
-  books.value = data.data || []
-  if (books.value.length > 0) { currentBook.value = books.value[0].id; await loadData() }
-}
 
 const loadData = async () => {
   if (!currentBook.value) return
@@ -106,10 +97,9 @@ const balanceSummary = ({ columns, data }) => {
   return sums
 }
 
-watch(currentBook, loadData)
+watch(currentBook, (val) => { if (val) loadData() })
 onMounted(() => {
-  loadBooks()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) loadData()
 })
 </script>
 

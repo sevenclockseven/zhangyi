@@ -3,9 +3,6 @@
     <div class="page-header">
       <h2>自定义报表</h2>
       <div class="header-actions">
-        <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadTemplates()">
-          <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
-        </el-select>
         <el-button type="primary" size="small" @click="openAdd">
           <el-icon><Plus /></el-icon>新建报表
         </el-button>
@@ -93,28 +90,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useBookStore } from '../stores/book'
+import { useMobile } from '../composables/useMobile'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-const isMobile = ref(window.innerWidth < 768)
+const { isMobile } = useMobile()
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 400px)' : 'calc(100vh - 450px)'
 
-const books = ref([])
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const templates = ref([])
 const reportResult = ref(null)
 const runPeriod = ref(new Date().toISOString().slice(0, 7))
 
 const showAdd = ref(false)
 const form = ref({ name: '', rows: [{ label: '', formula: '', level: 1, bold: false }] })
-
-const loadBooks = async () => {
-  const { data } = await axios.get('/api/books')
-  books.value = data.data || []
-  if (books.value.length > 0) { currentBook.value = books.value[0].id; await loadTemplates() }
-}
 
 const loadTemplates = async () => {
   if (!currentBook.value) return
@@ -164,9 +155,10 @@ const fmt = (v) => {
   return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+watch(currentBook, (val) => { if (val) loadTemplates() })
+
 onMounted(() => {
-  loadBooks()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) loadTemplates()
 })
 </script>
 

@@ -167,10 +167,14 @@
 - [x] 修复期初余额/期末处理/系统设置/账簿页面缺少useBookStore import导致白屏
 - [x] 所有页面loadBooks函数添加自动加载数据
 
-### v0.6.8: 导出未登录修复 ✅
-- [x] auth中间件支持query token（window.open不带header）
-- [x] 期初余额/凭证/辅助核算导出统一修复
-- [x] Dockerfile Alpine镜像源改为阿里云
+### v0.6.9: 凭证辅助核算 + 全局账套切换 🔄
+- [ ] 凭证编辑器：选择科目后动态显示辅助核算下拉框
+- [ ] 凭证保存/更新：传递 aux_*_id 字段到后端
+- [ ] Header 全局账套选择器
+- [ ] 移除各页面独立账套选择器
+- [ ] 抽取公共 composables（useBookStore 增强 + useMobile）
+- [ ] 测试验证
+- [ ] 更新文档
 
 ---
 

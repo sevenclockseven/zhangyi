@@ -60,15 +60,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useBookStore } from '../stores/book'
+import { useMobile } from '../composables/useMobile'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-const isMobile = ref(window.innerWidth < 768)
+const { isMobile } = useMobile()
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 200px)' : 'calc(100vh - 250px)'
 
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const templates = ref([])
 const accounts = ref([])
 const showEdit = ref(false)
@@ -79,18 +80,10 @@ const parseItems = (itemsStr) => {
   try { return JSON.parse(itemsStr || '[]') } catch { return [] }
 }
 
-const load = async () => {
-  // Get first book
-  const { data: books } = await axios.get('/api/books')
-  const bookList = books.data || []
-  if (bookList.length === 0) return
-  currentBook.value = bookList[0].id
-
-  // Load templates
+const loadData = async () => {
+  if (!currentBook.value) return
   const { data } = await axios.get(`/api/books/${currentBook.value}/voucher-templates`)
   templates.value = data.data || []
-
-  // Load accounts
   const { data: accData } = await axios.get(`/api/books/${currentBook.value}/accounts`)
   accounts.value = accData.data || []
 }
@@ -126,7 +119,7 @@ const saveItem = async () => {
     }
     ElMessage.success('保存成功')
     showEdit.value = false
-    load()
+    loadData()
   } catch (e) { ElMessage.error('保存失败') }
 }
 
@@ -135,13 +128,14 @@ const deleteItem = async (row) => {
   try {
     await axios.delete(`/api/books/${currentBook.value}/voucher-templates/${row.id}`)
     ElMessage.success('已删除')
-    load()
+    loadData()
   } catch (e) { ElMessage.error('删除失败') }
 }
 
+watch(currentBook, (val) => { if (val) loadData() })
+
 onMounted(() => {
-  load()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) loadData()
 })
 </script>
 

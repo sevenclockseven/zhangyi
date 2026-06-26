@@ -2,9 +2,6 @@
   <div class="reports">
     <div class="page-header">
       <h2>报表中心</h2>
-      <el-select v-model="currentBook" placeholder="选择账套" :style="{ width: isMobile ? '100%' : '200px' }" @change="setCurrentBook($event); loadReport()">
-        <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
-      </el-select>
     </div>
 
     <el-tabs v-model="activeTab" v-if="currentBook" @tab-change="loadReport">
@@ -295,25 +292,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useBookStore } from '../stores/book'
+import { useMobile } from '../composables/useMobile'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-const isMobile = ref(window.innerWidth < 768)
+const { isMobile } = useMobile()
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)'
 
-const books = ref([])
-const { currentBookId: currentBook, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const activeTab = ref('income')
 const period = ref(new Date().toISOString().slice(0, 7))
 const reportData = ref(null)
-
-const loadBooks = async () => {
-  const { data } = await axios.get('/api/books')
-  books.value = data.data || []
-  if (books.value.length > 0) { currentBook.value = books.value[0].id; await loadReport() }
-}
 
 const loadReport = async () => {
   if (activeTab.value === 'custom') { loadCrList(); return }
@@ -483,9 +474,9 @@ const fmt = (v) => {
   return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+watch(currentBook, (val) => { if (val) loadReport() })
 onMounted(() => {
-  loadBooks()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  if (currentBook.value) loadReport()
 })
 // Custom Reports
 const crList = ref([])

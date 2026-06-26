@@ -57,6 +57,18 @@
             <el-breadcrumb-item v-if="route.meta.title && route.meta.title !== '工作台'">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
           <span class="page-title" v-else>{{ route.meta.title || '账易' }}</span>
+          <!-- Global book selector -->
+          <el-select
+            v-model="currentBookId"
+            placeholder="选择账套"
+            size="small"
+            style="width: 180px; margin-left: 12px"
+            filterable
+            @change="onBookChange"
+            v-if="books.length > 0"
+          >
+            <el-option v-for="b in books" :key="b.id" :label="b.name" :value="b.id" />
+          </el-select>
         </div>
         <div class="header-right">
           <el-dropdown @command="handleCommand">
@@ -100,26 +112,37 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin } from '@element-plus/icons-vue'
 import { useBookStore } from './stores/book'
-const { setCurrentBook } = useBookStore()
+import { useMobile } from './composables/useMobile'
 
 const route = useRoute()
 const router = useRouter()
+const { isMobile } = useMobile()
+const { currentBookId, books, setCurrentBook, setBooks } = useBookStore()
 
 const isLoginPage = computed(() => route.path === '/login')
 const currentUser = ref({})
 const showPasswordDialog = ref(false)
 const passwordForm = ref({ old_password: '', new_password: '' })
-
-// Mobile responsive
-const isMobile = ref(window.innerWidth < 768)
 const sidebarOpen = ref(false)
 const sidebarWidth = '220px'
+
+// Load books globally
+const loadBooks = async () => {
+  try {
+    const { data } = await axios.get('/api/books')
+    setBooks(data.data || [])
+  } catch {}
+}
+
+const onBookChange = (val) => {
+  setCurrentBook(val)
+}
 
 // Default menu config
 const defaultMenuConfig = [
@@ -130,13 +153,12 @@ const defaultMenuConfig = [
   { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
   { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
   { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
-    { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
+  { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
   { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
 ]
 
 const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin }
 
-// Load menu config from localStorage
 const menuConfig = ref(defaultMenuConfig)
 const menuItems = computed(() =>
   menuConfig.value
@@ -149,7 +171,6 @@ const loadMenuConfig = () => {
     const saved = localStorage.getItem('zhangyi_menu_config')
     if (saved) {
       const parsed = JSON.parse(saved)
-      // Use saved order, append any new default items not in saved config
       const savedIndexes = new Set(parsed.map(p => p.index))
       const extras = defaultMenuConfig.filter(d => !savedIndexes.has(d.index))
       menuConfig.value = [...parsed, ...extras].map(item => {
@@ -160,7 +181,6 @@ const loadMenuConfig = () => {
   } catch {}
 }
 
-// Expose for Settings page
 if (typeof window !== 'undefined') {
   window.__menuConfig = menuConfig
   window.__saveMenuConfig = () => {
@@ -172,25 +192,17 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const handleResize = () => {
-  isMobile.value = window.innerWidth < 768
-  if (!isMobile.value) sidebarOpen.value = false
-}
-
 onMounted(() => {
-  window.addEventListener('resize', handleResize)
   window.addEventListener('menu-config-changed', loadMenuConfig)
   const user = localStorage.getItem('user')
   if (user) currentUser.value = JSON.parse(user)
   loadMenuConfig()
+  loadBooks()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
   window.removeEventListener('menu-config-changed', loadMenuConfig)
 })
-
-
 
 const onMenuSelect = () => {
   if (isMobile.value) sidebarOpen.value = false
@@ -200,7 +212,6 @@ const handleCommand = async (cmd) => {
   if (cmd === 'logout') {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
-    const { setCurrentBook } = useBookStore()
     setCurrentBook(null)
     router.push('/login')
   } else if (cmd === 'password') {
