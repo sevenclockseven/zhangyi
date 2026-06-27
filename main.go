@@ -60,7 +60,11 @@ func main() {
 	r := gin.Default()
 
 	// API routes
-	api.AppVersion = "0.7.2"
+	// Version is set at build time via Dockerfile
+	// Falls back to reading VERSION file, then to git tag
+	if v, err := os.ReadFile("VERSION"); err == nil {
+		api.AppVersion = strings.TrimSpace(string(v))
+	}
 	api.RegisterRoutes(r, db)
 
 	// Serve embedded frontend

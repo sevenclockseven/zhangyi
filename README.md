@@ -85,6 +85,22 @@ GOPROXY=https://goproxy.cn,direct go build -o zhangyi .
 | 容器 | Docker + Docker Compose |
 | CI/CD | GitHub Actions → ghcr.io |
 
+### 版本管理
+
+版本号通过 **Docker build arg** 自动注入，无需手动修改代码：
+
+```bash
+# 构建指定版本
+docker compose build --no-cache --build-arg GIT_TAG=v0.7.4
+
+# 部署
+docker compose up -d
+```
+
+- `Dockerfile` 在 Production stage 将 `GIT_TAG` 写入 `/app/VERSION` 文件
+- `main.go` 启动时自动读取 `/app/VERSION` 作为版本号
+- 如果文件不存在（本地开发），默认显示 `dev`
+
 ### 项目结构
 
 ```

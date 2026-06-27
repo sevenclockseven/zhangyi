@@ -12,7 +12,7 @@ import (
 )
 
 // AppVersion is set by main.go at startup
-var AppVersion = "0.5.3"
+var AppVersion = "dev"
 
 // RegisterRoutes registers all API routes
 func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
