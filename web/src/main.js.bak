@@ -3,13 +3,6 @@ import { createPinia } from 'pinia'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import axios from 'axios'
 
-// Element Plus overlay 组件样式（dialog/drawer/message-box 通过 teleport 渲染，按需引入会漏掉）
-import 'element-plus/es/components/dialog/style/css'
-import 'element-plus/es/components/message-box/style/css'
-import 'element-plus/es/components/drawer/style/css'
-import 'element-plus/es/components/message/style/css'
-import 'element-plus/es/components/notification/style/css'
-
 import App from './App.vue'
 import router from './router'
 
@@ -45,6 +38,7 @@ app.use(createPinia())
 app.use(router)
 
 // Element Plus 按需引入（由 unplugin-vue-components + ElementPlusResolver 自动处理）
-// overlay 类组件样式已在顶部全局引入
+// 中文 locale 通过全局配置注入
+// Element Plus 中文 locale 通过 ElConfigProvider 注入（见 App.vue）
 
 app.mount('#app')
