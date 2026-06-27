@@ -54,7 +54,7 @@
           <el-card shadow="never">
             <template #header><strong>资产</strong></template>
             <div class="table-wrapper">
-              <el-table :data="reportData.assets" border size="small" show-summary :summary-method="balanceSummary" :max-height="tableMaxHeight">
+              <el-table :data="reportData.assets" border size="small" show-summary :max-height="tableMaxHeight">
                 <el-table-column prop="code" label="编码" width="70" />
                 <el-table-column prop="name" label="项目" min-width="120" />
                 <el-table-column label="期末余额" width="120" align="right">
@@ -66,7 +66,7 @@
           <el-card shadow="never">
             <template #header><strong>负债及权益</strong></template>
             <div class="table-wrapper">
-              <el-table :data="[...(reportData.liabilities || []), ...(reportData.equity || [])]" border size="small" show-summary :summary-method="balanceSummary" :max-height="tableMaxHeight">
+              <el-table :data="[...(reportData.liabilities || []), ...(reportData.equity || [])]" border size="small" show-summary :max-height="tableMaxHeight">
                 <el-table-column prop="code" label="编码" width="70" />
                 <el-table-column prop="name" label="项目" min-width="120" />
                 <el-table-column label="期末余额" width="120" align="right">
@@ -109,7 +109,7 @@
       <div v-if="activeTab === 'expense' && reportData">
         <el-card shadow="never">
           <template #header><strong>费用统计表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
-          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="expenseSummary">
+          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
             <el-table-column prop="code" label="编码" width="100" />
             <el-table-column prop="name" label="费用项目" min-width="180" />
             <el-table-column label="本期金额" width="140" align="right">
@@ -134,7 +134,7 @@
         <el-card shadow="never">
           <template #header><strong>总账报表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
           <div class="table-wrapper">
-            <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="ledgerSummary">
+            <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
               <el-table-column prop="code" label="科目编码" width="100" fixed />
               <el-table-column prop="name" label="科目名称" min-width="130" fixed />
               <el-table-column prop="direction" label="向" width="50" align="center" />
@@ -164,7 +164,7 @@
       <!-- 科目余额表 -->
       <div v-if="activeTab === 'account-balance' && reportData">
         <div class="table-wrapper">
-          <el-table :data="reportData" border size="small" show-summary :summary-method="abSummary" :max-height="tableMaxHeight">
+          <el-table :data="reportData" border size="small" show-summary :max-height="tableMaxHeight">
             <el-table-column prop="account_code" label="编码" width="90" fixed />
             <el-table-column prop="account_name" label="科目" min-width="120" fixed />
             <el-table-column prop="direction" label="向" width="50" align="center" />
@@ -191,7 +191,7 @@
             <strong>{{ activeTab === 'ar' ? '应收账款统计及帐龄分析' : '应付账款统计及帐龄分析' }}</strong>
           </template>
           <div class="table-wrapper">
-            <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="arApSummary">
+            <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
               <el-table-column prop="code" label="编码" width="80" fixed />
               <el-table-column prop="name" :label="activeTab === 'ar' ? '客户' : '供应商'" min-width="120" fixed />
               <el-table-column label="合计" width="110" align="right">
@@ -359,28 +359,6 @@ const incomeSummary = ({ columns, data }) => {
   })
   return sums
 }
-
-// 通用合计方法：对指定列求和
-const makeSummary = (fields) => ({ columns, data }) => {
-  const sums = []
-  columns.forEach((col, i) => {
-    if (i === 0) { sums[i] = '合计'; return }
-    const field = fields[i]
-    if (field) {
-      const total = data.reduce((s, r) => s + (Number(r[field]) || 0), 0)
-      sums[i] = fmt(total)
-    } else {
-      sums[i] = ''
-    }
-  })
-  return sums
-}
-
-const balanceSummary = makeSummary({ 2: 'balance' })
-const expenseSummary = makeSummary({ 2: 'amount' })
-const ledgerSummary = makeSummary({ 3: 'opening_debit', 4: 'opening_credit', 5: 'period_debit', 6: 'period_credit', 7: 'closing_debit', 8: 'closing_credit' })
-const abSummary = makeSummary({ 3: 'opening_debit', 4: 'period_debit', 5: 'period_credit', 6: 'closing_debit' })
-const arApSummary = makeSummary({ 2: 'total', 3: 'current', 4: 'month_1', 5: 'month_3', 6: 'month_6', 7: 'month_12', 8: 'over_1_year' })
 
 const exportReport = async (format) => {
   if (activeTab.value === 'custom' && !crResult.value) { ElMessage.warning('请先运行自定义报表，再导出'); return }
