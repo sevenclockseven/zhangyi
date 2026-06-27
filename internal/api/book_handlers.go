@@ -89,9 +89,6 @@ func createBook(db *gorm.DB) gin.HandlerFunc {
 		// Initialize default cash flow items
 		initCashFlowItems(tx, book.ID)
 
-		// Initialize default auxiliary items for other types
-		initDefaultAuxItems(tx, book.ID)
-
 		tx.Commit()
 
 		c.JSON(http.StatusCreated, gin.H{"data": book})
@@ -204,91 +201,6 @@ func deleteBook(db *gorm.DB) gin.HandlerFunc {
 
 
 
-
-// initDefaultAuxItems creates default auxiliary items for common types
-func initDefaultAuxItems(tx *gorm.DB, bookID uint) {
-	// Collect all aux_types from accounts
-	var accounts []models.Account
-	tx.Where("book_id = ? AND is_active = ?", bookID, true).Find(&accounts)
-
-	typeSet := make(map[string]bool)
-	for _, a := range accounts {
-		if a.AuxTypes == "" {
-			continue
-		}
-		for _, t := range strings.Split(a.AuxTypes, ",") {
-			t = strings.TrimSpace(t)
-			if t != "" {
-				typeSet[t] = true
-			}
-		}
-	}
-
-	// Default items for each type
-	defaults := map[string][]struct{ Code, Name string }{
-		"customer": {
-			{"CUS-001", "客户A"},
-			{"CUS-002", "客户B"},
-			{"CUS-003", "客户C"},
-		},
-		"supplier": {
-			{"SUP-001", "供应商A"},
-			{"SUP-002", "供应商B"},
-			{"SUP-003", "供应商C"},
-		},
-		"warehouse": {
-			{"WH-001", "仓库一"},
-			{"WH-002", "仓库二"},
-			{"WH-003", "仓库三"},
-		},
-		"department": {
-			{"DEPT-001", "总经办"},
-			{"DEPT-002", "办公室"},
-			{"DEPT-003", "财务部"},
-			{"DEPT-004", "销售部"},
-		},
-		"employee": {
-			{"EMP-001", "张三"},
-			{"EMP-002", "李四"},
-			{"EMP-003", "王五"},
-		},
-		"project": {
-			{"PRJ-001", "项目一"},
-			{"PRJ-002", "项目二"},
-		},
-		"bank_account": {
-			{"BA-001", "基本户"},
-			{"BA-002", "一般户"},
-		},
-	}
-
-	for auxType := range typeSet {
-		// Skip cash_flow (already initialized separately)
-		if auxType == "cash_flow" {
-			continue
-		}
-		items, ok := defaults[auxType]
-		if !ok {
-			continue
-		}
-		// Check if items already exist for this type
-		var count int64
-		tx.Model(&models.AuxItem{}).Where("book_id = ? AND type = ?", bookID, auxType).Count(&count)
-		if count > 0 {
-			continue
-		}
-		for _, item := range items {
-			auxItem := models.AuxItem{
-				BookID:   bookID,
-				Type:     auxType,
-				Code:     item.Code,
-				Name:     item.Name,
-				IsActive: true,
-			}
-			tx.Create(&auxItem)
-		}
-	}
-}
 
 // initCashFlowItems creates default cash flow items for a new book
 func initCashFlowItems(tx *gorm.DB, bookID uint) {
