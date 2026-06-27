@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sqlite "github.com/glebarez/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	"github.com/sevenclockseven/zhangyi/internal/api"
@@ -21,22 +22,43 @@ import (
 var webDist embed.FS
 
 func main() {
-	// Ensure data directory exists
-	if err := os.MkdirAll("data", 0755); err != nil {
-		log.Fatalf("Failed to create data directory: %v", err)
+	// Initialize database
+	dbDriver := os.Getenv("DB_DRIVER")
+	if dbDriver == "" {
+		dbDriver = "sqlite"
+	}
+	dbDsn := os.Getenv("DB_DSN")
+
+	var dialector gorm.Dialector
+	switch dbDriver {
+	case "postgres":
+		if dbDsn == "" {
+			dbDsn = "host=localhost user=zhangyi password=zhangyi dbname=zhangyi port=5432 sslmode=disable"
+		}
+		dialector = postgres.Open(dbDsn)
+	default:
+		if dbDsn == "" {
+			dbDsn = "data/zhangyi.db"
+		}
+		if err := os.MkdirAll("data", 0755); err != nil {
+			log.Fatalf("Failed to create data directory: %v", err)
+		}
+		dialector = sqlite.Open(dbDsn)
 	}
 
-	// Initialize database
-	db, err := gorm.Open(sqlite.Open("data/zhangyi.db"), &gorm.Config{
+	db, err := gorm.Open(dialector, &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect database: %v", err)
 	}
 
-	// Enable WAL mode for better concurrency
-	db.Exec("PRAGMA journal_mode=WAL")
-	db.Exec("PRAGMA foreign_keys=ON")
+	if dbDriver == "sqlite" || dbDriver == "" {
+		db.Exec("PRAGMA journal_mode=WAL")
+		db.Exec("PRAGMA foreign_keys=ON")
+	}
+
+	log.Printf("Database: %s", dbDriver)
 
 	// Auto migrate
 	if err := db.AutoMigrate(
@@ -51,6 +73,7 @@ func main() {
 		&models.VoucherTemplate{},
 		&models.ReportTemplate{},
 		&models.OperationLog{},
+		&models.BookUser{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}

@@ -164,3 +164,15 @@ type OperationLog struct {
 	Operator  string    `json:"operator" gorm:"size:50"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// BookUser 账套权限
+type BookUser struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	BookID    uint      `json:"book_id" gorm:"index;not null"`
+	UserID    uint      `json:"user_id" gorm:"index;not null"`
+	Role      string    `json:"role" gorm:"size:20;default:full"` // full / readonly
+	CreatedAt time.Time `json:"created_at"`
+
+	Book AccountBook `json:"book,omitempty" gorm:"foreignKey:BookID"`
+	User User        `json:"user,omitempty" gorm:"foreignKey:UserID"`
+}

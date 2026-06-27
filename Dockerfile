@@ -23,7 +23,7 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags='-s -w' -o zhangyi .
 FROM alpine:3.19
 ARG GIT_TAG=latest
 RUN sed -i s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g /etc/apk/repositories
-RUN apk add --no-cache ca-certificates curl tzdata
+RUN apk add --no-cache ca-certificates curl tzdata sqlite
 ENV TZ=Asia/Shanghai
 WORKDIR /app
 COPY --from=backend /app/zhangyi .

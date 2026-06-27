@@ -49,6 +49,22 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			// 用户信息
 			auth.GET("/auth/me", getMeHandler(db))
 			auth.PUT("/auth/password", changePasswordHandler(db))
+			auth.GET("/auth/permissions", getBookPermissions(db))
+
+			// 系统管理（管理员）
+			sysAdmin := auth.Group("")
+			sysAdmin.Use(middleware.AdminRequired())
+			{
+				// 备份管理
+				sysAdmin.GET("/backups", listBackups(db))
+				sysAdmin.POST("/backups", createBackup(db))
+				sysAdmin.GET("/backups/:name/download", downloadBackup(db))
+				sysAdmin.DELETE("/backups/:name", deleteBackup(db))
+				sysAdmin.POST("/backups/:name/restore", restoreBackup(db))
+
+				// 操作日志
+				sysAdmin.GET("/logs", listOperationLogs(db))
+			}
 
 			// 用户管理（管理员）
 			users := auth.Group("/users")
@@ -72,6 +88,10 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				books.POST("/:id/sync-template", syncTemplate(db))
 				books.POST("/:id/sync-all-templates", syncAllTemplates(db))
 				books.GET("/:id/trial-balance", trialBalance(db))
+			books.GET("/:id/users", listBookUsers(db))
+			books.POST("/:id/users", addBookUser(db))
+			books.PUT("/:id/users/:buid", updateBookUser(db))
+			books.DELETE("/:id/users/:buid", deleteBookUser(db))
 			books.GET("/:id/opening-balances", getOpeningBalances(db))
 			books.POST("/:id/opening-balances", saveOpeningBalances(db))
 			books.GET("/:id/opening-balances/export", exportOpeningBalances(db))

@@ -14,6 +14,9 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - PORT=8080
+      # 数据库配置，默认 SQLite，切换 PostgreSQL 取消注释下面两行
+      # - DB_DRIVER=postgres
+      # - DB_DSN=host=postgres user=zhangyi password=zhangyi dbname=zhangyi port=5432 sslmode=disable
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
@@ -21,11 +24,35 @@ services:
       retries: 3
     networks:
       - zhangyi-net
+    # 如果用 PostgreSQL，取消下面的 depends_on
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
+
+  # PostgreSQL（可选，取消注释启用）
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: zhangyi-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: zhangyi
+  #     POSTGRES_PASSWORD: zhangyi
+  #     POSTGRES_DB: zhangyi
+  #   volumes:
+  #     - zhangyi-pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U zhangyi"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - zhangyi-net
 
 volumes:
   zhangyi-data:
   zhangyi-backups:
   zhangyi-exports:
+  # zhangyi-pgdata:
 
 networks:
   zhangyi-net:
