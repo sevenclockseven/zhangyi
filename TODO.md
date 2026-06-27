@@ -104,15 +104,48 @@
 
 ---
 
-## Phase 3 - 多人协作
+## Phase 3 - 基础设施 + 权限 (v0.8.0)
 
-### P3-001: 数据库切换
-- [ ] PostgreSQL 支持
-- [ ] 数据迁移工具
+### P3-001: 数据库可切换
+- [ ] 环境变量配置 DB_DRIVER（sqlite/postgres）+ DB_DSN
+- [ ] main.go gorm.Open() 根据 driver 选 dialect
+- [ ] GORM AutoMigrate 兼容 SQLite + PG
+- [ ] docker-compose.yml 增加 PostgreSQL service（可选）
+- [ ] 本地开发仍用 SQLite，生产可选 PG
+- [ ] 测试验证：SQLite 和 PG 双跑通过
 
-### P3-002: 权限管理
-- [ ] 角色权限细化
-- [ ] 操作日志审计
+### P3-002: 自动备份 + 恢复
+- [ ] 备份配置：BACKUP_ENABLED / BACKUP_DIR / BACKUP_SCHEDULE / BACKUP_KEEP
+- [ ] SQLite 备份：sqlite3 .dump 导出 SQL + gzip 压缩
+- [ ] PG 备份：pg_dump 导出
+- [ ] 定时备份（cron goroutine，按 BACKUP_SCHEDULE 执行）
+- [ ] 关键操作前自动备份（期末结账、批量删除）
+- [ ] 前端设置页：备份管理（手动备份/恢复/下载/删除列表）
+- [ ] 一键恢复：上传备份文件 → 停服务 → 恢复 → 重启
+- [ ] 备份文件命名：zhangyi_2026-06-27_020000.sql.gz
+
+### P3-003: 操作日志
+- [ ] 建表 operation_logs（设计文档已有表结构）
+- [ ] 中间件自动记录：非 GET 请求写入日志（who/when/what/module/detail）
+- [ ] 关键操作标记：凭证审核/记账/作废、期末结账、用户管理
+- [ ] 前端：系统设置增加「操作日志」页面（按时间/用户/模块筛选）
+- [ ] 日志保留策略：可配置保留天数（默认90天），超期自动清理
+
+### P3-004: 账套权限管理
+- [ ] 建表 book_users（book_id, user_id, role: full/readonly）
+- [ ] 中间件 BookAccess：admin 放行，普通用户查 book_users
+- [ ] 中间件 BookWritable：readonly 用户写操作返回 403
+- [ ] API 改造：所有 /api/books/:id/* 路由加 BookAccess 中间件
+- [ ] 账套列表接口：admin 返回全部，普通用户只返回已分配的
+- [ ] 用户管理页：增加「账套分配」功能（admin 给用户勾选账套+设权限级别）
+- [ ] 前端：只读用户在账套内隐藏写操作按钮（新增/编辑/删除/审核/记账）
+- [ ] 前端：Header 账套选择器只显示有权限的账套
+
+### P3-005: 代码架构适配
+- [ ] 用户登录接口返回 book_permissions（账套ID+权限级别列表）
+- [ ] 前端 store 保存 book_permissions，hasPermission(bookId) 方法
+- [ ] 全局路由守卫：无账套权限时显示「暂无账套权限，请联系管理员」
+- [ ] README 更新：环境变量配置说明、备份恢复说明、权限说明
 
 ---
 
@@ -263,3 +296,6 @@
 - **v0.7.0** (2026-06-26): 代码架构优化 - 拆分handlers.go+前端API层+Element Plus按需引入(bundle 1.2MB→446KB)
 - **v0.7.2** (2026-06-26): 修复移动端图标缺失+版本号更新
 - **v0.7.3** (2026-06-26): 现金流量表重构(按cash_flow_id汇总)+辅助核算扩展(10种类型)+期末结转逻辑补全
+- **v0.7.4** (2026-06-27): 期末处理逻辑修正（period自动推断+事务一致性）
+- **v0.7.5** (2026-06-27): 版本管理改为Docker build arg动态注入+修复Element Plus中文locale+清理垃圾文件
+- **v0.8.0** (规划中): Phase3 - 数据库可切换+自动备份+操作日志+账套权限管理
