@@ -1,4 +1,4 @@
-# 账易 (ZhangYi) TODO
+# 易记 (YiJi) TODO
 
 ## Phase 1 - MVP ✅ 已完成
 

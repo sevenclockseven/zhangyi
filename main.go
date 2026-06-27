@@ -185,7 +185,7 @@ func main() {
 		port = p
 	}
 
-	fmt.Printf("🦐 账易启动成功！访问 http://localhost:%s\n", port)
+	fmt.Printf("🦐 易记启动成功！访问 http://localhost:%s\n", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
