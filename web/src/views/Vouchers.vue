@@ -140,12 +140,12 @@
           </el-table-column>
           <el-table-column label="借方" width="110">
             <template #default="{ row, $index }">
-              <el-input-number v-model="row.debit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'credit')" :ref="el => setFieldRef($index, 'debit', el)" />
+              <el-input-number v-model="row.debit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @focus="$event.target.select()" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'credit')" :ref="el => setFieldRef($index, 'debit', el)" />
             </template>
           </el-table-column>
           <el-table-column label="贷方" width="110">
             <template #default="{ row, $index }">
-              <el-input-number v-model="row.credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'next-row')" :ref="el => setFieldRef($index, 'credit', el)" />
+              <el-input-number v-model="row.credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @focus="$event.target.select()" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'next-row')" :ref="el => setFieldRef($index, 'credit', el)" />
             </template>
           </el-table-column>
           <el-table-column label="" width="40">

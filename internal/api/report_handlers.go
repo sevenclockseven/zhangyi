@@ -73,11 +73,33 @@ func balanceSheet(db *gorm.DB) gin.HandlerFunc {
 			}
 		}
 
+		// Calculate totals
+		var totalAssets, totalLiabilities, totalEquity float64
+		for _, a := range assets {
+			if v, ok := a["balance"].(float64); ok {
+				totalAssets += v
+			}
+		}
+		for _, l := range liabilities {
+			if v, ok := l["balance"].(float64); ok {
+				totalLiabilities += v
+			}
+		}
+		for _, e := range equity {
+			if v, ok := e["balance"].(float64); ok {
+				totalEquity += v
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"period":      period,
-			"assets":      assets,
-			"liabilities": liabilities,
-			"equity":      equity,
+			"period":            period,
+			"assets":            assets,
+			"liabilities":       liabilities,
+			"equity":            equity,
+			"total_assets":      totalAssets,
+			"total_liabilities": totalLiabilities,
+			"total_equity":      totalEquity,
+			"total_liab_equity": totalLiabilities + totalEquity,
 		})
 	}
 }
@@ -86,15 +108,12 @@ func incomeStatement(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
 		period := c.DefaultQuery("period", "")
-
 		if period == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间 (period)"})
 			return
 		}
 
-		var balances []models.AccountBalance
-		db.Where("book_id = ? AND period = ?", bookID, period).Find(&balances)
-
+		// Get all accounts
 		var accounts []models.Account
 		db.Where("book_id = ?", bookID).Find(&accounts)
 		accountMap := make(map[uint]models.Account)
@@ -102,30 +121,58 @@ func incomeStatement(db *gorm.DB) gin.HandlerFunc {
 			accountMap[a.ID] = a
 		}
 
+		// Get posted vouchers for this period (excluding transfer vouchers)
+		var vouchers []models.Voucher
+		db.Where("book_id = ? AND date LIKE ? AND status = ?", bookID, period+"%", "posted").Find(&vouchers)
+
+		// Calculate amounts from voucher items (excluding transfer vouchers)
+		type AmountVal struct {
+			Debit  float64
+			Credit float64
+		}
+		amountMap := make(map[uint]AmountVal)
+		for _, v := range vouchers {
+			if v.Memo != "" && strings.Contains(v.Memo, "损益结转") {
+				continue
+			}
+			var items []models.VoucherItem
+			db.Where("voucher_id = ?", v.ID).Find(&items)
+			for _, item := range items {
+				val := amountMap[item.AccountID]
+				val.Debit += item.Debit
+				val.Credit += item.Credit
+				amountMap[item.AccountID] = val
+			}
+		}
+
 		revenue := []gin.H{}
 		expenses := []gin.H{}
 
-		for _, b := range balances {
-			acct, ok := accountMap[b.AccountID]
-			if !ok || acct.Level != 1 {
+		for _, acct := range accounts {
+			if !acct.IsActive || acct.Level != 1 {
 				continue
 			}
-
 			code := acct.Code
+			amounts := amountMap[acct.ID]
+
 			if code >= "5000" && code < "5400" {
-				// Revenue
-				revenue = append(revenue, gin.H{
-					"code":   acct.Code,
-					"name":   acct.Name,
-					"amount": b.PeriodCredit - b.PeriodDebit,
-				})
+				net := amounts.Credit - amounts.Debit
+				if net != 0 {
+					revenue = append(revenue, gin.H{
+						"code":   acct.Code,
+						"name":   acct.Name,
+						"amount": net,
+					})
+				}
 			} else if code >= "5400" && code < "6000" {
-				// Expenses
-				expenses = append(expenses, gin.H{
-					"code":   acct.Code,
-					"name":   acct.Name,
-					"amount": b.PeriodDebit - b.PeriodCredit,
-				})
+				net := amounts.Debit - amounts.Credit
+				if net != 0 {
+					expenses = append(expenses, gin.H{
+						"code":   acct.Code,
+						"name":   acct.Name,
+						"amount": net,
+					})
+				}
 			}
 		}
 

@@ -3,6 +3,8 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -78,6 +80,14 @@ func autoTransfer(db *gorm.DB) gin.HandlerFunc {
 		balanceMap := make(map[uint]models.AccountBalance)
 		for _, b := range balances {
 			balanceMap[b.AccountID] = b
+		}
+
+		// Check for existing transfer voucher this period
+		var existingTransfer int64
+		db.Model(&models.Voucher{}).Where("book_id = ? AND date LIKE ? AND memo LIKE ?", bookID, period+"%", "%损益结转%").Count(&existingTransfer)
+		if existingTransfer > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": period + " 已有损益结转凭证，请先反结账后再操作"})
+			return
 		}
 
 		// 2. 找到本年利润科目（3103小企业/3131企业）
@@ -304,20 +314,74 @@ func unclosePeriod(db *gorm.DB) gin.HandlerFunc {
 		tx.Where("book_id = ? AND date LIKE ? AND memo LIKE ?", bookID, period+"%", "%损益结转%").Find(&transferVouchers)
 		for _, v := range transferVouchers {
 			tx.Where("voucher_id = ?", v.ID).Delete(&models.VoucherItem{})
-			// 回滚科目余额
-			reverseAccountBalances(tx, &v)
 			tx.Delete(&v)
 		}
 
-		// 4. 恢复账套状态
+		// 4. 重算本期余额（从所有非结转凭证重新计算，确保数据正确）
+		var allVouchers []models.Voucher
+		tx.Where("book_id = ? AND date LIKE ? AND status = ?", bookID, period+"%", "posted").Find(&allVouchers)
+
+		// 收集所有非结转凭证的分录
+		var nonTransferItems []models.VoucherItem
+		for _, v := range allVouchers {
+			isTransfer := false
+			if v.Memo != "" && strings.Contains(v.Memo, "损益结转") {
+				isTransfer = true
+			}
+			if !isTransfer {
+				var items []models.VoucherItem
+				tx.Where("voucher_id = ?", v.ID).Find(&items)
+				nonTransferItems = append(nonTransferItems, items...)
+			}
+		}
+
+		// 按科目汇总
+		bookIDUint, _ := strconv.ParseUint(bookID, 10, 64)
+		type BalanceKey struct {
+			BookID    uint
+			AccountID uint
+			Period    string
+		}
+		balanceCalc := make(map[BalanceKey]struct {
+			Debit  float64
+			Credit float64
+		})
+		for _, item := range nonTransferItems {
+			key := BalanceKey{BookID: uint(bookIDUint), AccountID: item.AccountID, Period: period}
+			val := balanceCalc[key]
+			val.Debit += item.Debit
+			val.Credit += item.Credit
+			balanceCalc[key] = val
+		}
+
+		// 更新余额表：把本期的 period_debit/period_credit 重置，然后加上非结转凭证的金额
+		// 先获取期初余额用于计算期末
+		var periodBalances []models.AccountBalance
+		tx.Where("book_id = ? AND period = ?", bookID, period).Find(&periodBalances)
+		for _, b := range periodBalances {
+			key := BalanceKey{BookID: uint(bookIDUint), AccountID: b.AccountID, Period: b.Period}
+			calc := balanceCalc[key]
+			newClosingDebit := b.OpeningDebit + calc.Debit
+			newClosingCredit := b.OpeningCredit + calc.Credit
+			tx.Model(&models.AccountBalance{}).Where("id = ?", b.ID).Updates(map[string]interface{}{
+				"period_debit":   calc.Debit,
+				"period_credit":  calc.Credit,
+				"ytd_debit":      calc.Debit,
+				"ytd_credit":     calc.Credit,
+				"closing_debit":  newClosingDebit,
+				"closing_credit": newClosingCredit,
+			})
+		}
+
+		// 5. 恢复账套状态
 		tx.Model(&models.AccountBook{}).Where("id = ?", bookID).Update("status", "active")
 
 		tx.Commit()
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":             period + " 反结账成功",
-			"next_period":         nextPeriod,
-			"transfer_vouchers":   len(transferVouchers),
+			"message":           period + " 反结账成功",
+			"next_period":       nextPeriod,
+			"transfer_vouchers": len(transferVouchers),
 		})
 	}
 }
