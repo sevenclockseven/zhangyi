@@ -98,11 +98,39 @@ export const authApi = {
   register: (data) => http.post('/api/auth/register', data),
   me: () => http.get('/api/auth/me'),
   changePassword: (data) => http.put('/api/auth/password', data),
+  listUsers: () => http.get('/api/users'),
+  createUser: (data) => http.post('/api/users', data),
+  updateUser: (uid, data) => http.put('/api/users/' + uid, data),
+  deleteUser: (uid) => http.delete('/api/users/' + uid),
+  resetPassword: (uid, data) => http.put('/api/users/' + uid + '/reset-password', data),
 }
 
 export const templateApi = {
   versions: () => http.get('/api/templates/versions'),
   manifest: () => http.get('/api/templates/manifest'),
+}
+
+export const backupApi = {
+  list: () => http.get('/api/backups'),
+  create: () => http.post('/api/backups'),
+  downloadUrl: (name) => '/api/backups/' + name + '/download',
+  delete: (name) => http.delete('/api/backups/' + name),
+  restore: (name) => http.post('/api/backups/' + name + '/restore'),
+}
+
+export const logApi = {
+  list: (params) => http.get('/api/logs', { params }),
+}
+
+export const bookUserApi = {
+  list: (bookId) => http.get('/api/books/' + bookId + '/users'),
+  add: (bookId, data) => http.post('/api/books/' + bookId + '/users', data),
+  update: (bookId, buid, data) => http.put('/api/books/' + bookId + '/users/' + buid, data),
+  delete: (bookId, buid) => http.delete('/api/books/' + bookId + '/users/' + buid),
+}
+
+export const permissionApi = {
+  get: () => http.get('/api/auth/permissions'),
 }
 
 export const healthApi = {

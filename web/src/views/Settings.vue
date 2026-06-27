@@ -4,8 +4,8 @@
       <h2>系统设置</h2>
     </div>
 
-    <el-tabs v-model="activeTab" v-if="currentBook" @tab-change="onTabChange">
-      <el-tab-pane label="辅助核算" name="aux">
+    <el-tabs v-model="activeTab" @tab-change="onTabChange">
+      <el-tab-pane label="辅助核算" name="aux" v-if="currentBook">
         <el-tabs v-model="auxType" @tab-change="loadAux" type="card" class="inner-tabs">
           <el-tab-pane label="客户" name="customer" />
           <el-tab-pane label="供应商" name="supplier" />
@@ -178,7 +178,7 @@
         </el-card>
       </el-tab-pane>
 
-      <el-tab-pane label="凭证模板" name="vtpl">
+      <el-tab-pane label="凭证模板" name="vtpl" v-if="currentBook">
         <div v-if="currentBook">
           <div style="margin-bottom: 12px">
             <el-button type="primary" size="small" @click="openVtplAdd">
@@ -206,7 +206,7 @@
       </el-tab-pane>
 
       
-      <el-tab-pane label="账套信息" name="book">
+      <el-tab-pane label="账套信息" name="book" v-if="currentBook">
         <el-card shadow="never" v-if="bookInfo">
           <el-descriptions :column="isMobile ? 1 : 2" border size="small">
             <el-descriptions-item label="名称">{{ bookInfo.name }}</el-descriptions-item>
@@ -669,9 +669,118 @@ watch(showEdit, (val) => {
 
 watch(currentBook, (val) => { if (val) { loadAux(); loadBookInfo(); loadVtplList() } })
 
+const isAdmin = computed(() => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    return user.role === 'admin'
+  } catch { return false }
+})
+
 onMounted(() => {
   if (currentBook.value) { loadAux(); loadBookInfo(); loadVtplList() }
 })
+
+// === User Management ===
+const loadUsers = async () => {
+  try {
+    const { data } = await authApi.listUsers?.() || { data: { data: [] } }
+    allUsers.value = data.data || []
+  } catch {}
+}
+const openAddUser = () => { /* TODO: implement user add dialog */ }
+const editUser = (row) => { /* TODO: implement user edit */ }
+const resetUserPwd = async (row) => {
+  try {
+    await authApi.resetPassword?.(row.id, { password: '123456' })
+    ElMessage.success('密码已重置为 123456')
+  } catch {}
+}
+const deleteUser = async (row) => {
+  try {
+    await authApi.deleteUser?.(row.id)
+    ElMessage.success('删除成功')
+    loadUsers()
+  } catch {}
+}
+
+// === Backup ===
+const loadBackups = async () => {
+  try {
+    const { data } = await backupApi.list()
+    backups.value = data.data || []
+  } catch {}
+}
+const createBackup = async () => {
+  backupLoading.value = true
+  try {
+    const { data } = await backupApi.create()
+    ElMessage.success('备份成功: ' + data.file)
+    loadBackups()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '备份失败')
+  } finally {
+    backupLoading.value = false
+  }
+}
+const downloadBackup = (row) => {
+  const token = localStorage.getItem('token')
+  window.open(backupApi.downloadUrl(row.name) + '?token=' + token)
+}
+const restoreBackup = async (row) => {
+  try {
+    const { data } = await backupApi.restore(row.name)
+    ElMessage.success(data.message)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '恢复失败')
+  }
+}
+const deleteBackup = async (row) => {
+  try {
+    await backupApi.delete(row.name)
+    ElMessage.success('删除成功')
+    loadBackups()
+  } catch {}
+}
+
+// === Logs ===
+const loadLogs = async () => {
+  try {
+    const params = { page: logPage.value, page_size: 50, ...logFilters.value }
+    const { data } = await logApi.list(params)
+    logs.value = data.data || []
+    logTotal.value = data.total || 0
+  } catch {}
+}
+
+// === Book Users ===
+const permBookId = ref(null)
+const loadBookUsers = async () => {
+  if (!permBookId.value) return
+  try {
+    const { data } = await bookUserApi.list(permBookId.value)
+    bookUsers.value = data.data || []
+  } catch {}
+}
+const openAddBookUser = () => {
+  bookUserForm.value = { user_id: null, role: 'full' }
+  showBookUserDialog.value = true
+}
+const toggleBookUserRole = async (row) => {
+  const newRole = row.role === 'full' ? 'readonly' : 'full'
+  try {
+    await bookUserApi.update(permBookId.value, row.id, { role: newRole })
+    ElMessage.success('已切换为' + (newRole === 'full' ? '可读写' : '只读'))
+    loadBookUsers()
+  } catch {}
+}
+const removeBookUser = async (row) => {
+  try {
+    await bookUserApi.delete(permBookId.value, row.id)
+    ElMessage.success('已移除')
+    loadBookUsers()
+  } catch {}
+}
+
 </script>
 
 <style scoped>
