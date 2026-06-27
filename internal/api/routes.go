@@ -45,6 +45,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		// 需要登录的接口
 		auth := api.Group("")
 		auth.Use(middleware.AuthRequired())
+			auth.Use(middleware.AuditLog(db))
 		{
 			// 用户信息
 			auth.GET("/auth/me", getMeHandler(db))

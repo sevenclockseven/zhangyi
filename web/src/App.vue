@@ -130,6 +130,13 @@ const { isMobile } = useMobile()
 const { currentBookId, books, setCurrentBook, setBooks } = useBookStore()
 
 const isLoginPage = computed(() => route.path === '/login')
+const isAdmin = computed(() => currentUser.value.role === 'admin')
+const canWriteBook = computed(() => {
+  if (isAdmin.value) return true
+  const perms = JSON.parse(localStorage.getItem('book_permissions') || '[]')
+  const perm = perms.find(p => p.book_id === currentBookId.value)
+  return perm && perm.role === 'full'
+})
 const currentUser = ref({})
 const showPasswordDialog = ref(false)
 const passwordForm = ref({ old_password: '', new_password: '' })
@@ -140,7 +147,15 @@ const sidebarWidth = '220px'
 const loadBooks = async () => {
   try {
     const { data } = await bookApi.list()
-    setBooks(data.data || [])
+    let allBooks = data.data || []
+    // Filter by permissions for non-admin users
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    if (user.role !== 'admin') {
+      const perms = JSON.parse(localStorage.getItem('book_permissions') || '[]')
+      const allowedIds = new Set(perms.map(p => p.book_id))
+      allBooks = allBooks.filter(b => allowedIds.has(b.id))
+    }
+    setBooks(allBooks)
   } catch {}
 }
 
@@ -216,6 +231,7 @@ const handleCommand = async (cmd) => {
   if (cmd === 'logout') {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('book_permissions')
     setCurrentBook(null)
     router.push('/login')
   } else if (cmd === 'password') {

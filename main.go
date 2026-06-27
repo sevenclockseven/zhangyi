@@ -7,7 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	sqlite "github.com/glebarez/sqlite"
@@ -59,6 +62,57 @@ func main() {
 	}
 
 	log.Printf("Database: %s", dbDriver)
+
+	// Start scheduled backup
+	go func() {
+		schedule := os.Getenv("BACKUP_SCHEDULE")
+		if schedule == "" || schedule == "disabled" {
+			return
+		}
+		// Simple interval-based backup (every 24h by default)
+		interval := 24 * time.Hour
+		if schedule == "hourly" {
+			interval = 1 * time.Hour
+		} else if schedule == "6h" {
+			interval = 6 * time.Hour
+		}
+		time.Sleep(30 * time.Second) // Wait for app to fully start
+		log.Printf("Auto backup enabled, interval: %s", interval)
+		for {
+			time.Sleep(interval)
+			backupDir := os.Getenv("BACKUP_DIR")
+			if backupDir == "" {
+				backupDir = "backups"
+			}
+			os.MkdirAll(backupDir, 0755)
+			filename := fmt.Sprintf("zhangyi_%s.sql.gz", time.Now().Format("2006-01-02_150405"))
+			path := filepath.Join(backupDir, filename)
+			dbPath := os.Getenv("DB_DSN")
+			if dbPath == "" {
+				dbPath = "data/zhangyi.db"
+			}
+			cmd := exec.Command("sh", "-c", fmt.Sprintf("sqlite3 '%s' '.dump' | gzip > '%s'", dbPath, path))
+			if err := cmd.Run(); err != nil {
+				log.Printf("Auto backup failed: %v", err)
+			} else {
+				log.Printf("Auto backup created: %s", filename)
+				// Cleanup old backups
+				keep := 30
+				entries, _ := os.ReadDir(backupDir)
+				var files []os.DirEntry
+				for _, e := range entries {
+					if !e.IsDir() && len(e.Name()) > 10 && e.Name()[:8] == "zhangyi_" {
+						files = append(files, e)
+						}
+					}
+				if len(files) > keep {
+					for i := 0; i < len(files)-keep; i++ {
+						os.Remove(filepath.Join(backupDir, files[i].Name()))
+						}
+					}
+				}
+			}
+	}()
 
 	// Auto migrate
 	if err := db.AutoMigrate(
