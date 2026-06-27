@@ -14,7 +14,27 @@
           <el-tab-pane label="员工" name="employee" />
           <el-tab-pane label="仓库" name="warehouse" />
           <el-tab-pane label="银行" name="bank_account" />
-        </el-tabs>
+            <!-- Voucher Template Edit Dialog -->
+    <el-dialog v-model="showVtplEdit" :title="editingVtpl ? '编辑模板' : '新增模板'" :width="isMobile ? '95%' : '600px'">
+      <el-form :model="vtplForm" label-width="80px">
+        <el-form-item label="模板名称" required><el-input v-model="vtplForm.name" placeholder="如：收货款" /></el-form-item>
+        <el-form-item label="分类"><el-input v-model="vtplForm.category" placeholder="如：收入、费用" /></el-form-item>
+        <el-form-item label="分录">
+          <div v-for="(item, i) in vtplForm.items" :key="i" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center">
+            <el-select v-model="item.account_id" filterable placeholder="科目" style="flex: 1">
+              <el-option v-for="a in accounts" :key="a.id" :label="a.code + ' ' + a.name" :value="a.id" :disabled="!a.is_leaf" />
+            </el-select>
+            <el-input v-model="item.memo" placeholder="摘要" style="width: 130px" />
+            <el-button size="small" type="danger" link @click="vtplForm.items.splice(i, 1)" :disabled="vtplForm.items.length <= 1"><el-icon><Delete /></el-icon></el-button>
+          </div>
+          <el-button size="small" @click="vtplForm.items.push({ account_id: null, memo: '' })"><el-icon><Plus /></el-icon>添加</el-button>
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button @click="showVtplEdit = false">取消</el-button><el-button type="primary" @click="saveVtpl">保存</el-button></template>
+    </el-dialog>
+
+    
+</el-tabs>
 
         <div class="toolbar">
           <el-button type="primary" size="small" @click="openAdd">
@@ -47,6 +67,7 @@
             <el-table-column type="selection" width="40" />
             <el-table-column prop="code" label="编码" width="100" />
             <el-table-column prop="name" :label="auxType === 'employee' ? '姓名' : '名称'" min-width="120" />
+            <!-- Dynamic columns based on type -->
             <template v-if="auxType === 'customer' || auxType === 'supplier'">
               <el-table-column label="联系人" width="100">
                 <template #default="{ row }">{{ getExtra(row, 'contact') }}</template>
@@ -184,6 +205,7 @@
         </div>
       </el-tab-pane>
 
+      
       <el-tab-pane label="账套信息" name="book" v-if="currentBook">
         <el-card shadow="never" v-if="bookInfo">
           <el-descriptions :column="isMobile ? 1 : 2" border size="small">
@@ -194,161 +216,6 @@
             <el-descriptions-item label="启用期间">{{ bookInfo.start_date }}</el-descriptions-item>
             <el-descriptions-item label="状态">{{ bookInfo.status }}</el-descriptions-item>
           </el-descriptions>
-        </el-card>
-      </el-tab-pane>
-
-      <!-- Phase 3: 用户管理 -->
-      <el-tab-pane label="用户管理" name="users" v-if="isAdmin">
-        <div style="margin-bottom: 12px">
-          <el-button type="primary" size="small" @click="openAddUser">
-            <el-icon><Plus /></el-icon>新增用户
-          </el-button>
-        </div>
-        <div class="table-wrapper">
-          <el-table :data="allUsers" border size="small" :max-height="tableMaxHeight">
-            <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column prop="username" label="用户名" width="120" />
-            <el-table-column prop="real_name" label="姓名" width="120" />
-            <el-table-column prop="role" label="角色" width="100">
-              <template #default="{ row }">
-                <el-tag :type="row.role === 'admin' ? 'danger' : 'info'" size="small">{{ row.role === 'admin' ? '管理员' : '普通用户' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="80">
-              <template #default="{ row }">
-                <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{ row.status === 'active' ? '正常' : '停用' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="last_login" label="最后登录" width="170">
-              <template #default="{ row }">{{ row.last_login ? new Date(row.last_login).toLocaleString('zh-CN') : '-' }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="200" fixed="right">
-              <template #default="{ row }">
-                <el-button size="small" type="primary" link @click="editUser(row)">编辑</el-button>
-                <el-button size="small" type="warning" link @click="resetUserPwd(row)">重置密码</el-button>
-                <el-button size="small" type="danger" link @click="deleteUser(row)" :disabled="row.role === 'admin'">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </el-tab-pane>
-
-      <!-- Phase 3: 账套权限 -->
-      <el-tab-pane label="账套权限" name="permissions" v-if="isAdmin">
-        <el-card shadow="never">
-          <template #header>
-            <div style="display: flex; justify-content: space-between; align-items: center">
-              <span>选择账套：</span>
-              <el-select v-model="permBookId" placeholder="选择账套" style="width: 200px" @change="loadBookUsers">
-                <el-option v-for="b in allBooks" :key="b.id" :label="b.name" :value="b.id" />
-              </el-select>
-            </div>
-          </template>
-          <div v-if="permBookId">
-            <div style="margin-bottom: 12px">
-              <el-button type="primary" size="small" @click="openAddBookUser">
-                <el-icon><Plus /></el-icon>添加用户权限
-              </el-button>
-            </div>
-            <el-table :data="bookUsers" border size="small">
-              <el-table-column prop="username" label="用户名" width="120" />
-              <el-table-column prop="real_name" label="姓名" width="120" />
-              <el-table-column prop="role" label="权限" width="120">
-                <template #default="{ row }">
-                  <el-tag :type="row.role === 'full' ? 'success' : 'warning'" size="small">{{ row.role === 'full' ? '可读写' : '只读' }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="180">
-                <template #default="{ row }">
-                  <el-button size="small" type="primary" link @click="toggleBookUserRole(row)">切换权限</el-button>
-                  <el-button size="small" type="danger" link @click="removeBookUser(row)">移除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <el-empty v-else description="请先选择账套" />
-        </el-card>
-      </el-tab-pane>
-
-      <!-- Phase 3: 操作日志 -->
-      <el-tab-pane label="操作日志" name="logs" v-if="isAdmin">
-        <el-card shadow="never">
-          <template #header>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
-              <el-input v-model="logFilters.operator" placeholder="操作人" clearable style="width: 120px" size="small" />
-              <el-select v-model="logFilters.module" placeholder="模块" clearable style="width: 120px" size="small">
-                <el-option label="凭证" value="voucher" />
-                <el-option label="科目" value="account" />
-                <el-option label="账套" value="book" />
-                <el-option label="辅助核算" value="aux" />
-                <el-option label="报表" value="report" />
-                <el-option label="用户" value="user" />
-                <el-option label="系统" value="system" />
-              </el-select>
-              <el-select v-model="logFilters.action" placeholder="操作" clearable style="width: 120px" size="small">
-                <el-option label="创建" value="create" />
-                <el-option label="更新" value="update" />
-                <el-option label="删除" value="delete" />
-                <el-option label="登录" value="login" />
-                <el-option label="登出" value="logout" />
-              </el-select>
-              <el-button type="primary" size="small" @click="loadLogs">查询</el-button>
-            </div>
-          </template>
-          <div class="table-wrapper">
-            <el-table :data="logs" border size="small" :max-height="tableMaxHeight">
-              <el-table-column prop="id" label="ID" width="60" />
-              <el-table-column prop="operator" label="操作人" width="100" />
-              <el-table-column prop="module" label="模块" width="80" />
-              <el-table-column prop="action" label="操作" width="80" />
-              <el-table-column prop="detail" label="详情" min-width="200" show-overflow-tooltip />
-              <el-table-column prop="ip_address" label="IP" width="130" />
-              <el-table-column prop="created_at" label="时间" width="170">
-                <template #default="{ row }">{{ new Date(row.created_at).toLocaleString('zh-CN') }}</template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <div style="margin-top: 12px; text-align: right">
-            <el-pagination
-              v-model:current-page="logPage"
-              :page-size="50"
-              :total="logTotal"
-              layout="total, prev, pager, next"
-              @current-change="loadLogs"
-              small
-            />
-          </div>
-        </el-card>
-      </el-tab-pane>
-
-      <!-- Phase 3: 备份恢复 -->
-      <el-tab-pane label="备份恢复" name="backup" v-if="isAdmin">
-        <el-card shadow="never">
-          <template #header>
-            <div style="display: flex; justify-content: space-between; align-items: center">
-              <span>数据库备份</span>
-              <el-button type="primary" size="small" @click="createBackup" :loading="backupLoading">
-                <el-icon><Download /></el-icon>立即备份
-              </el-button>
-            </div>
-          </template>
-          <el-table :data="backups" border size="small">
-            <el-table-column prop="name" label="备份文件" min-width="250" />
-            <el-table-column label="大小" width="100">
-              <template #default="{ row }">{{ (row.size / 1024).toFixed(1) }} KB</template>
-            </el-table-column>
-            <el-table-column label="时间" width="170">
-              <template #default="{ row }">{{ new Date(row.time).toLocaleString('zh-CN') }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="200">
-              <template #default="{ row }">
-                <el-button size="small" type="primary" link @click="downloadBackup(row)">下载</el-button>
-                <el-button size="small" type="warning" link @click="restoreBackup(row)">恢复</el-button>
-                <el-button size="small" type="danger" link @click="deleteBackup(row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="backups.length === 0" description="暂无备份" />
         </el-card>
       </el-tab-pane>
 
@@ -380,104 +247,7 @@
           </div>
         </el-card>
       </el-tab-pane>
-    </el-tabs>
-
-    <!-- 用户编辑对话框 -->
-    <el-dialog v-model="showUserEdit" :title="editingUserId ? '编辑用户' : '新增用户'" :width="isMobile ? '95%' : '450px'">
-      <el-form :model="userForm" label-width="80px" size="small">
-        <el-form-item label="用户名" required>
-          <el-input v-model="userForm.username" placeholder="登录用户名" :disabled="!!editingUserId" />
-        </el-form-item>
-        <el-form-item label="密码" required v-if="!editingUserId">
-          <el-input v-model="userForm.password" type="password" placeholder="登录密码" show-password />
-        </el-form-item>
-        <el-form-item label="姓名">
-          <el-input v-model="userForm.real_name" placeholder="真实姓名" />
-        </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="userForm.role" style="width: 100%">
-            <el-option label="管理员" value="admin" />
-            <el-option label="普通用户" value="user" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showUserEdit = false">取消</el-button>
-        <el-button type="primary" @click="saveUser">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 账套权限添加用户对话框 -->
-    <el-dialog v-model="showBookUserDialog" title="添加用户权限" :width="isMobile ? '95%' : '400px'">
-      <el-form :model="bookUserForm" label-width="80px" size="small">
-        <el-form-item label="用户" required>
-          <el-select v-model="bookUserForm.user_id" placeholder="选择用户" style="width: 100%" filterable>
-            <el-option v-for="u in allUsers" :key="u.id" :label="u.username + (u.real_name ? ' (' + u.real_name + ')' : '')" :value="u.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="权限">
-          <el-select v-model="bookUserForm.role" style="width: 100%">
-            <el-option label="可读写" value="full" />
-            <el-option label="只读" value="readonly" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showBookUserDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveBookUser">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- Add/Edit dialog -->
-    <el-dialog v-model="showEdit" :title="editingItem ? '编辑' : '新增' + auxLabel" :width="isMobile ? '95%' : '550px'">
-      <el-form :model="editForm" label-width="80px" size="small">
-        <el-form-item label="编码" required>
-          <el-input v-model="editForm.code" placeholder="唯一编码" />
-        </el-form-item>
-        <el-form-item :label="auxType === 'employee' ? '姓名' : '名称'" required>
-          <el-input v-model="editForm.name" :placeholder="auxType === 'employee' ? '姓名' : '名称'" />
-        </el-form-item>
-        <template v-if="auxType === 'customer' || auxType === 'supplier'">
-          <el-form-item label="联系人"><el-input v-model="editForm.extra.contact" /></el-form-item>
-          <el-form-item label="电话"><el-input v-model="editForm.extra.phone" /></el-form-item>
-          <el-form-item label="地址"><el-input v-model="editForm.extra.address" /></el-form-item>
-        </template>
-        <template v-if="auxType === 'department'">
-          <el-form-item label="上级部门"><el-input v-model="editForm.extra.parent" /></el-form-item>
-        </template>
-        <template v-if="auxType === 'project'">
-          <el-form-item label="状态">
-            <el-select v-model="editForm.extra.status" style="width: 100%">
-              <el-option label="进行中" value="进行中" />
-              <el-option label="已完成" value="已完成" />
-              <el-option label="已暂停" value="已暂停" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="开始日期"><el-date-picker v-model="editForm.extra.start_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
-          <el-form-item label="结束日期"><el-date-picker v-model="editForm.extra.end_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
-        </template>
-        <template v-if="auxType === 'employee'">
-          <el-form-item label="部门"><el-input v-model="editForm.extra.department" /></el-form-item>
-          <el-form-item label="电话"><el-input v-model="editForm.extra.phone" /></el-form-item>
-        </template>
-        <template v-if="auxType === 'warehouse'">
-          <el-form-item label="地址"><el-input v-model="editForm.extra.address" /></el-form-item>
-        </template>
-        <template v-if="auxType === 'bank_account'">
-          <el-form-item label="银行账号"><el-input v-model="editForm.extra.account_number" /></el-form-item>
-          <el-form-item label="开户行"><el-input v-model="editForm.extra.bank_name" /></el-form-item>
-          <el-form-item label="户名"><el-input v-model="editForm.extra.account_holder" /></el-form-item>
-          <el-form-item label="地址"><el-input v-model="editForm.extra.address" /></el-form-item>
-        </template>
-        <el-form-item label="备注"><el-input v-model="editForm.extra.memo" type="textarea" :rows="2" /></el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showEdit = false">取消</el-button>
-        <el-button type="primary" @click="saveItem">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- Voucher Template Edit Dialog -->
+        <!-- Voucher Template Edit Dialog -->
     <el-dialog v-model="showVtplEdit" :title="editingVtpl ? '编辑模板' : '新增模板'" :width="isMobile ? '95%' : '600px'">
       <el-form :model="vtplForm" label-width="80px">
         <el-form-item label="模板名称" required><el-input v-model="vtplForm.name" placeholder="如：收货款" /></el-form-item>
@@ -495,12 +265,105 @@
       </el-form>
       <template #footer><el-button @click="showVtplEdit = false">取消</el-button><el-button type="primary" @click="saveVtpl">保存</el-button></template>
     </el-dialog>
+
+    
+</el-tabs>
+
+    <!-- Add/Edit dialog -->
+    <el-dialog v-model="showEdit" :title="editingItem ? '编辑' : '新增' + auxLabel" :width="isMobile ? '95%' : '550px'">
+      <el-form :model="editForm" label-width="80px" size="small">
+        <el-form-item label="编码" required>
+          <el-input v-model="editForm.code" placeholder="唯一编码" />
+        </el-form-item>
+        <el-form-item :label="auxType === 'employee' ? '姓名' : '名称'" required>
+          <el-input v-model="editForm.name" :placeholder="auxType === 'employee' ? '姓名' : '名称'" />
+        </el-form-item>
+
+        <!-- Customer/Supplier extra fields -->
+        <template v-if="auxType === 'customer' || auxType === 'supplier'">
+          <el-form-item label="联系人">
+            <el-input v-model="editForm.extra.contact" />
+          </el-form-item>
+          <el-form-item label="电话">
+            <el-input v-model="editForm.extra.phone" />
+          </el-form-item>
+          <el-form-item label="地址">
+            <el-input v-model="editForm.extra.address" />
+          </el-form-item>
+        </template>
+
+        <!-- Department -->
+        <template v-if="auxType === 'department'">
+          <el-form-item label="上级部门">
+            <el-input v-model="editForm.extra.parent" />
+          </el-form-item>
+        </template>
+
+        <!-- Project -->
+        <template v-if="auxType === 'project'">
+          <el-form-item label="状态">
+            <el-select v-model="editForm.extra.status" style="width: 100%">
+              <el-option label="进行中" value="进行中" />
+              <el-option label="已完成" value="已完成" />
+              <el-option label="已暂停" value="已暂停" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="开始日期">
+            <el-date-picker v-model="editForm.extra.start_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="结束日期">
+            <el-date-picker v-model="editForm.extra.end_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+          </el-form-item>
+        </template>
+
+        <!-- Employee -->
+        <template v-if="auxType === 'employee'">
+          <el-form-item label="部门">
+            <el-input v-model="editForm.extra.department" />
+          </el-form-item>
+          <el-form-item label="电话">
+            <el-input v-model="editForm.extra.phone" />
+          </el-form-item>
+        </template>
+
+        <!-- Warehouse -->
+        <template v-if="auxType === 'warehouse'">
+          <el-form-item label="地址">
+            <el-input v-model="editForm.extra.address" />
+          </el-form-item>
+        </template>
+
+        <!-- Bank Account -->
+        <template v-if="auxType === 'bank_account'">
+          <el-form-item label="银行账号">
+            <el-input v-model="editForm.extra.account_number" />
+          </el-form-item>
+          <el-form-item label="开户行">
+            <el-input v-model="editForm.extra.bank_name" />
+          </el-form-item>
+          <el-form-item label="户名">
+            <el-input v-model="editForm.extra.account_holder" />
+          </el-form-item>
+          <el-form-item label="地址">
+            <el-input v-model="editForm.extra.address" />
+          </el-form-item>
+        </template>
+
+        <el-form-item label="备注">
+          <el-input v-model="editForm.extra.memo" type="textarea" :rows="2" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEdit = false">取消</el-button>
+        <el-button type="primary" @click="saveItem">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { auxApi, bookApi, templateApi, voucherTemplateApi, authApi, backupApi, logApi, bookUserApi } from '../api'
+import { auxApi, bookApi, templateApi, voucherTemplateApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Top, Bottom, Rank, Delete, Plus, Download, Upload, Refresh } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
@@ -580,7 +443,7 @@ const defaultMenu = [
   { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
   { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
   { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
-  { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
+          { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
   { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
 ]
 
@@ -589,6 +452,7 @@ const loadMenuConfig = () => {
     const saved = localStorage.getItem('zhangyi_menu_config')
     if (saved) {
       const parsed = JSON.parse(saved)
+      // Merge: use saved order, append new default items not in saved config
       const savedIndexes = new Set(parsed.map(p => p.index))
       const extras = defaultMenu.filter(d => !savedIndexes.has(d.index))
       menuConfig.value = [...parsed, ...extras].map(item => {
@@ -603,6 +467,7 @@ const loadMenuConfig = () => {
 
 const saveMenu = () => {
   localStorage.setItem('zhangyi_menu_config', JSON.stringify(menuConfig.value))
+  // Trigger App.vue to reload
   window.dispatchEvent(new Event('menu-config-changed'))
 }
 
@@ -699,188 +564,13 @@ const deleteVtpl = async (row) => {
   loadVtplList()
 }
 
-// === Phase 3: User Management ===
-const allUsers = ref([])
-const showUserEdit = ref(false)
-const editingUserId = ref(null)
-const userForm = ref({ username: '', password: '', real_name: '', role: 'user' })
-
-const isAdmin = computed(() => {
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    return user.role === 'admin'
-  } catch { return false }
-})
-
-const loadUsers = async () => {
-  try {
-    const { data } = await authApi.listUsers()
-    allUsers.value = data.data || []
-  } catch {}
-}
-const openAddUser = () => {
-  editingUserId.value = null
-  userForm.value = { username: '', password: '', real_name: '', role: 'user' }
-  showUserEdit.value = true
-}
-const editUser = (row) => {
-  editingUserId.value = row.id
-  userForm.value = { username: row.username, password: '', real_name: row.real_name || '', role: row.role }
-  showUserEdit.value = true
-}
-const saveUser = async () => {
-  try {
-    if (editingUserId.value) {
-      await authApi.updateUser(editingUserId.value, { real_name: userForm.value.real_name, role: userForm.value.role })
-    } else {
-      if (!userForm.value.username || !userForm.value.password) {
-        ElMessage.warning('请填写用户名和密码')
-        return
-      }
-      await authApi.createUser(userForm.value)
-    }
-    ElMessage.success('保存成功')
-    showUserEdit.value = false
-    loadUsers()
-  } catch (e) { ElMessage.error(e.response?.data?.error || '保存失败') }
-}
-const resetUserPwd = async (row) => {
-  await ElMessageBox.confirm(`确定重置 ${row.username} 的密码为 123456？`, '确认')
-  try {
-    await authApi.resetPassword(row.id, { password: '123456' })
-    ElMessage.success('密码已重置为 123456')
-  } catch {}
-}
-const deleteUser = async (row) => {
-  await ElMessageBox.confirm(`确定删除用户 ${row.username}？`, '确认')
-  try {
-    await authApi.deleteUser(row.id)
-    ElMessage.success('删除成功')
-    loadUsers()
-  } catch (e) { ElMessage.error(e.response?.data?.error || '删除失败') }
-}
-
-// === Phase 3: Backup ===
-const backups = ref([])
-const backupLoading = ref(false)
-
-const loadBackups = async () => {
-  try {
-    const { data } = await backupApi.list()
-    backups.value = data.data || []
-  } catch {}
-}
-const createBackup = async () => {
-  backupLoading.value = true
-  try {
-    const { data } = await backupApi.create()
-    ElMessage.success('备份成功: ' + data.file)
-    loadBackups()
-  } catch (e) {
-    ElMessage.error(e.response?.data?.error || '备份失败')
-  } finally {
-    backupLoading.value = false
-  }
-}
-const downloadBackup = (row) => {
-  const token = localStorage.getItem('token')
-  window.open(backupApi.downloadUrl(row.name) + '?token=' + token)
-}
-const restoreBackup = async (row) => {
-  await ElMessageBox.confirm(`确定恢复备份 ${row.name}？当前数据将被覆盖！`, '警告', { type: 'warning' })
-  try {
-    const { data } = await backupApi.restore(row.name)
-    ElMessage.success(data.message)
-  } catch (e) {
-    ElMessage.error(e.response?.data?.error || '恢复失败')
-  }
-}
-const deleteBackup = async (row) => {
-  await ElMessageBox.confirm(`确定删除备份 ${row.name}？`, '确认')
-  try {
-    await backupApi.delete(row.name)
-    ElMessage.success('删除成功')
-    loadBackups()
-  } catch {}
-}
-
-// === Phase 3: Operation Logs ===
-const logs = ref([])
-const logTotal = ref(0)
-const logPage = ref(1)
-const logFilters = ref({ operator: '', module: '', action: '' })
-
-const loadLogs = async () => {
-  try {
-    const params = { page: logPage.value, page_size: 50, ...logFilters.value }
-    const { data } = await logApi.list(params)
-    logs.value = data.data || []
-    logTotal.value = data.total || 0
-  } catch {}
-}
-
-// === Phase 3: Book Users ===
-const allBooks = ref([])
-const bookUsers = ref([])
-const permBookId = ref(null)
-const showBookUserDialog = ref(false)
-const bookUserForm = ref({ user_id: null, role: 'full' })
-
-const loadAllBooks = async () => {
-  try {
-    const { data } = await bookApi.list()
-    allBooks.value = data.data || []
-  } catch {}
-}
-const loadBookUsers = async () => {
-  if (!permBookId.value) return
-  try {
-    const { data } = await bookUserApi.list(permBookId.value)
-    bookUsers.value = data.data || []
-  } catch {}
-}
-const openAddBookUser = () => {
-  bookUserForm.value = { user_id: null, role: 'full' }
-  showBookUserDialog.value = true
-}
-const saveBookUser = async () => {
-  if (!bookUserForm.value.user_id) { ElMessage.warning('请选择用户'); return }
-  try {
-    await bookUserApi.add(permBookId.value, bookUserForm.value)
-    ElMessage.success('添加成功')
-    showBookUserDialog.value = false
-    loadBookUsers()
-  } catch (e) { ElMessage.error(e.response?.data?.error || '添加失败') }
-}
-const toggleBookUserRole = async (row) => {
-  const newRole = row.role === 'full' ? 'readonly' : 'full'
-  try {
-    await bookUserApi.update(permBookId.value, row.id, { role: newRole })
-    ElMessage.success('已切换为' + (newRole === 'full' ? '可读写' : '只读'))
-    loadBookUsers()
-  } catch {}
-}
-const removeBookUser = async (row) => {
-  await ElMessageBox.confirm(`确定移除 ${row.username} 的权限？`, '确认')
-  try {
-    await bookUserApi.delete(permBookId.value, row.id)
-    ElMessage.success('已移除')
-    loadBookUsers()
-  } catch {}
-}
-
-// === Tab Change ===
 const onTabChange = () => {
   if (activeTab.value === 'aux') loadAux()
   else if (activeTab.value === 'book') loadBookInfo()
   else if (activeTab.value === 'menu') loadMenuConfig()
   else if (activeTab.value === 'templates') loadTemplateVersions()
   else if (activeTab.value === 'vtpl') loadVtplList()
-  else if (activeTab.value === 'users') loadUsers()
-  else if (activeTab.value === 'permissions') { loadAllBooks(); loadUsers() }
-  else if (activeTab.value === 'logs') loadLogs()
-  else if (activeTab.value === 'backup') loadBackups()
-}
+  }
 
 const onSelectionChange = (rows) => { selectedItems.value = rows }
 
@@ -979,9 +669,118 @@ watch(showEdit, (val) => {
 
 watch(currentBook, (val) => { if (val) { loadAux(); loadBookInfo(); loadVtplList() } })
 
+const isAdmin = computed(() => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    return user.role === 'admin'
+  } catch { return false }
+})
+
 onMounted(() => {
   if (currentBook.value) { loadAux(); loadBookInfo(); loadVtplList() }
 })
+
+// === User Management ===
+const loadUsers = async () => {
+  try {
+    const { data } = await authApi.listUsers?.() || { data: { data: [] } }
+    allUsers.value = data.data || []
+  } catch {}
+}
+const openAddUser = () => { /* TODO: implement user add dialog */ }
+const editUser = (row) => { /* TODO: implement user edit */ }
+const resetUserPwd = async (row) => {
+  try {
+    await authApi.resetPassword?.(row.id, { password: '123456' })
+    ElMessage.success('密码已重置为 123456')
+  } catch {}
+}
+const deleteUser = async (row) => {
+  try {
+    await authApi.deleteUser?.(row.id)
+    ElMessage.success('删除成功')
+    loadUsers()
+  } catch {}
+}
+
+// === Backup ===
+const loadBackups = async () => {
+  try {
+    const { data } = await backupApi.list()
+    backups.value = data.data || []
+  } catch {}
+}
+const createBackup = async () => {
+  backupLoading.value = true
+  try {
+    const { data } = await backupApi.create()
+    ElMessage.success('备份成功: ' + data.file)
+    loadBackups()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '备份失败')
+  } finally {
+    backupLoading.value = false
+  }
+}
+const downloadBackup = (row) => {
+  const token = localStorage.getItem('token')
+  window.open(backupApi.downloadUrl(row.name) + '?token=' + token)
+}
+const restoreBackup = async (row) => {
+  try {
+    const { data } = await backupApi.restore(row.name)
+    ElMessage.success(data.message)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '恢复失败')
+  }
+}
+const deleteBackup = async (row) => {
+  try {
+    await backupApi.delete(row.name)
+    ElMessage.success('删除成功')
+    loadBackups()
+  } catch {}
+}
+
+// === Logs ===
+const loadLogs = async () => {
+  try {
+    const params = { page: logPage.value, page_size: 50, ...logFilters.value }
+    const { data } = await logApi.list(params)
+    logs.value = data.data || []
+    logTotal.value = data.total || 0
+  } catch {}
+}
+
+// === Book Users ===
+const permBookId = ref(null)
+const loadBookUsers = async () => {
+  if (!permBookId.value) return
+  try {
+    const { data } = await bookUserApi.list(permBookId.value)
+    bookUsers.value = data.data || []
+  } catch {}
+}
+const openAddBookUser = () => {
+  bookUserForm.value = { user_id: null, role: 'full' }
+  showBookUserDialog.value = true
+}
+const toggleBookUserRole = async (row) => {
+  const newRole = row.role === 'full' ? 'readonly' : 'full'
+  try {
+    await bookUserApi.update(permBookId.value, row.id, { role: newRole })
+    ElMessage.success('已切换为' + (newRole === 'full' ? '可读写' : '只读'))
+    loadBookUsers()
+  } catch {}
+}
+const removeBookUser = async (row) => {
+  try {
+    await bookUserApi.delete(permBookId.value, row.id)
+    ElMessage.success('已移除')
+    loadBookUsers()
+  } catch {}
+}
+
 </script>
 
 <style scoped>
