@@ -249,8 +249,9 @@ func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 		getAmount := func(code string, direction string) float64 {
 			var total float64
 			db.Model(&models.AccountBalance{}).
-				Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
-				Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
+				Joins("JOIN accounts ON accounts.id = account_balances.account_id").
+				Where("account_balances.book_id = ? AND account_balances.period = ? AND accounts.code LIKE ?", bookID, period, code+"%").
+				Select("COALESCE(SUM(account_balances.period_debit), 0) - COALESCE(SUM(account_balances.period_credit), 0)").
 				Row().Scan(&total)
 			if direction == "credit" {
 				total = -total
@@ -318,8 +319,9 @@ func expenseReport(db *gorm.DB) gin.HandlerFunc {
 		for _, ec := range expenseCodes {
 			var amount float64
 			db.Model(&models.AccountBalance{}).
-				Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, ec.Code+"%").
-				Select("COALESCE(SUM(period_debit), 0)").
+				Joins("JOIN accounts ON accounts.id = account_balances.account_id").
+				Where("account_balances.book_id = ? AND account_balances.period = ? AND accounts.code LIKE ?", bookID, period, ec.Code+"%").
+				Select("COALESCE(SUM(account_balances.period_debit), 0)").
 				Row().Scan(&amount)
 			if amount > 0 {
 				rows = append(rows, ExpenseRow{Code: ec.Code, Name: ec.Name, Amount: amount})
@@ -329,14 +331,16 @@ func expenseReport(db *gorm.DB) gin.HandlerFunc {
 		// Sub-items for 5602 管理费用
 		var subItems []ExpenseRow
 		subCodes := []struct{ Code, Name string }{
-			{"5602.01", "工资薪金"}, {"5602.02", "办公费"}, {"5602.03", "差旅费"},
-			{"5602.04", "折旧费"}, {"5602.05", "修理费"}, {"5602.06", "水电费"},
+			{"5602.01", "管理人员薪酬"}, {"5602.02", "办公费"}, {"5602.03", "折旧费"},
+			{"5602.04", "修理费"}, {"5602.05", "水电费"}, {"5602.06", "差旅费"},
+			{"5602.07", "业务招待费"}, {"5602.08", "车辆使用费"}, {"5602.09", "其他"},
 		}
 		for _, sc := range subCodes {
 			var amount float64
 			db.Model(&models.AccountBalance{}).
-				Where("book_id = ? AND period = ? AND account_code = ?", bookID, period, sc.Code).
-				Select("COALESCE(SUM(period_debit), 0)").
+				Joins("JOIN accounts ON accounts.id = account_balances.account_id").
+				Where("account_balances.book_id = ? AND account_balances.period = ? AND accounts.code = ?", bookID, period, sc.Code).
+				Select("COALESCE(SUM(account_balances.period_debit), 0)").
 				Row().Scan(&amount)
 			if amount > 0 {
 				subItems = append(subItems, ExpenseRow{Code: sc.Code, Name: sc.Name, Amount: amount})
