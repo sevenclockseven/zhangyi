@@ -246,29 +246,62 @@ func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 			Bold   bool    `json:"bold"`
 		}
 
-		getAmount := func(code string, direction string) float64 {
+		// 从凭证直接取数（排除结转凭证），避免结转后余额表净额为0
+		type AcctAmount struct {
+			AccountID uint
+			Debit     float64
+			Credit    float64
+		}
+		acctAmounts := make(map[uint]*AcctAmount)
+
+		var vouchers []models.Voucher
+		db.Where("book_id = ? AND date LIKE ? AND status = ?", bookID, period+"%", "posted").Find(&vouchers)
+		for _, v := range vouchers {
+			if v.Memo != "" && strings.Contains(v.Memo, "损益结转") {
+				continue
+			}
+			var items []models.VoucherItem
+			db.Where("voucher_id = ?", v.ID).Find(&items)
+			for _, item := range items {
+				if acctAmounts[item.AccountID] == nil {
+					acctAmounts[item.AccountID] = &AcctAmount{AccountID: item.AccountID}
+				}
+				acctAmounts[item.AccountID].Debit += item.Debit
+				acctAmounts[item.AccountID].Credit += item.Credit
+			}
+		}
+
+		// Build account code->amount map
+		var accounts []models.Account
+		db.Where("book_id = ?", bookID).Find(&accounts)
+		codeAmounts := make(map[string]float64)
+		for _, a := range accounts {
+			if aa, ok := acctAmounts[a.ID]; ok {
+				codeAmounts[a.Code] = aa.Debit - aa.Credit
+			}
+		}
+
+		// Sum by code prefix
+		sumCodes := func(prefix string) float64 {
 			var total float64
-			db.Model(&models.AccountBalance{}).
-				Joins("JOIN accounts ON accounts.id = account_balances.account_id").
-				Where("account_balances.book_id = ? AND account_balances.period = ? AND accounts.code LIKE ?", bookID, period, code+"%").
-				Select("COALESCE(SUM(account_balances.period_debit), 0) - COALESCE(SUM(account_balances.period_credit), 0)").
-				Row().Scan(&total)
-			if direction == "credit" {
-				total = -total
+			for code, amt := range codeAmounts {
+				if strings.HasPrefix(code, prefix) {
+					total += amt
+				}
 			}
 			return total
 		}
 
-		revenue := getAmount("5001", "credit") + getAmount("5051", "credit")   // 营业收入 = 主营+其他
-		cost := getAmount("5401", "debit") + getAmount("5402", "debit")         // 营业成本
-		tax := getAmount("5403", "debit")                                       // 税金及附加
-		sellExp := getAmount("5601", "debit")                                   // 销售费用
-		adminExp := getAmount("5602", "debit")                                  // 管理费用
-		finExp := getAmount("5603", "debit")                                    // 财务费用
-		investIncome := getAmount("5111", "credit")                             // 投资收益
-		nonOpIncome := getAmount("5301", "credit")                              // 营业外收入
-		nonOpExp := getAmount("5711", "debit")                                  // 营业外支出
-		incomeTax := getAmount("5801", "debit")                                 // 所得税费用
+		revenue := -sumCodes("5001") - sumCodes("5051")          // 收入：贷方净额取正
+		cost := sumCodes("5401") + sumCodes("5402")               // 营业成本
+		tax := sumCodes("5403")                                    // 税金及附加
+		sellExp := sumCodes("5601")                                // 销售费用
+		adminExp := sumCodes("5602")                               // 管理费用
+		finExp := sumCodes("5603")                                 // 财务费用
+		investIncome := -sumCodes("5111")                          // 投资收益
+		nonOpIncome := -sumCodes("5301")                           // 营业外收入
+		nonOpExp := sumCodes("5711")                               // 营业外支出
+		incomeTax := sumCodes("5801")                              // 所得税费用
 
 		operatingProfit := revenue - cost - tax - sellExp - adminExp - finExp + investIncome
 		totalProfit := operatingProfit + nonOpIncome - nonOpExp
