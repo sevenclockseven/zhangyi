@@ -39,6 +39,6 @@ app.use(router)
 
 // Element Plus 按需引入（由 unplugin-vue-components + ElementPlusResolver 自动处理）
 // 中文 locale 通过全局配置注入
-app.provide('elLocale', zhCn)
+// Element Plus 中文 locale 通过 ElConfigProvider 注入（见 App.vue）
 
 app.mount('#app')

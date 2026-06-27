@@ -1,4 +1,5 @@
 <template>
+  <el-config-provider :locale="zhCn">
   <el-container class="app-container" v-if="!isLoginPage">
     <!-- Mobile overlay -->
     <div class="sidebar-overlay" v-if="sidebarOpen && isMobile" @click="sidebarOpen = false"></div>
@@ -109,10 +110,13 @@
   </el-container>
 
   <router-view v-if="isLoginPage" />
+  </el-config-provider>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ElConfigProvider } from 'element-plus'
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import { useRoute, useRouter } from 'vue-router'
 import { bookApi, authApi } from './api'
 import { ElMessage } from 'element-plus'
