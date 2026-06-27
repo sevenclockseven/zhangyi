@@ -52,10 +52,50 @@ volumes:
   zhangyi-backups:
 ```
 
-### 本地运行（Windows/Mac/Linux）
+### Windows 本地运行
+
+#### 默认 SQLite（零配置，推荐）
+
+直接双击 `zhangyi.exe` 即可，数据自动保存在 `data/zhangyi.db`。
+
+#### 切换到 PostgreSQL
+
+**方式一：CMD 命令行**
+
+```cmd
+set DB_DRIVER=postgres
+set DB_DSN=host=localhost user=zhangyi password=你的密码 dbname=zhangyi port=5432 sslmode=disable
+zhangyi.exe
+```
+
+**方式二：PowerShell**
+
+```powershell
+$env:DB_DRIVER="postgres"
+$env:DB_DSN="host=localhost user=zhangyi password=你的密码 dbname=zhangyi port=5432 sslmode=disable"
+.\zhangyi.exe
+```
+
+**方式三：写 bat 脚本（一劳永逸）**
+
+创建 `start.bat` 文件，内容如下：
+
+```bat
+@echo off
+set DB_DRIVER=postgres
+set DB_DSN=host=localhost user=zhangyi password=你的密码 dbname=zhangyi port=5432 sslmode=disable
+zhangyi.exe
+```
+
+以后双击 `start.bat` 即可启动。
+
+> ⚠️ 切换数据库前请确保 PostgreSQL 已安装并运行，且已创建 `zhangyi` 数据库。
+
+### Mac/Linux 本地运行
 
 ```bash
-# 下载二进制文件后直接运行（默认SQLite，零配置）
+# 默认SQLite
+chmod +x zhangyi
 ./zhangyi
 
 # 切换PostgreSQL
@@ -68,7 +108,7 @@ DB_DRIVER=postgres DB_DSN="host=localhost user=zhangyi password=*** dbname=zhang
 |------|--------|------|
 | PORT | 8080 | 服务端口 |
 | DB_DRIVER | sqlite | 数据库驱动：sqlite / postgres |
-| DB_DSN | data/zhangyi.db | 数据库连接串 |
+| DB_DSN | data/zhangyi.db | 数据库连接串（SQLite为文件路径，PG为连接串） |
 | BACKUP_SCHEDULE | 24h | 备份周期：disabled / hourly / 6h / 24h |
 | BACKUP_DIR | backups | 备份文件目录 |
 
@@ -78,4 +118,4 @@ DB_DRIVER=postgres DB_DSN="host=localhost user=zhangyi password=*** dbname=zhang
 
 ## 📋 版本
 
-当前版本：v0.8.0
+当前版本：v0.8.1
