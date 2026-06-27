@@ -745,17 +745,11 @@ const saveUser = async () => {
   } catch (e) { ElMessage.error(e.response?.data?.error || '保存失败') }
 }
 const resetUserPwd = async (row) => {
+  await ElMessageBox.confirm(`确定重置 ${row.username} 的密码为 123456？`, '确认')
   try {
-    await ElMessageBox.confirm(
-      `确定重置用户「${row.username}」的密码？\n\n重置后新密码为：123456`,
-      '重置密码确认',
-      { confirmButtonText: '确定重置', cancelButtonText: '取消', type: 'warning' }
-    )
     await authApi.resetPassword(row.id, { password: '123456' })
     ElMessage.success('密码已重置为 123456')
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error('重置失败')
-  }
+  } catch {}
 }
 const deleteUser = async (row) => {
   await ElMessageBox.confirm(`确定删除用户 ${row.username}？`, '确认')

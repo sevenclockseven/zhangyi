@@ -114,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElConfigProvider } from 'element-plus'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import { useRoute, useRouter } from 'vue-router'
@@ -216,12 +216,6 @@ onMounted(() => {
   const user = localStorage.getItem('user')
   if (user) currentUser.value = JSON.parse(user)
   loadMenuConfig()
-  loadBooks()
-})
-
-watch(route, () => {
-  const u = localStorage.getItem('user')
-  if (u) currentUser.value = JSON.parse(u)
   loadBooks()
 })
 
