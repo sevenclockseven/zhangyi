@@ -651,6 +651,75 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 }
 
 
+
+// auxBalanceReport returns balance breakdown by auxiliary dimension
+func auxBalanceReport(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+		period := c.DefaultQuery("period", "")
+		auxType := c.DefaultQuery("type", "") // customer/supplier/department/project/employee/warehouse/bank_account
+
+		if period == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
+			return
+		}
+
+		// Get accounts that have aux_types configured
+		var accounts []models.Account
+		query := db.Where("book_id = ? AND is_active = ?", bookID, true)
+		if auxType != "" {
+			query = query.Where("aux_types LIKE ?", "%"+auxType+"%")
+		}
+		query.Find(&accounts)
+
+		type AuxBalanceRow struct {
+			AccountCode   string  `json:"account_code"`
+			AccountName   string  `json:"account_name"`
+			AuxName       string  `json:"aux_name"`
+			AuxType       string  `json:"aux_type"`
+			OpeningDebit  float64 `json:"opening_debit"`
+			OpeningCredit float64 `json:"opening_credit"`
+			PeriodDebit   float64 `json:"period_debit"`
+			PeriodCredit  float64 `json:"period_credit"`
+			ClosingDebit  float64 `json:"closing_debit"`
+			ClosingCredit float64 `json:"closing_credit"`
+		}
+
+		var result []AuxBalanceRow
+
+		for _, acct := range accounts {
+			if acct.AuxTypes == "" {
+				continue
+			}
+
+			// Get balances with aux_key
+			var balances []models.AccountBalance
+			db.Where("book_id = ? AND account_id = ? AND period = ?", bookID, acct.ID, period).Find(&balances)
+
+			for _, b := range balances {
+				auxName := b.AuxKey
+				if auxName == "" {
+					auxName = "(无辅助)"
+				}
+				result = append(result, AuxBalanceRow{
+					AccountCode:   acct.Code,
+					AccountName:   acct.Name,
+					AuxName:       auxName,
+					AuxType:       acct.AuxTypes,
+					OpeningDebit:  b.OpeningDebit,
+					OpeningCredit: b.OpeningCredit,
+					PeriodDebit:   b.PeriodDebit,
+					PeriodCredit:  b.PeriodCredit,
+					ClosingDebit:  b.ClosingDebit,
+					ClosingCredit: b.ClosingCredit,
+				})
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": result, "period": period})
+	}
+}
+
 // journal returns cash/bank journal entries
 func journal(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

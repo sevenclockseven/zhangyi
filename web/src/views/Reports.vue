@@ -13,6 +13,9 @@
       <el-tab-pane label="科目余额" name="account-balance" />
       <el-tab-pane label="应收统计" name="ar" />
       <el-tab-pane label="应付统计" name="ap" />
+      <el-tab-pane label="现金日记账" name="cash-journal" />
+      <el-tab-pane label="银行日记账" name="bank-journal" />
+      <el-tab-pane label="辅助余额表" name="aux-balance" />
       <el-tab-pane label="自定义报表" name="custom" />
 
       <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
@@ -219,6 +222,81 @@
           </div>
         </el-card>
       </div>
+      <!-- 现金日记账 -->
+      <div v-if="activeTab === 'cash-journal' && reportData">
+        <el-card shadow="never">
+          <template #header><strong>现金日记账</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
+          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="journalSummary">
+            <el-table-column prop="date" label="日期" width="100" fixed />
+            <el-table-column prop="voucher_number" label="凭证号" width="140" />
+            <el-table-column prop="memo" label="摘要" min-width="180" />
+            <el-table-column label="收入" width="120" align="right">
+              <template #default="{ row }">{{ fmt(row.debit) }}</template>
+            </el-table-column>
+            <el-table-column label="支出" width="120" align="right">
+              <template #default="{ row }">{{ fmt(row.credit) }}</template>
+            </el-table-column>
+            <el-table-column label="余额" width="120" align="right">
+              <template #default="{ row }">{{ fmt(row.balance) }}</template>
+            </el-table-column>
+          </el-table>
+          <div style="margin-top: 8px; color: #909399; font-size: 13px">期初余额：{{ fmt(reportData.opening_balance) }}</div>
+        </el-card>
+      </div>
+
+      <!-- 银行日记账 -->
+      <div v-if="activeTab === 'bank-journal' && reportData">
+        <el-card shadow="never">
+          <template #header><strong>银行日记账</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
+          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="journalSummary">
+            <el-table-column prop="date" label="日期" width="100" fixed />
+            <el-table-column prop="voucher_number" label="凭证号" width="140" />
+            <el-table-column prop="account_name" label="账户" width="120" />
+            <el-table-column prop="memo" label="摘要" min-width="180" />
+            <el-table-column label="收入" width="120" align="right">
+              <template #default="{ row }">{{ fmt(row.debit) }}</template>
+            </el-table-column>
+            <el-table-column label="支出" width="120" align="right">
+              <template #default="{ row }">{{ fmt(row.credit) }}</template>
+            </el-table-column>
+            <el-table-column label="余额" width="120" align="right">
+              <template #default="{ row }">{{ fmt(row.balance) }}</template>
+            </el-table-column>
+          </el-table>
+          <div style="margin-top: 8px; color: #909399; font-size: 13px">期初余额：{{ fmt(reportData.opening_balance) }}</div>
+        </el-card>
+      </div>
+
+      <!-- 辅助余额表 -->
+      <div v-if="activeTab === 'aux-balance' && reportData">
+        <el-card shadow="never">
+          <template #header><strong>辅助余额表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
+          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="auxBalSummary">
+            <el-table-column prop="account_code" label="科目编码" width="100" fixed />
+            <el-table-column prop="account_name" label="科目名称" width="120" />
+            <el-table-column prop="aux_name" label="辅助项" min-width="140" />
+            <el-table-column label="期初借" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.opening_debit) }}</template>
+            </el-table-column>
+            <el-table-column label="期初贷" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.opening_credit) }}</template>
+            </el-table-column>
+            <el-table-column label="本期借" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.period_debit) }}</template>
+            </el-table-column>
+            <el-table-column label="本期贷" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.period_credit) }}</template>
+            </el-table-column>
+            <el-table-column label="期末借" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.closing_debit) }}</template>
+            </el-table-column>
+            <el-table-column label="期末贷" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.closing_credit) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </div>
+
       <!-- 自定义报表 -->
       <div v-if="activeTab === 'custom'">
         <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
@@ -344,6 +422,15 @@ const loadReport = async () => {
     } else if (activeTab.value === 'ap') {
       const { data } = await axios.get(`${base}/ar-ap?type=ap`)
       reportData.value = data
+    } else if (activeTab.value === 'cash-journal') {
+      const { data } = await axios.get(`${base}/cash-journal?period=${period.value}`)
+      reportData.value = data
+    } else if (activeTab.value === 'bank-journal') {
+      const { data } = await axios.get(`${base}/bank-journal?period=${period.value}`)
+      reportData.value = data
+    } else if (activeTab.value === 'aux-balance') {
+      const { data } = await axios.get(`${base}/aux-balance?period=${period.value}`)
+      reportData.value = data
     }
   } catch (e) { console.error(e) }
 }
@@ -381,6 +468,8 @@ const expenseSummary = makeSummary({ 2: 'amount' })
 const ledgerSummary = makeSummary({ 3: 'opening_debit', 4: 'opening_credit', 5: 'period_debit', 6: 'period_credit', 7: 'closing_debit', 8: 'closing_credit' })
 const abSummary = makeSummary({ 3: 'opening_debit', 4: 'period_debit', 5: 'period_credit', 6: 'closing_debit' })
 const arApSummary = makeSummary({ 2: 'total', 3: 'current', 4: 'month_1', 5: 'month_3', 6: 'month_6', 7: 'month_12', 8: 'over_1_year' })
+const journalSummary = makeSummary({ 4: 'debit', 5: 'credit' })
+const auxBalSummary = makeSummary({ 3: 'opening_debit', 4: 'opening_credit', 5: 'period_debit', 6: 'period_credit', 7: 'closing_debit', 8: 'closing_credit' })
 
 const exportReport = async (format) => {
   if (activeTab.value === 'custom' && !crResult.value) { ElMessage.warning('请先运行自定义报表，再导出'); return }
