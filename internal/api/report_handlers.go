@@ -720,11 +720,30 @@ func auxBalanceReport(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+// cashJournal wraps journal with type=cash
+func cashJournal(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("force_type", "cash")
+		journal(db)(c)
+	}
+}
+
+// bankJournal wraps journal with type=bank
+func bankJournal(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("force_type", "bank")
+		journal(db)(c)
+	}
+}
+
 // journal returns cash/bank journal entries
 func journal(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 		accountType := c.DefaultQuery("type", "cash") // cash or bank
+		if ft, ok := c.Get("force_type"); ok {
+			accountType = ft.(string)
+		}
 		period := c.DefaultQuery("period", "")         // YYYY-MM
 		accountCode := c.DefaultQuery("account_code", "")
 
@@ -782,12 +801,13 @@ func journal(db *gorm.DB) gin.HandlerFunc {
 		var result []JournalEntry
 		var runningBalance float64
 
-		// Get opening balance
+		// Get opening balance (only for the selected account codes)
 		if period != "" {
 			var openingDebit, openingCredit float64
 			db.Model(&models.AccountBalance{}).
-				Where("book_id = ? AND period = ?", bookID, period).
-				Select("COALESCE(SUM(opening_debit), 0) as opening_debit, COALESCE(SUM(opening_credit), 0) as opening_credit").
+				Joins("JOIN accounts ON accounts.id = account_balances.account_id").
+				Where("account_balances.book_id = ? AND account_balances.period = ? AND accounts.code IN ?", bookID, period, codes).
+				Select("COALESCE(SUM(account_balances.opening_debit), 0) as opening_debit, COALESCE(SUM(account_balances.opening_credit), 0) as opening_credit").
 				Row().Scan(&openingDebit, &openingCredit)
 			runningBalance = openingDebit - openingCredit
 		}

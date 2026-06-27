@@ -177,8 +177,8 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			reports.GET("/expense", expenseReport(db))
 			reports.GET("/general-ledger", generalLedgerReport(db))
 			reports.GET("/ar-ap", arApReport(db))
-				reports.GET("/cash-journal", journal(db))
-				reports.GET("/bank-journal", journal(db))
+				reports.GET("/cash-journal", cashJournal(db))
+				reports.GET("/bank-journal", bankJournal(db))
 				reports.GET("/aux-balance", auxBalanceReport(db))
 			}
 
