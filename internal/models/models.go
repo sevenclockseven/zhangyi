@@ -153,6 +153,19 @@ type ReportTemplate struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// BookUser 账套权限
+
+type BookUser struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	BookID    uint      `json:"book_id" gorm:"index;not null"`
+	UserID    uint      `json:"user_id" gorm:"index;not null"`
+	Role      string    `json:"role" gorm:"size:20;default:readonly"` // admin / writable / readonly
+	CreatedAt time.Time `json:"created_at"`
+
+	Book AccountBook `json:"book,omitempty" gorm:"foreignKey:BookID"`
+	User User         `json:"user,omitempty" gorm:"foreignKey:UserID"` // User defined in user.go
+}
+
 // OperationLog 操作日志
 type OperationLog struct {
 	ID        uint      `json:"id" gorm:"primaryKey"`
