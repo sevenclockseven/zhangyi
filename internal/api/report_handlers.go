@@ -73,33 +73,11 @@ func balanceSheet(db *gorm.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Calculate totals
-		var totalAssets, totalLiabilities, totalEquity float64
-		for _, a := range assets {
-			if v, ok := a["balance"].(float64); ok {
-				totalAssets += v
-			}
-		}
-		for _, l := range liabilities {
-			if v, ok := l["balance"].(float64); ok {
-				totalLiabilities += v
-			}
-		}
-		for _, e := range equity {
-			if v, ok := e["balance"].(float64); ok {
-				totalEquity += v
-			}
-		}
-
 		c.JSON(http.StatusOK, gin.H{
-			"period":            period,
-			"assets":            assets,
-			"liabilities":       liabilities,
-			"equity":            equity,
-			"total_assets":      totalAssets,
-			"total_liabilities": totalLiabilities,
-			"total_equity":      totalEquity,
-			"total_liab_equity": totalLiabilities + totalEquity,
+			"period":      period,
+			"assets":      assets,
+			"liabilities": liabilities,
+			"equity":      equity,
 		})
 	}
 }
@@ -108,12 +86,15 @@ func incomeStatement(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
 		period := c.DefaultQuery("period", "")
+
 		if period == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间 (period)"})
 			return
 		}
 
-		// Get all accounts
+		var balances []models.AccountBalance
+		db.Where("book_id = ? AND period = ?", bookID, period).Find(&balances)
+
 		var accounts []models.Account
 		db.Where("book_id = ?", bookID).Find(&accounts)
 		accountMap := make(map[uint]models.Account)
@@ -121,58 +102,30 @@ func incomeStatement(db *gorm.DB) gin.HandlerFunc {
 			accountMap[a.ID] = a
 		}
 
-		// Get posted vouchers for this period (excluding transfer vouchers)
-		var vouchers []models.Voucher
-		db.Where("book_id = ? AND date LIKE ? AND status = ?", bookID, period+"%", "posted").Find(&vouchers)
-
-		// Calculate amounts from voucher items (excluding transfer vouchers)
-		type AmountVal struct {
-			Debit  float64
-			Credit float64
-		}
-		amountMap := make(map[uint]AmountVal)
-		for _, v := range vouchers {
-			if v.Memo != "" && strings.Contains(v.Memo, "损益结转") {
-				continue
-			}
-			var items []models.VoucherItem
-			db.Where("voucher_id = ?", v.ID).Find(&items)
-			for _, item := range items {
-				val := amountMap[item.AccountID]
-				val.Debit += item.Debit
-				val.Credit += item.Credit
-				amountMap[item.AccountID] = val
-			}
-		}
-
 		revenue := []gin.H{}
 		expenses := []gin.H{}
 
-		for _, acct := range accounts {
-			if !acct.IsActive || acct.Level != 1 {
+		for _, b := range balances {
+			acct, ok := accountMap[b.AccountID]
+			if !ok || acct.Level != 1 {
 				continue
 			}
-			code := acct.Code
-			amounts := amountMap[acct.ID]
 
+			code := acct.Code
 			if code >= "5000" && code < "5400" {
-				net := amounts.Credit - amounts.Debit
-				if net != 0 {
-					revenue = append(revenue, gin.H{
-						"code":   acct.Code,
-						"name":   acct.Name,
-						"amount": net,
-					})
-				}
+				// Revenue
+				revenue = append(revenue, gin.H{
+					"code":   acct.Code,
+					"name":   acct.Name,
+					"amount": b.PeriodCredit - b.PeriodDebit,
+				})
 			} else if code >= "5400" && code < "6000" {
-				net := amounts.Debit - amounts.Credit
-				if net != 0 {
-					expenses = append(expenses, gin.H{
-						"code":   acct.Code,
-						"name":   acct.Name,
-						"amount": net,
-					})
-				}
+				// Expenses
+				expenses = append(expenses, gin.H{
+					"code":   acct.Code,
+					"name":   acct.Name,
+					"amount": b.PeriodDebit - b.PeriodCredit,
+				})
 			}
 		}
 
@@ -194,37 +147,100 @@ func accountBalanceReport(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// 1. 查询所有科目和余额
+		var accounts []models.Account
+		db.Where("book_id = ?", bookID).Order("code ASC").Find(&accounts)
+
 		var balances []models.AccountBalance
 		db.Where("book_id = ? AND period = ?", bookID, period).Find(&balances)
 
-		var accounts []models.Account
-		db.Where("book_id = ?", bookID).Find(&accounts)
-		accountMap := make(map[uint]models.Account)
-		for _, a := range accounts {
-			accountMap[a.ID] = a
+		// 2. 构建 balance map: account_id -> balance
+		balanceMap := make(map[uint]models.AccountBalance)
+		for _, b := range balances {
+			balanceMap[b.AccountID] = b
 		}
 
-		result := []gin.H{}
-		for _, b := range balances {
-			acct, ok := accountMap[b.AccountID]
-			if !ok {
-				continue
-			}
-
-			result = append(result, gin.H{
+		// 3. 构建科目节点 map: code -> tree node
+		nodeMap := make(map[string]*gin.H)
+		for _, acct := range accounts {
+			b, hasBalance := balanceMap[acct.ID]
+			node := gin.H{
 				"account_code":   acct.Code,
 				"account_name":   acct.Name,
 				"direction":      acct.Direction,
-				"opening_debit":  b.OpeningDebit,
-				"opening_credit": b.OpeningCredit,
-				"period_debit":   b.PeriodDebit,
-				"period_credit":  b.PeriodCredit,
-				"closing_debit":  b.ClosingDebit,
-				"closing_credit": b.ClosingCredit,
-			})
+				"level":          acct.Level,
+				"parent_code":    acct.ParentCode,
+				"opening_debit":  0.0,
+				"opening_credit": 0.0,
+				"period_debit":   0.0,
+				"period_credit":  0.0,
+				"closing_debit":  0.0,
+				"closing_credit": 0.0,
+				"children":       []gin.H{},
+			}
+			if hasBalance {
+				node["opening_debit"] = b.OpeningDebit
+				node["opening_credit"] = b.OpeningCredit
+				node["period_debit"] = b.PeriodDebit
+				node["period_credit"] = b.PeriodCredit
+				node["closing_debit"] = b.ClosingDebit
+				node["closing_credit"] = b.ClosingCredit
+			}
+			nodeMap[acct.Code] = &node
 		}
 
-		c.JSON(http.StatusOK, gin.H{"data": result, "period": period})
+		// 4. 组装树：将子节点挂到父节点
+		roots := []gin.H{}
+		for code, node := range nodeMap {
+			parentCode := (*node)["parent_code"].(string)
+			if parentCode == "" {
+				roots = append(roots, *node)
+			} else if parent, ok := nodeMap[parentCode]; ok {
+				children := (*parent)["children"].([]gin.H)
+				children = append(children, *node)
+				(*parent)["children"] = children
+			} else {
+				// 父节点不存在，作为根节点
+				roots = append(roots, *node)
+			}
+			_ = code
+		}
+
+		// 5. 自底向上汇总：父节点金额 = 子节点合计
+		var sumUp func(node *gin.H)
+		sumUp = func(node *gin.H) {
+			children := (*node)["children"].([]gin.H)
+			if len(children) == 0 {
+				return
+			}
+			for i := range children {
+				sumUp(&children[i])
+			}
+			var sOpeningDebit, sOpeningCredit, sPeriodDebit, sPeriodCredit, sClosingDebit, sClosingCredit float64
+			for _, ch := range children {
+				sOpeningDebit += ch["opening_debit"].(float64)
+				sOpeningCredit += ch["opening_credit"].(float64)
+				sPeriodDebit += ch["period_debit"].(float64)
+				sPeriodCredit += ch["period_credit"].(float64)
+				sClosingDebit += ch["closing_debit"].(float64)
+				sClosingCredit += ch["closing_credit"].(float64)
+			}
+			(*node)["opening_debit"] = sOpeningDebit
+			(*node)["opening_credit"] = sOpeningCredit
+			(*node)["period_debit"] = sPeriodDebit
+			(*node)["period_credit"] = sPeriodCredit
+			(*node)["closing_debit"] = sClosingDebit
+			(*node)["closing_credit"] = sClosingCredit
+		}
+
+		for i := range roots {
+			sumUp(&roots[i])
+		}
+
+		// 6. 清理 children 为空的非叶子节点（保留字段让 el-table 识别）
+		// el-table 树形模式需要 children 字段存在即可
+
+		c.JSON(http.StatusOK, gin.H{"data": roots, "period": period})
 	}
 }
 
@@ -246,62 +262,28 @@ func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 			Bold   bool    `json:"bold"`
 		}
 
-		// 从凭证直接取数（排除结转凭证），避免结转后余额表净额为0
-		type AcctAmount struct {
-			AccountID uint
-			Debit     float64
-			Credit    float64
-		}
-		acctAmounts := make(map[uint]*AcctAmount)
-
-		var vouchers []models.Voucher
-		db.Where("book_id = ? AND date LIKE ? AND status = ?", bookID, period+"%", "posted").Find(&vouchers)
-		for _, v := range vouchers {
-			if v.Memo != "" && strings.Contains(v.Memo, "损益结转") {
-				continue
-			}
-			var items []models.VoucherItem
-			db.Where("voucher_id = ?", v.ID).Find(&items)
-			for _, item := range items {
-				if acctAmounts[item.AccountID] == nil {
-					acctAmounts[item.AccountID] = &AcctAmount{AccountID: item.AccountID}
-				}
-				acctAmounts[item.AccountID].Debit += item.Debit
-				acctAmounts[item.AccountID].Credit += item.Credit
-			}
-		}
-
-		// Build account code->amount map
-		var accounts []models.Account
-		db.Where("book_id = ?", bookID).Find(&accounts)
-		codeAmounts := make(map[string]float64)
-		for _, a := range accounts {
-			if aa, ok := acctAmounts[a.ID]; ok {
-				codeAmounts[a.Code] = aa.Debit - aa.Credit
-			}
-		}
-
-		// Sum by code prefix
-		sumCodes := func(prefix string) float64 {
+		getAmount := func(code string, direction string) float64 {
 			var total float64
-			for code, amt := range codeAmounts {
-				if strings.HasPrefix(code, prefix) {
-					total += amt
-				}
+			db.Model(&models.AccountBalance{}).
+				Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+				Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
+				Row().Scan(&total)
+			if direction == "credit" {
+				total = -total
 			}
 			return total
 		}
 
-		revenue := -sumCodes("5001") - sumCodes("5051")          // 收入：贷方净额取正
-		cost := sumCodes("5401") + sumCodes("5402")               // 营业成本
-		tax := sumCodes("5403")                                    // 税金及附加
-		sellExp := sumCodes("5601")                                // 销售费用
-		adminExp := sumCodes("5602")                               // 管理费用
-		finExp := sumCodes("5603")                                 // 财务费用
-		investIncome := -sumCodes("5111")                          // 投资收益
-		nonOpIncome := -sumCodes("5301")                           // 营业外收入
-		nonOpExp := sumCodes("5711")                               // 营业外支出
-		incomeTax := sumCodes("5801")                              // 所得税费用
+		revenue := getAmount("5001", "credit") + getAmount("5051", "credit")   // 营业收入 = 主营+其他
+		cost := getAmount("5401", "debit") + getAmount("5402", "debit")         // 营业成本
+		tax := getAmount("5403", "debit")                                       // 税金及附加
+		sellExp := getAmount("5601", "debit")                                   // 销售费用
+		adminExp := getAmount("5602", "debit")                                  // 管理费用
+		finExp := getAmount("5603", "debit")                                    // 财务费用
+		investIncome := getAmount("5111", "credit")                             // 投资收益
+		nonOpIncome := getAmount("5301", "credit")                              // 营业外收入
+		nonOpExp := getAmount("5711", "debit")                                  // 营业外支出
+		incomeTax := getAmount("5801", "debit")                                 // 所得税费用
 
 		operatingProfit := revenue - cost - tax - sellExp - adminExp - finExp + investIncome
 		totalProfit := operatingProfit + nonOpIncome - nonOpExp
@@ -352,9 +334,8 @@ func expenseReport(db *gorm.DB) gin.HandlerFunc {
 		for _, ec := range expenseCodes {
 			var amount float64
 			db.Model(&models.AccountBalance{}).
-				Joins("JOIN accounts ON accounts.id = account_balances.account_id").
-				Where("account_balances.book_id = ? AND account_balances.period = ? AND accounts.code LIKE ?", bookID, period, ec.Code+"%").
-				Select("COALESCE(SUM(account_balances.period_debit), 0)").
+				Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, ec.Code+"%").
+				Select("COALESCE(SUM(period_debit), 0)").
 				Row().Scan(&amount)
 			if amount > 0 {
 				rows = append(rows, ExpenseRow{Code: ec.Code, Name: ec.Name, Amount: amount})
@@ -364,16 +345,14 @@ func expenseReport(db *gorm.DB) gin.HandlerFunc {
 		// Sub-items for 5602 管理费用
 		var subItems []ExpenseRow
 		subCodes := []struct{ Code, Name string }{
-			{"5602.01", "管理人员薪酬"}, {"5602.02", "办公费"}, {"5602.03", "折旧费"},
-			{"5602.04", "修理费"}, {"5602.05", "水电费"}, {"5602.06", "差旅费"},
-			{"5602.07", "业务招待费"}, {"5602.08", "车辆使用费"}, {"5602.09", "其他"},
+			{"5602.01", "工资薪金"}, {"5602.02", "办公费"}, {"5602.03", "差旅费"},
+			{"5602.04", "折旧费"}, {"5602.05", "修理费"}, {"5602.06", "水电费"},
 		}
 		for _, sc := range subCodes {
 			var amount float64
 			db.Model(&models.AccountBalance{}).
-				Joins("JOIN accounts ON accounts.id = account_balances.account_id").
-				Where("account_balances.book_id = ? AND account_balances.period = ? AND accounts.code = ?", bookID, period, sc.Code).
-				Select("COALESCE(SUM(account_balances.period_debit), 0)").
+				Where("book_id = ? AND period = ? AND account_code = ?", bookID, period, sc.Code).
+				Select("COALESCE(SUM(period_debit), 0)").
 				Row().Scan(&amount)
 			if amount > 0 {
 				subItems = append(subItems, ExpenseRow{Code: sc.Code, Name: sc.Name, Amount: amount})
@@ -651,99 +630,11 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 }
 
 
-
-// auxBalanceReport returns balance breakdown by auxiliary dimension
-func auxBalanceReport(db *gorm.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-		period := c.DefaultQuery("period", "")
-		auxType := c.DefaultQuery("type", "") // customer/supplier/department/project/employee/warehouse/bank_account
-
-		if period == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
-			return
-		}
-
-		// Get accounts that have aux_types configured
-		var accounts []models.Account
-		query := db.Where("book_id = ? AND is_active = ?", bookID, true)
-		if auxType != "" {
-			query = query.Where("aux_types LIKE ?", "%"+auxType+"%")
-		}
-		query.Find(&accounts)
-
-		type AuxBalanceRow struct {
-			AccountCode   string  `json:"account_code"`
-			AccountName   string  `json:"account_name"`
-			AuxName       string  `json:"aux_name"`
-			AuxType       string  `json:"aux_type"`
-			OpeningDebit  float64 `json:"opening_debit"`
-			OpeningCredit float64 `json:"opening_credit"`
-			PeriodDebit   float64 `json:"period_debit"`
-			PeriodCredit  float64 `json:"period_credit"`
-			ClosingDebit  float64 `json:"closing_debit"`
-			ClosingCredit float64 `json:"closing_credit"`
-		}
-
-		var result []AuxBalanceRow
-
-		for _, acct := range accounts {
-			if acct.AuxTypes == "" {
-				continue
-			}
-
-			// Get balances with aux_key
-			var balances []models.AccountBalance
-			db.Where("book_id = ? AND account_id = ? AND period = ?", bookID, acct.ID, period).Find(&balances)
-
-			for _, b := range balances {
-				auxName := b.AuxKey
-				if auxName == "" {
-					auxName = "(无辅助)"
-				}
-				result = append(result, AuxBalanceRow{
-					AccountCode:   acct.Code,
-					AccountName:   acct.Name,
-					AuxName:       auxName,
-					AuxType:       acct.AuxTypes,
-					OpeningDebit:  b.OpeningDebit,
-					OpeningCredit: b.OpeningCredit,
-					PeriodDebit:   b.PeriodDebit,
-					PeriodCredit:  b.PeriodCredit,
-					ClosingDebit:  b.ClosingDebit,
-					ClosingCredit: b.ClosingCredit,
-				})
-			}
-		}
-
-		c.JSON(http.StatusOK, gin.H{"data": result, "period": period})
-	}
-}
-
-// cashJournal wraps journal with type=cash
-func cashJournal(db *gorm.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("force_type", "cash")
-		journal(db)(c)
-	}
-}
-
-// bankJournal wraps journal with type=bank
-func bankJournal(db *gorm.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("force_type", "bank")
-		journal(db)(c)
-	}
-}
-
 // journal returns cash/bank journal entries
 func journal(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 		accountType := c.DefaultQuery("type", "cash") // cash or bank
-		if ft, ok := c.Get("force_type"); ok {
-			accountType = ft.(string)
-		}
 		period := c.DefaultQuery("period", "")         // YYYY-MM
 		accountCode := c.DefaultQuery("account_code", "")
 
@@ -801,13 +692,12 @@ func journal(db *gorm.DB) gin.HandlerFunc {
 		var result []JournalEntry
 		var runningBalance float64
 
-		// Get opening balance (only for the selected account codes)
+		// Get opening balance
 		if period != "" {
 			var openingDebit, openingCredit float64
 			db.Model(&models.AccountBalance{}).
-				Joins("JOIN accounts ON accounts.id = account_balances.account_id").
-				Where("account_balances.book_id = ? AND account_balances.period = ? AND accounts.code IN ?", bookID, period, codes).
-				Select("COALESCE(SUM(account_balances.opening_debit), 0) as opening_debit, COALESCE(SUM(account_balances.opening_credit), 0) as opening_credit").
+				Where("book_id = ? AND period = ?", bookID, period).
+				Select("COALESCE(SUM(opening_debit), 0) as opening_debit, COALESCE(SUM(opening_credit), 0) as opening_credit").
 				Row().Scan(&openingDebit, &openingCredit)
 			runningBalance = openingDebit - openingCredit
 		}

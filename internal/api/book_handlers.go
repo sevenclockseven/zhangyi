@@ -200,8 +200,6 @@ func deleteBook(db *gorm.DB) gin.HandlerFunc {
 }
 
 
-
-
 // initCashFlowItems creates default cash flow items for a new book
 func initCashFlowItems(tx *gorm.DB, bookID uint) {
 	type CashFlowDef struct {

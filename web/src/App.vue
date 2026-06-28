@@ -1,5 +1,4 @@
 <template>
-  <el-config-provider :locale="zhCn">
   <el-container class="app-container" v-if="!isLoginPage">
     <!-- Mobile overlay -->
     <div class="sidebar-overlay" v-if="sidebarOpen && isMobile" @click="sidebarOpen = false"></div>
@@ -25,7 +24,7 @@
           <polyline points="81,86 87,92 99,78" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <div class="logo-text" v-show="!isMobile || sidebarOpen">
-          <h2>易记</h2>
+          <h2>账易</h2>
           <span>代理记账系统</span>
         </div>
       </div>
@@ -57,7 +56,7 @@
             <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
             <el-breadcrumb-item v-if="route.meta.title && route.meta.title !== '工作台'">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
-          <span class="page-title" v-else>{{ route.meta.title || '易记' }}</span>
+          <span class="page-title" v-else>{{ route.meta.title || '账易' }}</span>
           <!-- Global book selector -->
           <el-select
             v-model="currentBookId"
@@ -110,13 +109,10 @@
   </el-container>
 
   <router-view v-if="isLoginPage" />
-  </el-config-provider>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { ElConfigProvider } from 'element-plus'
-import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { bookApi, authApi } from './api'
 import { ElMessage } from 'element-plus'
@@ -130,13 +126,6 @@ const { isMobile } = useMobile()
 const { currentBookId, books, setCurrentBook, setBooks } = useBookStore()
 
 const isLoginPage = computed(() => route.path === '/login')
-const isAdmin = computed(() => currentUser.value.role === 'admin')
-const canWriteBook = computed(() => {
-  if (isAdmin.value) return true
-  const perms = JSON.parse(localStorage.getItem('book_permissions') || '[]')
-  const perm = perms.find(p => p.book_id === currentBookId.value)
-  return perm && perm.role === 'full'
-})
 const currentUser = ref({})
 const showPasswordDialog = ref(false)
 const passwordForm = ref({ old_password: '', new_password: '' })
@@ -147,15 +136,7 @@ const sidebarWidth = '220px'
 const loadBooks = async () => {
   try {
     const { data } = await bookApi.list()
-    let allBooks = data.data || []
-    // Filter by permissions for non-admin users
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    if (user.role !== 'admin') {
-      const perms = JSON.parse(localStorage.getItem('book_permissions') || '[]')
-      const allowedIds = new Set(perms.map(p => p.book_id))
-      allBooks = allBooks.filter(b => allowedIds.has(b.id))
-    }
-    setBooks(allBooks)
+    setBooks(data.data || [])
   } catch {}
 }
 
@@ -219,12 +200,6 @@ onMounted(() => {
   loadBooks()
 })
 
-watch(route, () => {
-  const u = localStorage.getItem('user')
-  if (u) currentUser.value = JSON.parse(u)
-  loadBooks()
-})
-
 onUnmounted(() => {
   window.removeEventListener('menu-config-changed', loadMenuConfig)
 })
@@ -237,7 +212,6 @@ const handleCommand = async (cmd) => {
   if (cmd === 'logout') {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
-    localStorage.removeItem('book_permissions')
     setCurrentBook(null)
     router.push('/login')
   } else if (cmd === 'password') {

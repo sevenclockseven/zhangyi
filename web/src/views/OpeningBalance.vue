@@ -44,13 +44,13 @@
           <el-table-column prop="direction" label="方向" width="50" align="center" />
           <el-table-column label="期初借方" width="140" align="right">
             <template #default="{ row }">
-              <el-input-number v-if="row.is_leaf" v-model="row.opening_debit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @focus="$event.target.select()" @change="onBalanceChange(row)" />
+              <el-input-number v-if="row.is_leaf" v-model="row.opening_debit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="onBalanceChange(row)" />
               <span v-else>{{ fmt(row.opening_debit) }}</span>
             </template>
           </el-table-column>
           <el-table-column label="期初贷方" width="140" align="right">
             <template #default="{ row }">
-              <el-input-number v-if="row.is_leaf" v-model="row.opening_credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @focus="$event.target.select()" @change="onBalanceChange(row)" />
+              <el-input-number v-if="row.is_leaf" v-model="row.opening_credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="onBalanceChange(row)" />
               <span v-else>{{ fmt(row.opening_credit) }}</span>
             </template>
           </el-table-column>
