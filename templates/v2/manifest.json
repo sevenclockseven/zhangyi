@@ -237,6 +237,30 @@
       "industry": "agriculture",
       "taxpayer": "small",
       "file": "enterprise/agriculture_small.json"
+    },
+    {
+      "standard": "small_business",
+      "industry": "基础",
+      "taxpayer": "small_business",
+      "file": "small_business/base.json"
+    },
+    {
+      "standard": "small_business",
+      "industry": "基础",
+      "taxpayer": "general",
+      "file": "small_business/base.json"
+    },
+    {
+      "standard": "enterprise",
+      "industry": "基础",
+      "taxpayer": "general",
+      "file": "enterprise/base.json"
+    },
+    {
+      "standard": "enterprise",
+      "industry": "基础",
+      "taxpayer": "small",
+      "file": "enterprise/base.json"
     }
   ]
 }

@@ -13,9 +13,6 @@
       <el-tab-pane label="科目余额" name="account-balance" />
       <el-tab-pane label="应收统计" name="ar" />
       <el-tab-pane label="应付统计" name="ap" />
-      <el-tab-pane label="现金日记账" name="cash-journal" />
-      <el-tab-pane label="银行日记账" name="bank-journal" />
-      <el-tab-pane label="辅助余额表" name="aux-balance" />
       <el-tab-pane label="自定义报表" name="custom" />
 
       <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
@@ -57,7 +54,7 @@
           <el-card shadow="never">
             <template #header><strong>资产</strong></template>
             <div class="table-wrapper">
-              <el-table :data="reportData.assets" border size="small" show-summary :summary-method="balanceSummary" :max-height="tableMaxHeight">
+              <el-table :data="reportData.assets" border size="small" show-summary :max-height="tableMaxHeight">
                 <el-table-column prop="code" label="编码" width="70" />
                 <el-table-column prop="name" label="项目" min-width="120" />
                 <el-table-column label="期末余额" width="120" align="right">
@@ -69,7 +66,7 @@
           <el-card shadow="never">
             <template #header><strong>负债及权益</strong></template>
             <div class="table-wrapper">
-              <el-table :data="[...(reportData.liabilities || []), ...(reportData.equity || [])]" border size="small" show-summary :summary-method="balanceSummary" :max-height="tableMaxHeight">
+              <el-table :data="[...(reportData.liabilities || []), ...(reportData.equity || [])]" border size="small" show-summary :max-height="tableMaxHeight">
                 <el-table-column prop="code" label="编码" width="70" />
                 <el-table-column prop="name" label="项目" min-width="120" />
                 <el-table-column label="期末余额" width="120" align="right">
@@ -112,7 +109,7 @@
       <div v-if="activeTab === 'expense' && reportData">
         <el-card shadow="never">
           <template #header><strong>费用统计表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
-          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="expenseSummary">
+          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
             <el-table-column prop="code" label="编码" width="100" />
             <el-table-column prop="name" label="费用项目" min-width="180" />
             <el-table-column label="本期金额" width="140" align="right">
@@ -137,7 +134,7 @@
         <el-card shadow="never">
           <template #header><strong>总账报表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
           <div class="table-wrapper">
-            <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="ledgerSummary">
+            <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
               <el-table-column prop="code" label="科目编码" width="100" fixed />
               <el-table-column prop="name" label="科目名称" min-width="130" fixed />
               <el-table-column prop="direction" label="向" width="50" align="center" />
@@ -164,15 +161,39 @@
         </el-card>
       </div>
 
-      <!-- 科目余额表 -->
+      <!-- 科目余额表（树形） -->
       <div v-if="activeTab === 'account-balance' && reportData">
+        <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
+          <el-button size="small" @click="expandAllBalance"><el-icon><Plus /></el-icon>全部展开</el-button>
+          <el-button size="small" @click="collapseAllBalance"><el-icon><Minus /></el-icon>全部折叠</el-button>
+        </div>
         <div class="table-wrapper">
-          <el-table :data="reportData" border size="small" show-summary :summary-method="abSummary" :max-height="tableMaxHeight">
+          <el-table
+            ref="balanceTableRef"
+            :data="reportData"
+            row-key="account_code"
+            :tree-props="{ children: 'children' }"
+            :default-expand-all="true"
+            :max-height="tableMaxHeight"
+            border
+            size="small"
+            show-summary
+            :summary-method="balanceSummaryMethod"
+            row-class-name="balanceRowClassName"
+            :stripe="false"
+          >
             <el-table-column prop="account_code" label="编码" width="90" fixed />
-            <el-table-column prop="account_name" label="科目" min-width="120" fixed />
+            <el-table-column prop="account_name" label="科目" min-width="160" fixed>
+              <template #default="{ row }">
+                <span :style="{ fontWeight: row.level === 1 ? 'bold' : 'normal', paddingLeft: (row.level - 1) * 16 + 'px' }">{{ row.account_name }}</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="direction" label="向" width="50" align="center" />
-            <el-table-column label="期初" width="100" align="right">
-              <template #default="{ row }">{{ fmt(row.opening_debit || row.opening_credit) }}</template>
+            <el-table-column label="期初借" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.opening_debit) }}</template>
+            </el-table-column>
+            <el-table-column label="期初贷" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.opening_credit) }}</template>
             </el-table-column>
             <el-table-column label="本期借" width="100" align="right">
               <template #default="{ row }">{{ fmt(row.period_debit) }}</template>
@@ -180,8 +201,11 @@
             <el-table-column label="本期贷" width="100" align="right">
               <template #default="{ row }">{{ fmt(row.period_credit) }}</template>
             </el-table-column>
-            <el-table-column label="期末" width="100" align="right">
-              <template #default="{ row }">{{ fmt(row.closing_debit || row.closing_credit) }}</template>
+            <el-table-column label="期末借" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.closing_debit) }}</template>
+            </el-table-column>
+            <el-table-column label="期末贷" width="100" align="right">
+              <template #default="{ row }">{{ fmt(row.closing_credit) }}</template>
             </el-table-column>
           </el-table>
         </div>
@@ -194,7 +218,7 @@
             <strong>{{ activeTab === 'ar' ? '应收账款统计及帐龄分析' : '应付账款统计及帐龄分析' }}</strong>
           </template>
           <div class="table-wrapper">
-            <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="arApSummary">
+            <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
               <el-table-column prop="code" label="编码" width="80" fixed />
               <el-table-column prop="name" :label="activeTab === 'ar' ? '客户' : '供应商'" min-width="120" fixed />
               <el-table-column label="合计" width="110" align="right">
@@ -222,81 +246,6 @@
           </div>
         </el-card>
       </div>
-      <!-- 现金日记账 -->
-      <div v-if="activeTab === 'cash-journal' && reportData">
-        <el-card shadow="never">
-          <template #header><strong>现金日记账</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
-          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="journalSummary">
-            <el-table-column prop="date" label="日期" width="100" fixed />
-            <el-table-column prop="voucher_number" label="凭证号" width="140" />
-            <el-table-column prop="memo" label="摘要" min-width="180" />
-            <el-table-column label="收入" width="120" align="right">
-              <template #default="{ row }">{{ fmt(row.debit) }}</template>
-            </el-table-column>
-            <el-table-column label="支出" width="120" align="right">
-              <template #default="{ row }">{{ fmt(row.credit) }}</template>
-            </el-table-column>
-            <el-table-column label="余额" width="120" align="right">
-              <template #default="{ row }">{{ fmt(row.balance) }}</template>
-            </el-table-column>
-          </el-table>
-          <div style="margin-top: 8px; color: #909399; font-size: 13px">期初余额：{{ fmt(reportData.opening_balance) }}</div>
-        </el-card>
-      </div>
-
-      <!-- 银行日记账 -->
-      <div v-if="activeTab === 'bank-journal' && reportData">
-        <el-card shadow="never">
-          <template #header><strong>银行日记账</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
-          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="journalSummary">
-            <el-table-column prop="date" label="日期" width="100" fixed />
-            <el-table-column prop="voucher_number" label="凭证号" width="140" />
-            <el-table-column prop="account_name" label="账户" width="120" />
-            <el-table-column prop="memo" label="摘要" min-width="180" />
-            <el-table-column label="收入" width="120" align="right">
-              <template #default="{ row }">{{ fmt(row.debit) }}</template>
-            </el-table-column>
-            <el-table-column label="支出" width="120" align="right">
-              <template #default="{ row }">{{ fmt(row.credit) }}</template>
-            </el-table-column>
-            <el-table-column label="余额" width="120" align="right">
-              <template #default="{ row }">{{ fmt(row.balance) }}</template>
-            </el-table-column>
-          </el-table>
-          <div style="margin-top: 8px; color: #909399; font-size: 13px">期初余额：{{ fmt(reportData.opening_balance) }}</div>
-        </el-card>
-      </div>
-
-      <!-- 辅助余额表 -->
-      <div v-if="activeTab === 'aux-balance' && reportData">
-        <el-card shadow="never">
-          <template #header><strong>辅助余额表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
-          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="auxBalSummary">
-            <el-table-column prop="account_code" label="科目编码" width="100" fixed />
-            <el-table-column prop="account_name" label="科目名称" width="120" />
-            <el-table-column prop="aux_name" label="辅助项" min-width="140" />
-            <el-table-column label="期初借" width="100" align="right">
-              <template #default="{ row }">{{ fmt(row.opening_debit) }}</template>
-            </el-table-column>
-            <el-table-column label="期初贷" width="100" align="right">
-              <template #default="{ row }">{{ fmt(row.opening_credit) }}</template>
-            </el-table-column>
-            <el-table-column label="本期借" width="100" align="right">
-              <template #default="{ row }">{{ fmt(row.period_debit) }}</template>
-            </el-table-column>
-            <el-table-column label="本期贷" width="100" align="right">
-              <template #default="{ row }">{{ fmt(row.period_credit) }}</template>
-            </el-table-column>
-            <el-table-column label="期末借" width="100" align="right">
-              <template #default="{ row }">{{ fmt(row.closing_debit) }}</template>
-            </el-table-column>
-            <el-table-column label="期末贷" width="100" align="right">
-              <template #default="{ row }">{{ fmt(row.closing_credit) }}</template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </div>
-
       <!-- 自定义报表 -->
       <div v-if="activeTab === 'custom'">
         <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
@@ -382,7 +331,7 @@ import { useMobile } from '../composables/useMobile'
 import { reportApi } from '../api'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Download, ArrowDown } from '@element-plus/icons-vue'
+import { Download, ArrowDown, Plus, Minus } from '@element-plus/icons-vue'
 
 const { isMobile } = useMobile()
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)'
@@ -391,6 +340,49 @@ const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const activeTab = ref('income')
 const period = ref(new Date().toISOString().slice(0, 7))
 const reportData = ref(null)
+const balanceTableRef = ref(null)
+
+const expandAllBalance = () => {
+  const allKeys = []
+  const walk = (nodes) => {
+    for (const n of nodes) {
+      allKeys.push(n.account_code)
+      if (n.children && n.children.length) walk(n.children)
+    }
+  }
+  walk(reportData.value || [])
+  balanceTableRef.value?.store?.states && (balanceTableRef.value.store.states.expandRowKeys.value = allKeys)
+}
+
+const collapseAllBalance = () => {
+  if (balanceTableRef.value?.store?.states) {
+    balanceTableRef.value.store.states.expandRowKeys.value = []
+  }
+}
+
+const balanceRowClassName = ({ row }) => {
+  if (row.level === 1) {
+    const code = row.account_code || ''
+    if (code.startsWith('1')) return 'row-asset'
+    if (code.startsWith('2')) return 'row-liability'
+    if (code.startsWith('3')) return 'row-equity'
+    if (code.startsWith('4')) return 'row-cost'
+    if (code.startsWith('5')) return 'row-expense'
+  }
+  return ''
+}
+
+const balanceSummaryMethod = ({ columns, data }) => {
+  const sums = []
+  columns.forEach((col, i) => {
+    if (i === 0) { sums[i] = '合计'; return }
+    if (i === 1 || i === 2) { sums[i] = ''; return }
+    const key = ['opening_debit', 'opening_credit', 'period_debit', 'period_credit', 'closing_debit', 'closing_credit'][i - 3]
+    if (key) sums[i] = fmt(data.reduce((s, r) => s + (r[key] || 0), 0))
+    else sums[i] = ''
+  })
+  return sums
+}
 
 const loadReport = async () => {
   if (activeTab.value === 'custom') { loadCrList(); return }
@@ -422,15 +414,6 @@ const loadReport = async () => {
     } else if (activeTab.value === 'ap') {
       const { data } = await axios.get(`${base}/ar-ap?type=ap`)
       reportData.value = data
-    } else if (activeTab.value === 'cash-journal') {
-      const { data } = await axios.get(`${base}/cash-journal?period=${period.value}`)
-      reportData.value = data
-    } else if (activeTab.value === 'bank-journal') {
-      const { data } = await axios.get(`${base}/bank-journal?period=${period.value}`)
-      reportData.value = data
-    } else if (activeTab.value === 'aux-balance') {
-      const { data } = await axios.get(`${base}/aux-balance?period=${period.value}`)
-      reportData.value = data
     }
   } catch (e) { console.error(e) }
 }
@@ -446,30 +429,6 @@ const incomeSummary = ({ columns, data }) => {
   })
   return sums
 }
-
-// 通用合计方法：对指定列求和
-const makeSummary = (fields) => ({ columns, data }) => {
-  const sums = []
-  columns.forEach((col, i) => {
-    if (i === 0) { sums[i] = '合计'; return }
-    const field = fields[i]
-    if (field) {
-      const total = data.reduce((s, r) => s + (Number(r[field]) || 0), 0)
-      sums[i] = fmt(total)
-    } else {
-      sums[i] = ''
-    }
-  })
-  return sums
-}
-
-const balanceSummary = makeSummary({ 2: 'balance' })
-const expenseSummary = makeSummary({ 2: 'amount' })
-const ledgerSummary = makeSummary({ 3: 'opening_debit', 4: 'opening_credit', 5: 'period_debit', 6: 'period_credit', 7: 'closing_debit', 8: 'closing_credit' })
-const abSummary = makeSummary({ 3: 'opening_debit', 4: 'period_debit', 5: 'period_credit', 6: 'closing_debit' })
-const arApSummary = makeSummary({ 2: 'total', 3: 'current', 4: 'month_1', 5: 'month_3', 6: 'month_6', 7: 'month_12', 8: 'over_1_year' })
-const journalSummary = makeSummary({ 4: 'debit', 5: 'credit' })
-const auxBalSummary = makeSummary({ 3: 'opening_debit', 4: 'opening_credit', 5: 'period_debit', 6: 'period_credit', 7: 'closing_debit', 8: 'closing_credit' })
 
 const exportReport = async (format) => {
   if (activeTab.value === 'custom' && !crResult.value) { ElMessage.warning('请先运行自定义报表，再导出'); return }
@@ -667,4 +626,11 @@ const deleteCr = async (tpl) => {
 .report-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .report-stack { display: flex; flex-direction: column; gap: 12px; }
 .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* 一级科目颜色标识 */
+.row-asset td { background-color: #ecf5ff !important; }
+.row-liability td { background-color: #fdf6ec !important; }
+.row-equity td { background-color: #f0f9eb !important; }
+.row-cost td { background-color: #f9f0ff !important; }
+.row-expense td { background-color: #fef0f0 !important; }
 </style>

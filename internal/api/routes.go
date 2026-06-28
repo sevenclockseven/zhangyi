@@ -12,7 +12,7 @@ import (
 )
 
 // AppVersion is set by main.go at startup
-var AppVersion = "dev"
+var AppVersion = "0.5.3"
 
 // RegisterRoutes registers all API routes
 func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
@@ -37,7 +37,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		api.GET("/templates/versions", templateVersions(db))
 		api.GET("/templates/manifest", getTemplateManifest(db))
 		api.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "易记", "version": AppVersion})
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "账易", "version": AppVersion})
 		})
 		api.POST("/auth/login", loginHandler(db))
 		api.POST("/auth/register", registerHandler(db))
@@ -45,27 +45,10 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		// 需要登录的接口
 		auth := api.Group("")
 		auth.Use(middleware.AuthRequired())
-			auth.Use(middleware.AuditLog(db))
 		{
 			// 用户信息
 			auth.GET("/auth/me", getMeHandler(db))
 			auth.PUT("/auth/password", changePasswordHandler(db))
-			auth.GET("/auth/permissions", getBookPermissions(db))
-
-			// 系统管理（管理员）
-			sysAdmin := auth.Group("")
-			sysAdmin.Use(middleware.AdminRequired())
-			{
-				// 备份管理
-				sysAdmin.GET("/backups", listBackups(db))
-				sysAdmin.POST("/backups", createBackup(db))
-				sysAdmin.GET("/backups/:name/download", downloadBackup(db))
-				sysAdmin.DELETE("/backups/:name", deleteBackup(db))
-				sysAdmin.POST("/backups/:name/restore", restoreBackup(db))
-
-				// 操作日志
-				sysAdmin.GET("/logs", listOperationLogs(db))
-			}
 
 			// 用户管理（管理员）
 			users := auth.Group("/users")
@@ -89,10 +72,6 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				books.POST("/:id/sync-template", syncTemplate(db))
 				books.POST("/:id/sync-all-templates", syncAllTemplates(db))
 				books.GET("/:id/trial-balance", trialBalance(db))
-			books.GET("/:id/users", listBookUsers(db))
-			books.POST("/:id/users", addBookUser(db))
-			books.PUT("/:id/users/:buid", updateBookUser(db))
-			books.DELETE("/:id/users/:buid", deleteBookUser(db))
 			books.GET("/:id/opening-balances", getOpeningBalances(db))
 			books.POST("/:id/opening-balances", saveOpeningBalances(db))
 			books.GET("/:id/opening-balances/export", exportOpeningBalances(db))
@@ -177,9 +156,6 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			reports.GET("/expense", expenseReport(db))
 			reports.GET("/general-ledger", generalLedgerReport(db))
 			reports.GET("/ar-ap", arApReport(db))
-				reports.GET("/cash-journal", cashJournal(db))
-				reports.GET("/bank-journal", bankJournal(db))
-				reports.GET("/aux-balance", auxBalanceReport(db))
 			}
 
 			// 辅助核算

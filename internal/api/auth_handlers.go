@@ -30,16 +30,6 @@ func loginHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get book permissions for non-admin users
-		var permissions []gin.H
-		if user.Role != "admin" {
-			var bookUsers []models.BookUser
-			db.Where("user_id = ?", user.ID).Find(&bookUsers)
-			for _, bu := range bookUsers {
-				permissions = append(permissions, gin.H{"book_id": bu.BookID, "role": bu.Role})
-			}
-		}
-
 		c.JSON(http.StatusOK, gin.H{
 			"token": token,
 			"user": gin.H{
@@ -48,7 +38,6 @@ func loginHandler(db *gorm.DB) gin.HandlerFunc {
 				"real_name": user.RealName,
 				"role":      user.Role,
 			},
-			"book_permissions": permissions,
 		})
 	}
 }
