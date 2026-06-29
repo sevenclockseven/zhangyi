@@ -41,7 +41,7 @@
       <el-table-column prop="start_date" label="启用期间" width="100" />
       <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
-          <el-switch v-model="row.status" active-value="active" inactive-value="inactive" @change="toggleBookStatus(row)">
+          <el-switch v-model="row.status" active-value="active" inactive-value="inactive" @change="(val) => toggleBookStatus(row, val)">
             </el-switch>
         </template>
       </el-table-column>
@@ -154,9 +154,8 @@ const createBook = async () => {
   }
 }
 
-const toggleBookStatus = async (book) => {
+const toggleBookStatus = async (book, newStatus) => {
   try {
-    const newStatus = book.status === 'active' ? 'inactive' : 'active'
     await bookApi.update(book.id, { status: newStatus })
     ElMessage.success(newStatus === 'active' ? '已启用' : '已停用')
     loadBooks()

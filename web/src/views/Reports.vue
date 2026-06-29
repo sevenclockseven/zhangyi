@@ -630,17 +630,17 @@ const deleteCr = async (tpl) => {
 </script>
 
 <style>
-/* 一级科目颜色标识（全局兜底 */
-tr.row-asset td,
-tr.row-asset .el-table__cell { background-color: #d9ecff !important; }
-tr.row-liability td,
-tr.row-liability .el-table__cell { background-color: #fce4d6 !important; }
-tr.row-equity td,
-tr.row-equity .el-table__cell { background-color: #d9f7be !important; }
-tr.row-cost td,
-tr.row-cost .el-table__cell { background-color: #efdbff !important; }
-tr.row-expense td,
-tr.row-expense .el-table__cell { background-color: #ffd6d6 !important; }
+/* 一级科目颜色标识（全局兜底，加 .el-table 提升权重覆盖 E+ 全量 CSS） */
+.el-table tr.row-asset td,
+.el-table tr.row-asset .el-table__cell { background-color: #d9ecff !important; }
+.el-table tr.row-liability td,
+.el-table tr.row-liability .el-table__cell { background-color: #fce4d6 !important; }
+.el-table tr.row-equity td,
+.el-table tr.row-equity .el-table__cell { background-color: #d9f7be !important; }
+.el-table tr.row-cost td,
+.el-table tr.row-cost .el-table__cell { background-color: #efdbff !important; }
+.el-table tr.row-expense td,
+.el-table tr.row-expense .el-table__cell { background-color: #ffd6d6 !important; }
 </style>
 <style scoped>
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
