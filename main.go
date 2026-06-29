@@ -39,7 +39,7 @@ func main() {
 	r := gin.Default()
 
 	// API routes
-	api.AppVersion = "0.9.0"
+	api.AppVersion = "0.9.0" 
 	api.RegisterRoutes(r, gormDB)
 
 	// Serve embedded frontend

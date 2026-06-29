@@ -6,7 +6,6 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/sevenclockseven/zhangyi/internal/models"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -28,21 +27,7 @@ func (d *SQLiteDriver) Open(dsn string) gorm.Dialector {
 
 func (d *SQLiteDriver) Name() string { return "sqlite" }
 
-// PostgresDriver PostgreSQL 驱动
-type PostgresDriver struct{}
-
-func (d *PostgresDriver) Open(dsn string) gorm.Dialector {
-	if dsn == "" {
-		dsn = "host=localhost user=zhangyi password=zhangyi dbname=zhangyi port=5432 sslmode=disable"
-	}
-	return postgres.Open(dsn)
-}
-
-func (d *PostgresDriver) Name() string { return "postgres" }
-
 // InitDB 根据环境变量初始化数据库
-// DB_DRIVER=sqlite（默认）| postgres
-// DB_DSN=连接字符串
 func InitDB() (*gorm.DB, string, error) {
 	driverName := os.Getenv("DB_DRIVER")
 	if driverName == "" {
@@ -52,7 +37,7 @@ func InitDB() (*gorm.DB, string, error) {
 	var driver Driver
 	switch driverName {
 	case "postgres":
-		driver = &PostgresDriver{}
+		driver = openPostgresDriver()
 	case "sqlite":
 		driver = &SQLiteDriver{}
 	default:
@@ -61,13 +46,9 @@ func InitDB() (*gorm.DB, string, error) {
 
 	dsn := os.Getenv("DB_DSN")
 
-	var config *gorm.Config
+	config := &gorm.Config{}
 	if driverName == "sqlite" {
-		config = &gorm.Config{
-			DisableForeignKeyConstraintWhenMigrating: true,
-		}
-	} else {
-		config = &gorm.Config{}
+		config.DisableForeignKeyConstraintWhenMigrating = true
 	}
 
 	gormDB, err := gorm.Open(driver.Open(dsn), config)
@@ -78,7 +59,7 @@ func InitDB() (*gorm.DB, string, error) {
 	return gormDB, driverName, nil
 }
 
-// SetupDB 数据库连接后初始化设置（PRAGMA等）
+// SetupDB 数据库连接后初始化设置
 func SetupDB(db *gorm.DB, driver string) {
 	if driver == "sqlite" {
 		db.Exec("PRAGMA journal_mode=WAL")
@@ -86,7 +67,7 @@ func SetupDB(db *gorm.DB, driver string) {
 	}
 }
 
-// AllModels 返回所有 GORM 模型（用于 AutoMigrate）
+// AllModels 返回所有 GORM 模型
 func AllModels() []interface{} {
 	return []interface{}{
 		&models.User{},
