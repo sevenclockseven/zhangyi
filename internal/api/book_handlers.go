@@ -136,6 +136,7 @@ func updateBook(db *gorm.DB) gin.HandlerFunc {
 			Phone              string `json:"phone"`
 			Address            string `json:"address"`
 			Memo               string `json:"memo"`
+			Status             string `json:"status"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -165,8 +166,22 @@ func updateBook(db *gorm.DB) gin.HandlerFunc {
 		if req.Memo != "" {
 			updates["memo"] = req.Memo
 		}
+		if req.Status != "" {
+			updates["status"] = req.Status
+		}
 
-		db.Model(&book).Updates(updates)
+		if len(updates) > 0 {
+			if err := db.Model(&book).Updates(updates).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			// reload updated book
+			if err := db.First(&book, id).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{"data": book})
 	}
 }

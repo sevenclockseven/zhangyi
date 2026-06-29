@@ -57,7 +57,7 @@
               <el-table :data="reportData.assets" border size="small" show-summary :max-height="tableMaxHeight">
                 <el-table-column prop="code" label="编码" width="70" />
                 <el-table-column prop="name" label="项目" min-width="120" />
-                <el-table-column label="期末余额" width="120" align="right">
+                <el-table-column prop="balance" label="期末余额" width="120" align="right">
                   <template #default="{ row }">{{ fmt(row.balance) }}</template>
                 </el-table-column>
               </el-table>
@@ -69,7 +69,7 @@
               <el-table :data="[...(reportData.liabilities || []), ...(reportData.equity || [])]" border size="small" show-summary :max-height="tableMaxHeight">
                 <el-table-column prop="code" label="编码" width="70" />
                 <el-table-column prop="name" label="项目" min-width="120" />
-                <el-table-column label="期末余额" width="120" align="right">
+                <el-table-column prop="balance" label="期末余额" width="120" align="right">
                   <template #default="{ row }">{{ fmt(row.balance) }}</template>
                 </el-table-column>
               </el-table>
@@ -112,7 +112,7 @@
           <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
             <el-table-column prop="code" label="编码" width="100" />
             <el-table-column prop="name" label="费用项目" min-width="180" />
-            <el-table-column prop="amount" label="本期金额" width="140" align="right" :summary-method="() => ''">
+            <el-table-column prop="amount" label="本期金额" width="140" align="right">
               <template #default="{ row }">{{ fmt(row.amount) }}</template>
             </el-table-column>
           </el-table>
@@ -631,15 +631,15 @@ const deleteCr = async (tpl) => {
 
 <style>
 /* 一级科目颜色标识（全局兜底 */
-tr.row-asset > td,
+tr.row-asset td,
 tr.row-asset .el-table__cell { background-color: #d9ecff !important; }
-tr.row-liability > td,
+tr.row-liability td,
 tr.row-liability .el-table__cell { background-color: #fce4d6 !important; }
-tr.row-equity > td,
+tr.row-equity td,
 tr.row-equity .el-table__cell { background-color: #d9f7be !important; }
-tr.row-cost > td,
+tr.row-cost td,
 tr.row-cost .el-table__cell { background-color: #efdbff !important; }
-tr.row-expense > td,
+tr.row-expense td,
 tr.row-expense .el-table__cell { background-color: #ffd6d6 !important; }
 </style>
 <style scoped>
