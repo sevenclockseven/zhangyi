@@ -24,7 +24,7 @@
           <polyline points="81,86 87,92 99,78" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <div class="logo-text" v-show="!isMobile || sidebarOpen">
-          <h2>账易</h2>
+          <h2>易记</h2>
           <span>代理记账系统</span>
         </div>
       </div>
@@ -56,7 +56,7 @@
             <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
             <el-breadcrumb-item v-if="route.meta.title && route.meta.title !== '工作台'">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
-          <span class="page-title" v-else>{{ route.meta.title || '账易' }}</span>
+          <span class="page-title" v-else>{{ route.meta.title || '易记' }}</span>
           <!-- Global book selector -->
           <el-select
             v-model="currentBookId"
