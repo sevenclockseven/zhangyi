@@ -173,6 +173,7 @@
             :data="reportData"
             row-key="account_code"
             :tree-props="{ children: 'children' }"
+            :expand-row-keys="expandRowKeys"
             :default-expand-all="true"
             :max-height="tableMaxHeight"
             border
@@ -342,22 +343,24 @@ const period = ref(new Date().toISOString().slice(0, 7))
 const reportData = ref(null)
 const balanceTableRef = ref(null)
 
+const expandRowKeys = ref([])
+
 const expandAllBalance = () => {
   const allKeys = []
   const walk = (nodes) => {
     for (const n of nodes) {
-      allKeys.push(n.account_code)
-      if (n.children && n.children.length) walk(n.children)
+      if (n.children && n.children.length) {
+        allKeys.push(n.account_code)
+        walk(n.children)
+      }
     }
   }
   walk(reportData.value || [])
-  balanceTableRef.value?.store?.states && (balanceTableRef.value.store.states.expandRowKeys.value = allKeys)
+  expandRowKeys.value = allKeys
 }
 
 const collapseAllBalance = () => {
-  if (balanceTableRef.value?.store?.states) {
-    balanceTableRef.value.store.states.expandRowKeys.value = []
-  }
+  expandRowKeys.value = []
 }
 
 const balanceRowClassName = ({ row }) => {
@@ -408,6 +411,8 @@ const loadReport = async () => {
     } else if (activeTab.value === 'account-balance') {
       const { data } = await axios.get(`${base}/account-balance?period=${period.value}`)
       reportData.value = data.data || []
+      // Auto-expand all after load
+      setTimeout(() => expandAllBalance(), 100)
     } else if (activeTab.value === 'ar') {
       const { data } = await axios.get(`${base}/ar-ap?type=ar`)
       reportData.value = data
@@ -629,8 +634,13 @@ const deleteCr = async (tpl) => {
 
 /* 一级科目颜色标识 */
 .row-asset td { background-color: #ecf5ff !important; }
+.row-asset .el-table__cell { background-color: #ecf5ff !important; }
 .row-liability td { background-color: #fdf6ec !important; }
+.row-liability .el-table__cell { background-color: #fdf6ec !important; }
 .row-equity td { background-color: #f0f9eb !important; }
+.row-equity .el-table__cell { background-color: #f0f9eb !important; }
 .row-cost td { background-color: #f9f0ff !important; }
+.row-cost .el-table__cell { background-color: #f9f0ff !important; }
 .row-expense td { background-color: #fef0f0 !important; }
+.row-expense .el-table__cell { background-color: #fef0f0 !important; }
 </style>
