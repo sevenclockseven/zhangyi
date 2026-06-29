@@ -105,6 +105,35 @@ export const templateApi = {
   manifest: () => http.get('/api/templates/manifest'),
 }
 
+
+export const systemApi = {
+  backups: {
+    list: () => http.get('/api/system/backups'),
+    create: () => http.post('/api/system/backups'),
+    download: (name) => `/api/system/backups/${name}`,
+    delete: (name) => http.delete(`/api/system/backups/${name}`),
+    restore: (name) => http.post(`/api/system/backups/${name}/restore`),
+  },
+  logs: {
+    list: (params) => http.get('/api/system/logs', { params }),
+  },
+}
+
+export const bookUserApi = {
+  list: (bookId) => http.get(`/api/books/${bookId}/users`),
+  create: (bookId, data) => http.post(`/api/books/${bookId}/users`, data),
+  update: (bookId, buid, data) => http.put(`/api/books/${bookId}/users/${buid}`, data),
+  delete: (bookId, buid) => http.delete(`/api/books/${bookId}/users/${buid}`),
+}
+
+export const userApi = {
+  list: () => http.get('/api/users'),
+  create: (data) => http.post('/api/users', data),
+  update: (uid, data) => http.put(`/api/users/${uid}`, data),
+  delete: (uid) => http.delete(`/api/users/${uid}`),
+  resetPassword: (uid, data) => http.put(`/api/users/${uid}/reset-password`, data),
+}
+
 export const healthApi = {
   check: () => http.get('/api/health'),
 }
