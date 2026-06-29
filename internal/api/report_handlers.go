@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sort"
 	"strings"
 	"time"
 
@@ -239,6 +240,21 @@ func accountBalanceReport(db *gorm.DB) gin.HandlerFunc {
 
 		// 6. 清理 children 为空的非叶子节点（保留字段让 el-table 识别）
 		// el-table 树形模式需要 children 字段存在即可
+		// 7. 排序：根节点按编码排序，子节点也递归排序
+		var sortTree func(nodes []gin.H)
+		sortTree = func(nodes []gin.H) {
+			sort.Slice(nodes, func(i, j int) bool {
+				return nodes[i]["account_code"].(string) < nodes[j]["account_code"].(string)
+			})
+			for i := range nodes {
+				children := nodes[i]["children"].([]gin.H)
+				if len(children) > 1 {
+					sortTree(children)
+				}
+			}
+		}
+		sortTree(roots)
+
 
 		c.JSON(http.StatusOK, gin.H{"data": roots, "period": period})
 	}
