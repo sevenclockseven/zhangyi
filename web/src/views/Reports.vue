@@ -174,7 +174,6 @@
             row-key="account_code"
             :tree-props="{ children: 'children' }"
             :expand-row-keys="expandRowKeys"
-            :default-expand-all="true"
             :max-height="tableMaxHeight"
             border
             size="small"
@@ -326,7 +325,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, nextTick, onMounted, watch } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
 import { reportApi } from '../api'
@@ -346,21 +345,26 @@ const balanceTableRef = ref(null)
 const expandRowKeys = ref([])
 
 const expandAllBalance = () => {
-  const allKeys = []
-  const walk = (nodes) => {
-    for (const n of nodes) {
-      if (n.children && n.children.length) {
-        allKeys.push(n.account_code)
-        walk(n.children)
+  // Use nextTick to ensure table is rendered with new data
+  nextTick(() => {
+    const allKeys = []
+    const walk = (nodes) => {
+      for (const n of nodes) {
+        if (n.children && n.children.length) {
+          allKeys.push(n.account_code)
+          walk(n.children)
+        }
       }
     }
-  }
-  walk(reportData.value || [])
-  expandRowKeys.value = allKeys
+    walk(reportData.value || [])
+    expandRowKeys.value = allKeys
+  })
 }
 
 const collapseAllBalance = () => {
-  expandRowKeys.value = []
+  nextTick(() => {
+    expandRowKeys.value = []
+  })
 }
 
 const balanceRowClassName = ({ row }) => {
@@ -412,7 +416,7 @@ const loadReport = async () => {
       const { data } = await axios.get(`${base}/account-balance?period=${period.value}`)
       reportData.value = data.data || []
       // Auto-expand all after load
-      setTimeout(() => expandAllBalance(), 100)
+      expandAllBalance()
     } else if (activeTab.value === 'ar') {
       const { data } = await axios.get(`${base}/ar-ap?type=ar`)
       reportData.value = data
@@ -633,14 +637,18 @@ const deleteCr = async (tpl) => {
 .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* 一级科目颜色标识 */
-.row-asset td { background-color: #ecf5ff !important; }
-.row-asset .el-table__cell { background-color: #ecf5ff !important; }
-.row-liability td { background-color: #fdf6ec !important; }
-.row-liability .el-table__cell { background-color: #fdf6ec !important; }
-.row-equity td { background-color: #f0f9eb !important; }
-.row-equity .el-table__cell { background-color: #f0f9eb !important; }
-.row-cost td { background-color: #f9f0ff !important; }
-.row-cost .el-table__cell { background-color: #f9f0ff !important; }
-.row-expense td { background-color: #fef0f0 !important; }
-.row-expense .el-table__cell { background-color: #fef0f0 !important; }
+:deep(.row-asset) td,
+:deep(.row-asset .el-table__cell) { background-color: #d9ecff !important; }
+
+:deep(.row-liability) td,
+:deep(.row-liability .el-table__cell) { background-color: #fce4d6 !important; }
+
+:deep(.row-equity) td,
+:deep(.row-equity .el-table__cell) { background-color: #d9f7be !important; }
+
+:deep(.row-cost) td,
+:deep(.row-cost .el-table__cell) { background-color: #efdbff !important; }
+
+:deep(.row-expense) td,
+:deep(.row-expense .el-table__cell) { background-color: #ffd6d6 !important; }
 </style>

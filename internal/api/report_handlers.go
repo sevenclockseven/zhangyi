@@ -280,8 +280,9 @@ func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 
 		getAmount := func(code string, direction string) float64 {
 			var total float64
+			subQuery := db.Model(&models.Account{}).Select("id").Where("book_id = ? AND code LIKE ?", uint(bookID), code+"%")
 			db.Model(&models.AccountBalance{}).
-				Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+				Where("book_id = ? AND period = ? AND account_id IN (?)", uint(bookID), period, subQuery).
 				Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
 				Row().Scan(&total)
 			if direction == "credit" {
@@ -349,8 +350,9 @@ func expenseReport(db *gorm.DB) gin.HandlerFunc {
 		var rows []ExpenseRow
 		for _, ec := range expenseCodes {
 			var amount float64
+			expSub := db.Model(&models.Account{}).Select("id").Where("book_id = ? AND code LIKE ?", uint(bookID), ec.Code+"%")
 			db.Model(&models.AccountBalance{}).
-				Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, ec.Code+"%").
+				Where("book_id = ? AND period = ? AND account_id IN (?)", uint(bookID), period, expSub).
 				Select("COALESCE(SUM(period_debit), 0)").
 				Row().Scan(&amount)
 			if amount > 0 {
@@ -366,8 +368,9 @@ func expenseReport(db *gorm.DB) gin.HandlerFunc {
 		}
 		for _, sc := range subCodes {
 			var amount float64
+			expSub2 := db.Model(&models.Account{}).Select("id").Where("book_id = ? AND code = ?", uint(bookID), sc.Code)
 			db.Model(&models.AccountBalance{}).
-				Where("book_id = ? AND period = ? AND account_code = ?", bookID, period, sc.Code).
+				Where("book_id = ? AND period = ? AND account_id IN (?)", uint(bookID), period, expSub2).
 				Select("COALESCE(SUM(period_debit), 0)").
 				Row().Scan(&amount)
 			if amount > 0 {
