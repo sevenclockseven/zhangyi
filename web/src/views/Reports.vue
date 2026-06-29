@@ -112,7 +112,7 @@
           <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
             <el-table-column prop="code" label="编码" width="100" />
             <el-table-column prop="name" label="费用项目" min-width="180" />
-            <el-table-column label="本期金额" width="140" align="right">
+            <el-table-column prop="amount" label="本期金额" width="140" align="right" :summary-method="() => ''">
               <template #default="{ row }">{{ fmt(row.amount) }}</template>
             </el-table-column>
           </el-table>
@@ -138,22 +138,22 @@
               <el-table-column prop="code" label="科目编码" width="100" fixed />
               <el-table-column prop="name" label="科目名称" min-width="130" fixed />
               <el-table-column prop="direction" label="向" width="50" align="center" />
-              <el-table-column label="期初借" width="100" align="right">
+              <el-table-column label="期初借" width="100" align="right" prop="opening_debit">
                 <template #default="{ row }">{{ fmt(row.opening_debit) }}</template>
               </el-table-column>
-              <el-table-column label="期初贷" width="100" align="right">
+              <el-table-column label="期初贷" width="100" align="right" prop="opening_credit">
                 <template #default="{ row }">{{ fmt(row.opening_credit) }}</template>
               </el-table-column>
-              <el-table-column label="本期借" width="100" align="right">
+              <el-table-column label="本期借" width="100" align="right" prop="period_debit">
                 <template #default="{ row }">{{ fmt(row.period_debit) }}</template>
               </el-table-column>
-              <el-table-column label="本期贷" width="100" align="right">
+              <el-table-column label="本期贷" width="100" align="right" prop="period_credit">
                 <template #default="{ row }">{{ fmt(row.period_credit) }}</template>
               </el-table-column>
-              <el-table-column label="期末借" width="100" align="right">
+              <el-table-column label="期末借" width="100" align="right" prop="closing_debit">
                 <template #default="{ row }">{{ fmt(row.closing_debit) }}</template>
               </el-table-column>
-              <el-table-column label="期末贷" width="100" align="right">
+              <el-table-column label="期末贷" width="100" align="right" prop="closing_credit">
                 <template #default="{ row }">{{ fmt(row.closing_credit) }}</template>
               </el-table-column>
             </el-table>
@@ -221,7 +221,7 @@
             <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
               <el-table-column prop="code" label="编码" width="80" fixed />
               <el-table-column prop="name" :label="activeTab === 'ar' ? '客户' : '供应商'" min-width="120" fixed />
-              <el-table-column label="合计" width="110" align="right">
+              <el-table-column label="合计" width="110" align="right" prop="total">
                 <template #default="{ row }">{{ fmt(row.total) }}</template>
               </el-table-column>
               <el-table-column label="未到期" width="100" align="right">
@@ -629,6 +629,19 @@ const deleteCr = async (tpl) => {
 
 </script>
 
+<style>
+/* 一级科目颜色标识（全局兜底 */
+tr.row-asset > td,
+tr.row-asset .el-table__cell { background-color: #d9ecff !important; }
+tr.row-liability > td,
+tr.row-liability .el-table__cell { background-color: #fce4d6 !important; }
+tr.row-equity > td,
+tr.row-equity .el-table__cell { background-color: #d9f7be !important; }
+tr.row-cost > td,
+tr.row-cost .el-table__cell { background-color: #efdbff !important; }
+tr.row-expense > td,
+tr.row-expense .el-table__cell { background-color: #ffd6d6 !important; }
+</style>
 <style scoped>
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
 .page-header h2 { color: #303133; font-size: 18px; }

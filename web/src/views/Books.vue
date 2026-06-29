@@ -12,9 +12,7 @@
       <el-card v-for="book in books" :key="book.id" class="book-card" shadow="hover">
         <div class="book-card-header">
           <span class="book-name">{{ book.name }}</span>
-          <el-tag :type="book.status === 'active' ? 'success' : 'info'" size="small">
-            {{ book.status === 'active' ? '启用' : '停用' }}
-          </el-tag>
+          <span>{{ book.name }} ({{ book.industry }})</span>
         </div>
         <div class="book-card-info">
           <div>编码：{{ book.code }}</div>
@@ -43,9 +41,8 @@
       <el-table-column prop="start_date" label="启用期间" width="100" />
       <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
-          <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-            {{ row.status === 'active' ? '启用' : '停用' }}
-          </el-tag>
+          <el-switch v-model="row.status" active-value="active" inactive-value="inactive" @change="toggleBookStatus(row)">
+            </el-switch>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="200">
@@ -154,6 +151,18 @@ const createBook = async () => {
     loadBooks()
   } catch (e) {
     ElMessage.error('创建失败: ' + (e.response?.data?.error || e.message))
+  }
+}
+
+const toggleBookStatus = async (book) => {
+  try {
+    const newStatus = book.status === 'active' ? 'inactive' : 'active'
+    await bookApi.update(book.id, { status: newStatus })
+    ElMessage.success(newStatus === 'active' ? '已启用' : '已停用')
+    loadBooks()
+  } catch (e) {
+    ElMessage.error('操作失败')
+    loadBooks()
   }
 }
 
