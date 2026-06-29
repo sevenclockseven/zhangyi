@@ -316,13 +316,13 @@
 
 # 设备管理 + 数据库兼容 (2026-06-29)
 
-## Step 1: 数据库兼容基础设施 [进行中]
+## Step 1: 数据库兼容基础设施 [完成]
 - [x] 分析现有代码数据库切换状态
-- [ ] 重构 main.go: env 驱动 DB 初始化
-- [ ] go.mod 加 gorm.io/driver/postgres
-- [ ] 新建 internal/db/db.go 方言适配层
-- [ ] 回归测试: SQLite 现有功能全通
-- [ ] 验证 PG 构建通过
+- [x] 重构 main.go: env 驱动 DB 初始化
+- [x] go.mod 加 gorm.io/driver/postgres
+- [x] 新建 internal/db/db.go 方言适配层
+- [x] 回归测试: SQLite 现有功能全通
+- [x] 验证 PG 构建通过
 
 ## Step 2: 设备管理 Phase A
 - [ ] 数据模型 (models/asset.go)

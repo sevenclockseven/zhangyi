@@ -158,6 +158,26 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			reports.GET("/ar-ap", arApReport(db))
 			}
 
+			// 设备管理
+			assets := auth.Group("/books/:id/assets")
+			{
+				assets.GET("/categories", listAssetCategories(db))
+				assets.POST("/categories", createAssetCategory(db))
+				assets.PUT("/categories/:aid", updateAssetCategory(db))
+				assets.DELETE("/categories/:aid", deleteAssetCategory(db))
+
+				assets.GET("", listAssetCards(db))
+				assets.POST("", createAssetCard(db))
+				assets.GET("/:cardId", getAssetCard(db))
+				assets.PUT("/:cardId", updateAssetCard(db))
+				assets.DELETE("/:cardId", deleteAssetCard(db))
+
+				assets.GET("/depreciation/calc", calcDepreciation(db))
+				assets.POST("/depreciation/run", runDepreciation(db))
+
+				assets.GET("/summary", assetSummary(db))
+			}
+
 			// 辅助核算
 			aux := auth.Group("/books/:id/aux/:type")
 			{
