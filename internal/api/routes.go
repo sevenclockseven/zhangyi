@@ -178,6 +178,23 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				closing.POST("/unclose", unclosePeriod(db))
 				closing.GET("/status", closingStatus(db))
 			}
+
+			// 账套权限管理
+			bookUsers := auth.Group("/books/:id/users")
+			{
+				bookUsers.GET("", listBookUsers(db))
+				bookUsers.POST("", addBookUser(db))
+				bookUsers.PUT("/:buid", updateBookUser(db))
+				bookUsers.DELETE("/:buid", deleteBookUser(db))
+			}
+
+			// 系统级接口（备份、日志）
+			auth.GET("/system/backups", listBackups(db))
+			auth.POST("/system/backups", createBackup(db))
+			auth.GET("/system/backups/:name", downloadBackup(db))
+			auth.DELETE("/system/backups/:name", deleteBackup(db))
+			auth.POST("/system/backups/:name/restore", restoreBackup(db))
+			auth.GET("/system/logs", listOperationLogs(db))
 		}
 	}
 }
