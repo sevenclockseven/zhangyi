@@ -7,7 +7,7 @@ COPY web/ ./
 RUN npm run build
 
 # Stage 2: Build backend
-FROM golang:1.21-alpine AS backend
+FROM golang:1.25-alpine AS backend
 WORKDIR /app
 COPY go.mod go.sum ./
 ARG GOPROXY=https://goproxy.cn,direct
@@ -18,7 +18,7 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g" /etc/apk/repositories
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o zhangyi .
 
 # Stage 3: Production
-FROM golang:1.21-alpine
+FROM golang:1.25-alpine
 RUN sed -i "s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g" /etc/apk/repositories 2>/dev/null; true
 RUN apk add --no-cache ca-certificates curl tzdata
 ENV TZ=Asia/Shanghai
