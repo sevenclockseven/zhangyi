@@ -29,3 +29,4 @@ web/.vite/
 # 注意: web/dist/ 不能忽略！go:embed 需要它
 web/dist/
 zhangyi_new
+api_test.js
