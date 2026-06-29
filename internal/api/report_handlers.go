@@ -278,29 +278,33 @@ func incomeStatementEnhanced(db *gorm.DB) gin.HandlerFunc {
 			Bold   bool    `json:"bold"`
 		}
 
-		getAmount := func(code string, direction string) float64 {
+		getAmount := func(code string, getDebit bool) float64 {
 			var total float64
 			subQuery := db.Model(&models.Account{}).Select("id").Where("book_id = ? AND code LIKE ?", uint(bookID), code+"%")
-			db.Model(&models.AccountBalance{}).
-				Where("book_id = ? AND period = ? AND account_id IN (?)", uint(bookID), period, subQuery).
-				Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
-				Row().Scan(&total)
-			if direction == "credit" {
-				total = -total
+			if getDebit {
+				db.Model(&models.AccountBalance{}).
+					Where("book_id = ? AND period = ? AND account_id IN (?)", uint(bookID), period, subQuery).
+					Select("COALESCE(SUM(period_debit), 0)").
+					Row().Scan(&total)
+			} else {
+				db.Model(&models.AccountBalance{}).
+					Where("book_id = ? AND period = ? AND account_id IN (?)", uint(bookID), period, subQuery).
+					Select("COALESCE(SUM(period_credit), 0)").
+					Row().Scan(&total)
 			}
 			return total
 		}
 
-		revenue := getAmount("5001", "credit") + getAmount("5051", "credit")   // 营业收入 = 主营+其他
-		cost := getAmount("5401", "debit") + getAmount("5402", "debit")         // 营业成本
-		tax := getAmount("5403", "debit")                                       // 税金及附加
-		sellExp := getAmount("5601", "debit")                                   // 销售费用
-		adminExp := getAmount("5602", "debit")                                  // 管理费用
-		finExp := getAmount("5603", "debit")                                    // 财务费用
-		investIncome := getAmount("5111", "credit")                             // 投资收益
-		nonOpIncome := getAmount("5301", "credit")                              // 营业外收入
-		nonOpExp := getAmount("5711", "debit")                                  // 营业外支出
-		incomeTax := getAmount("5801", "debit")                                 // 所得税费用
+		revenue := getAmount("5001", false) + getAmount("5051", false)   // 营业收入 = 主营+其他
+		cost := getAmount("5401", true) + getAmount("5402", true)         // 营业成本
+		tax := getAmount("5403", true)                                       // 税金及附加
+		sellExp := getAmount("5601", true)                                   // 销售费用
+		adminExp := getAmount("5602", true)                                  // 管理费用
+		finExp := getAmount("5603", true)                                    // 财务费用
+		investIncome := getAmount("5111", false)                             // 投资收益
+		nonOpIncome := getAmount("5301", false)                              // 营业外收入
+		nonOpExp := getAmount("5711", true)                                  // 营业外支出
+		incomeTax := getAmount("5801", true)                                 // 所得税费用
 
 		operatingProfit := revenue - cost - tax - sellExp - adminExp - finExp + investIncome
 		totalProfit := operatingProfit + nonOpIncome - nonOpExp
