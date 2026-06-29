@@ -134,6 +134,25 @@ export const userApi = {
   resetPassword: (uid, data) => http.put(`/api/users/${uid}/reset-password`, data),
 }
 
+export const assetApi = {
+  // 分类
+  listCategories: (bookId) => http.get(`/api/books/${bookId}/assets/categories`),
+  createCategory: (bookId, data) => http.post(`/api/books/${bookId}/assets/categories`, data),
+  updateCategory: (bookId, aid, data) => http.put(`/api/books/${bookId}/assets/categories/${aid}`, data),
+  deleteCategory: (bookId, aid) => http.delete(`/api/books/${bookId}/assets/categories/${aid}`),
+  // 卡片
+  listCards: (bookId, params) => http.get(`/api/books/${bookId}/assets`, { params }),
+  getCard: (bookId, cardId) => http.get(`/api/books/${bookId}/assets/${cardId}`),
+  createCard: (bookId, data) => http.post(`/api/books/${bookId}/assets`, data),
+  updateCard: (bookId, cardId, data) => http.put(`/api/books/${bookId}/assets/${cardId}`, data),
+  deleteCard: (bookId, cardId) => http.delete(`/api/books/${bookId}/assets/${cardId}`),
+  // 折旧
+  calcDepreciation: (bookId, period) => http.get(`/api/books/${bookId}/assets/depreciation/calc`, { params: { period } }),
+  runDepreciation: (bookId, period) => http.post(`/api/books/${bookId}/assets/depreciation/run`, period ? { period } : {}),
+  // 台账
+  summary: (bookId) => http.get(`/api/books/${bookId}/assets/summary`),
+}
+
 export const healthApi = {
   check: () => http.get('/api/health'),
 }

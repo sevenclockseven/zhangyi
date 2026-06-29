@@ -44,6 +44,12 @@ const routes = [
     meta: { title: '报表中心' }
   },
   {
+    path: '/assets',
+    name: 'Assets',
+    component: () => import('../views/Assets.vue'),
+    meta: { title: '设备管理' }
+  },
+  {
     path: '/opening-balance',
     name: 'OpeningBalance',
     component: () => import('../views/OpeningBalance.vue'),
