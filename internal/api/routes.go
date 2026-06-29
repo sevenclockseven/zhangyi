@@ -176,6 +176,14 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				assets.POST("/depreciation/run", runDepreciation(db))
 
 				assets.GET("/summary", assetSummary(db))
+
+				// 资产变动
+				assets.PUT("/:cardId/status", changeAssetStatus(db))
+				assets.GET("/transactions/:cardId", listAssetTransactions(db))
+				assets.GET("/transactions", listAllAssetTransactions(db))
+				// 资产导入导出
+				assets.POST("/import", importAssets(db))
+				assets.GET("/export", exportAssets(db))
 			}
 
 			// 辅助核算

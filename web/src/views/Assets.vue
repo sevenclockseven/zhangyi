@@ -2,9 +2,13 @@
   <div class="assets">
     <div class="page-header">
       <h2>设备管理</h2>
-      <el-button type="primary" @click="showCardDialog = true">
+      <div style="display:flex;gap:8px">
+        <el-button type="success" @click="handleExport">导出</el-button>
+        <el-button type="warning" @click="showImportDialog=true">导入</el-button>
+        <el-button type="primary" @click="showCardDialog=true">
         <el-icon><Plus /></el-icon>新增资产
-      </el-button>
+        </el-button>
+      </div>
     </div>
 
     <el-tabs v-model="activeTab">
@@ -133,6 +137,18 @@
           </el-table-column>
         </el-table>
       </el-tab-pane>
+      <el-tab-pane label="资产变动" name="transactions">
+        <el-table :data="transactions" border size="small" style="width:100%">
+          <el-table-column label="编号" width="100"><template #default="{ row }">{{ row.card_code||row.card_id }}</template></el-table-column>
+          <el-table-column label="名称" width="120"><template #default="{ row }">{{ row.card_name||'-' }}</template></el-table-column>
+          <el-table-column label="类型" width="90"><template #default="{ row }"><el-tag size="small">{{ transType(row.type) }}</el-tag></template></el-table-column>
+          <el-table-column label="日期" width="100" prop="date" />
+          <el-table-column label="变动前" width="110" align="right"><template #default="{ row }">{{ fmt(row.amount_before) }}</template></el-table-column>
+          <el-table-column label="变动后" width="110" align="right"><template #default="{ row }">{{ fmt(row.amount_after) }}</template></el-table-column>
+          <el-table-column label="备注" min-width="160" prop="note" />
+        </el-table>
+        <el-empty v-if="transactions.length===0" description="暂无变动记录" />
+      </el-tab-pane>
     </el-tabs>
 
     <!-- 资产卡片 新增/编辑 弹窗 -->
@@ -149,7 +165,7 @@
         </el-form-item>
         <el-form-item label="资产分类" required>
           <el-select v-model="cardForm.category_id" placeholder="选择分类" style="width: 100%">
-            <el-option v-for="c in categories" :key="c.id" :label="`${c.code} ${c.name}`" :value="c.id" />
+            <el-option v-for="c in categories" :key="c.id" :label="c.code + ' ' + c.name" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="原值(元)" required>
@@ -220,6 +236,23 @@
         <el-button type="primary" @click="saveCategory">保存</el-button>
       </template>
     </el-dialog>
+  
+    <el-dialog v-model="showChangeDialog" title="资产状态变更" width="450px">
+      <el-form :model="changeForm" label-width="80px">
+        <el-form-item label="当前状态"><el-tag :type="statusType(changeForm.current_status)" size="small">{{ statusText(changeForm.current_status) }}</el-tag></el-form-item>
+        <el-form-item label="新状态" required><el-select v-model="changeForm.status" style="width:100%"><el-option label="在用" value="in_use"/><el-option label="闲置" value="idle"/><el-option label="维修" value="maintenance"/><el-option label="报废" value="scrapped"/></el-select></el-form-item>
+        <el-form-item label="地点"><el-input v-model="changeForm.location" /></el-form-item>
+        <el-form-item label="部门"><el-input v-model="changeForm.department" /></el-form-item>
+        <el-form-item label="责任人"><el-input v-model="changeForm.employee_name" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="changeForm.note" type="textarea" :rows="2" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="showChangeDialog=false">取消</el-button><el-button type="primary" @click="saveStatus">确认</el-button></template>
+    </el-dialog>
+    <el-dialog v-model="showImportDialog" title="批量导入" width="600px">
+      <el-alert type="info" :closable="false" style="margin-bottom:12px">粘贴JSON数组，每项含 code,name,category_id,original_value</el-alert>
+      <el-input v-model="importJson" type="textarea" :rows="8" placeholder='[{"code":"A001","name":"笔记本","category_id":1,"original_value":8000}]' />
+      <template #footer><el-button @click="showImportDialog=false">取消</el-button><el-button type="primary" @click="handleImport">导入</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
@@ -260,6 +293,12 @@ const catForm = reactive({
   residual_value_rate: 0.05, memo: ''
 })
 
+const transactions = ref([])
+const showImportDialog = ref(false)
+const importJson = ref('')
+const showChangeDialog = ref(false)
+const changeForm = reactive({ card_id:null, current_status:'', status:'', location:'', department:'', employee_name:'', note:'' })
+
 function fmt(v) {
   return v == null ? '-' : Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -269,6 +308,9 @@ function statusText(s) {
 }
 function statusType(s) {
   return { in_use: 'success', idle: 'info', maintenance: 'warning', scrapped: 'danger' }[s] || ''
+}
+function transType(t) {
+  return { acquire: '购入', transfer: '调拨', depreciate: '折旧', maintenance: '维修', scrap: '报废', idle: '闲置' }[t] || t
 }
 
 async function loadCards() {
@@ -290,6 +332,10 @@ async function loadCategories() {
 async function loadSummary() {
   const { data } = await assetApi.summary(bookId)
   summaryData.value = data
+}
+async function loadTransactions() {
+  const { data } = await assetApi.getAllTransactions(bookId)
+  transactions.value = data.data || []
 }
 
 function editCard(row) {
@@ -361,10 +407,58 @@ async function runDep() {
   loadSummary()
 }
 
+function openChangeStatus(row) {
+  Object.assign(changeForm, { card_id: row.id, current_status: row.status, status: '', location:'', department:'', employee_name:'', note:'' })
+  showChangeDialog.value = true
+}
+async function saveStatus() {
+  if (!changeForm.status) { ElMessage.warning('请选择新状态'); return }
+  if (changeForm.status === changeForm.current_status) { ElMessage.warning('状态未变化'); return }
+  const p = { status: changeForm.status }
+  if (changeForm.location) p.location = changeForm.location
+  if (changeForm.department) p.department = changeForm.department
+  if (changeForm.employee_name) p.employee_name = changeForm.employee_name
+  if (changeForm.note) p.note = changeForm.note
+  await assetApi.changeStatus(bookId, changeForm.card_id, p)
+  ElMessage.success('状态变更成功')
+  showChangeDialog.value = false
+  loadCards(); loadTransactions()
+}
+async function handleExport() {
+  const { data } = await assetApi.exportAssets(bookId)
+  const items = data.data || []
+  if (!items.length) { ElMessage.warning('暂无资产'); return }
+  const H = ['编号','名称','规格','分类','原值','累计折旧','净值','月折旧','状态','部门','责任人','存放地点','取得日期','折旧起始月','使用年限','净残值率','来源','备注']
+  const F = ['code','name','spec_model','category_name','original_value','accumulated_depreciation','net_value','monthly_depreciation','status','department','employee_name','location','acquisition_date','depreciation_start_month','useful_life_months','residual_value_rate','source','remark']
+  let csv = H.join('	') + '
+'
+  for (const it of items) csv += F.map(f => it[f] ?? '').join('	') + '
+'
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'})
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = '资产清单_' + new Date().toISOString().slice(0,10) + '.csv'
+  a.click(); URL.revokeObjectURL(a.href)
+  ElMessage.success('已导出 ' + items.length + ' 条')
+}
+async function handleImport() {
+  if (!importJson.value.trim()) { ElMessage.warning('请输入JSON'); return }
+  let items
+  try { items = JSON.parse(importJson.value); if (!Array.isArray(items)) throw new Error('必须是数组') }
+  catch(e) { ElMessage.error('JSON错误: ' + e.message); return }
+  if (!items.length) { ElMessage.warning('数据为空'); return }
+  const { data } = await assetApi.importAssets(bookId, { items })
+  if (data.errors && data.errors.length) ElMessage.warning('导入 ' + data.imported + '/' + data.total + '，失败 ' + data.errors.length + ' 条')
+  else ElMessage.success('导入成功 ' + data.imported + ' 条')
+  showImportDialog.value = false; importJson.value = ''
+  loadCards(); loadSummary(); loadTransactions()
+}
+
 onMounted(() => {
   loadCards()
   loadCategories()
   loadSummary()
+  loadTransactions()
 })
 </script>
 

@@ -151,6 +151,12 @@ export const assetApi = {
   runDepreciation: (bookId, period) => http.post(`/api/books/${bookId}/assets/depreciation/run`, period ? { period } : {}),
   // 台账
   summary: (bookId) => http.get(`/api/books/${bookId}/assets/summary`),
+  changeStatus: (bookId, cardId, data) => http.put(`/api/books/${bookId}/assets/${cardId}/status`, data),
+  getTransactions: (bookId, cardId) => http.get(`/api/books/${bookId}/assets/transactions/${cardId}`),
+  getAllTransactions: (bookId) => http.get(`/api/books/${bookId}/assets/transactions`),
+  importAssets: (bookId, data) => http.post(`/api/books/${bookId}/assets/import`, data),
+  exportAssets: (bookId) => http.get(`/api/books/${bookId}/assets/export`),
+,
 }
 
 export const healthApi = {
