@@ -1,6 +1,7 @@
 package api
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -527,6 +528,10 @@ func parseBookID(s string) uint {
 
 // ========== 资产台账报表 ==========
 
+func round2(v float64) float64 {
+	return math.Round(v*100) / 100
+}
+
 func assetSummary(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
@@ -564,9 +569,9 @@ func assetSummary(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"summary":     stats,
 			"total_count": totalCount,
-			"total_original_value":          totalOriginal,
-			"total_accumulated_depreciation": totalDep,
-			"total_net_value":               totalNet,
+			"total_original_value":          round2(totalOriginal),
+			"total_accumulated_depreciation": round2(totalDep),
+			"total_net_value":               round2(totalNet),
 		})
 	}
 }
