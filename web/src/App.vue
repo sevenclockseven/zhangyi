@@ -38,7 +38,7 @@
         @select="onMenuSelect"
       >
         <el-menu-item v-for="item in menuItems" :key="item.index" :index="item.index">
-          <component :is="iconMap[item.icon]" style="width:18px;height:18px;color:#bfcbd9;flex-shrink:0" />
+          <component :is="item.icon" style="width:18px;height:18px;color:#bfcbd9;flex-shrink:0" />
           <span>{{ item.label }}</span>
         </el-menu-item>
       </el-menu>

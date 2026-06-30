@@ -522,7 +522,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { auxApi, bookApi, templateApi, voucherTemplateApi, systemApi, bookUserApi, userApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Top, Bottom, Rank, Delete, Plus, Download, Upload, Refresh } from '@element-plus/icons-vue'
+import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Top, Bottom, Rank, Delete, Plus, Download, Upload, Refresh, Box, Tools } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
 
@@ -589,7 +589,7 @@ const loadBookInfo = async () => {
 }
 
 // Menu config
-const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting }
+const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Box, Tools }
 const menuConfig = ref([])
 
 const defaultMenu = [
@@ -599,9 +599,10 @@ const defaultMenu = [
   { index: '/vouchers', label: '凭证管理', icon: 'Document', visible: true },
   { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
   { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
+  { index: '/assets', label: '设备管理', icon: 'Box', visible: true },
   { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
-          { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
-  { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
+  { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
+  { index: '/settings', label: '系统设置', icon: 'Tools', visible: true },
 ]
 
 const loadMenuConfig = () => {

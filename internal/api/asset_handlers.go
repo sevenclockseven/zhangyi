@@ -557,8 +557,13 @@ func assetSummary(db *gorm.DB) gin.HandlerFunc {
 			GROUP BY c.name
 			ORDER BY total_original_value DESC
 		`, bookID).Scan(&stats)
+	for i := range stats {
+		stats[i].TotalOriginalValue = round2(stats[i].TotalOriginalValue)
+		stats[i].TotalAccumulatedDepreciation = round2(stats[i].TotalAccumulatedDepreciation)
+		stats[i].TotalNetValue = round2(stats[i].TotalNetValue)
+	}
 
-		// 总计
+	// 总计
 		var totalCount int64
 		var totalOriginal, totalDep, totalNet float64
 		db.Model(&models.AssetCard{}).Where("book_id = ?", bookID).Count(&totalCount)

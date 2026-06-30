@@ -6,7 +6,11 @@
 *.dylib
 *.test
 *.out
+nohup.out
 zhangyi
+zhangyi_bin
+zhangyi_new
+zhangyi_test_sqlite
 
 # Data
 data/
@@ -28,5 +32,13 @@ web/node_modules/
 web/.vite/
 # 注意: web/dist/ 不能忽略！go:embed 需要它
 web/dist/
-zhangyi_new
+
+# Temp scripts
 api_test.js
+tmp_*.sh
+tmp_*.py
+fix_*.py
+fix_*.js
+add_*.py
+gen_*.py
+patch_*.py
