@@ -544,6 +544,7 @@ func assetSummary(db *gorm.DB) gin.HandlerFunc {
 			SELECT c.name AS category_name, 
 			       COUNT(*) AS count, 
 			       COALESCE(SUM(a.original_value), 0) AS total_original_value,
+		       COALESCE(SUM(a.accumulated_depreciation), 0) AS total_accumulated_depreciation,
 			       COALESCE(SUM(a.net_value), 0) AS total_net_value
 			FROM asset_cards a
 			LEFT JOIN asset_categories c ON a.category_id = c.id
