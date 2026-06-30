@@ -242,9 +242,28 @@
       <template #footer><el-button @click="showChangeDialog=false">取消</el-button><el-button type="primary" @click="saveStatus">确认</el-button></template>
     </el-dialog>
     <el-dialog v-model="showImportDialog" title="批量导入" width="600px">
-      <el-alert type="info" :closable="false" style="margin-bottom:12px">粘贴JSON数组，每项含 code,name,category_id,original_value</el-alert>
-      <el-input v-model="importJson" type="textarea" :rows="8" placeholder='[{"code":"A001","name":"笔记本","category_id":1,"original_value":8000}]' />
-      <template #footer><el-button @click="showImportDialog=false">取消</el-button><el-button type="primary" @click="handleImport">导入</el-button></template>
+      <el-upload
+        ref="importUploadRef"
+        :auto-upload="false"
+        :limit="1"
+        accept=".csv"
+        :on-change="handleFileChange"
+        :on-exceed="() => ElMessage.warning('只能选择一个文件')"
+        drag
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">拖拽CSV文件到此处，或<em>点击上传</em></div>
+        <template #tip>
+          <div class="el-upload__tip">
+            支持CSV格式，表头：编号,名称,规格型号,分类,原值,取得日期,折旧起始月,使用年限,净残值率,状态,部门,责任人,存放地点,来源,备注
+          </div>
+        </template>
+      </el-upload>
+      <el-input v-if="importPreview" v-model="importPreview" type="textarea" :rows="4" readonly style="margin-top: 12px" />
+      <template #footer>
+        <el-button @click="showImportDialog=false; importPreview=''; importFileData=null">取消</el-button>
+        <el-button type="primary" @click="handleImport" :disabled="!importFileData">导入</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -253,7 +272,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, UploadFilled } from '@element-plus/icons-vue'
 import { assetApi, auxApi } from '../api'
 
 const route = useRoute()
@@ -290,7 +309,9 @@ const catForm = reactive({
 
 const transactions = ref([])
 const showImportDialog = ref(false)
-const importJson = ref('')
+const importFileData = ref(null)
+const importPreview = ref('')
+const importUploadRef = ref(null)
 const showChangeDialog = ref(false)
 const changeForm = reactive({ card_id:null, current_status:'', status:'', location:'', department:'', employee_name:'', note:'' })
 
@@ -443,31 +464,157 @@ async function saveStatus() {
   showChangeDialog.value = false
   loadCards(); loadTransactions()
 }
+const statusMap = { in_use: '在用', idle: '闲置', maintenance: '维修', scrapped: '报废' }
+const statusMapReverse = { '在用': 'in_use', '闲置': 'idle', '维修': 'maintenance', '报废': 'scrapped' }
+const sourceMap = { purchase: '购入', self_made: '自建', donate: '捐赠', transfer: '调拨' }
+const sourceMapReverse = { '购入': 'purchase', '自建': 'self_made', '捐赠': 'donate', '调拨': 'transfer' }
+
+function parseCSVLine(line) {
+  const result = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"'
+          i++
+        } else {
+          inQuotes = false
+        }
+      } else {
+        current += ch
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true
+      } else if (ch === ',') {
+        result.push(current.trim())
+        current = ''
+      } else {
+        current += ch
+      }
+    }
+  }
+  result.push(current.trim())
+  return result
+}
+
+function handleFileChange(file) {
+  const raw = file.raw
+  if (!raw) return
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const text = e.target.result
+    importFileData.value = text
+    const lines = text.split('\n').filter(l => l.trim())
+    const preview = lines.length > 3
+      ? lines.slice(0, 4).join('\n') + '\n... (共 ' + lines.length + ' 行)'
+      : lines.join('\n')
+    importPreview.value = preview
+  }
+  reader.readAsText(raw)
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim())
+  if (lines.length < 2) return []
+  const headers = parseCSVLine(lines[0])
+  const items = []
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i])
+    const obj = {}
+    headers.forEach((h, idx) => { obj[h] = values[idx] || '' })
+    items.push(obj)
+  }
+  return items
+}
+
+function escapeCSV(val) {
+  const s = String(val ?? '')
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"'
+  }
+  return s
+}
+
 async function handleExport() {
   const { data } = await assetApi.exportAssets(bookId)
   const items = data.data || []
   if (!items.length) { ElMessage.warning('暂无资产'); return }
-  const H = ['编号','名称','规格','分类','原值','累计折旧','净值','月折旧','状态','部门','责任人','存放地点','取得日期','折旧起始月','使用年限','净残值率','来源','备注']
+
+  const H = ['编号','名称','规格型号','分类','原值','累计折旧','净值','月折旧','状态','部门','责任人','存放地点','取得日期','折旧起始月','使用年限(月)','净残值率','来源','备注']
   const F = ['code','name','spec_model','category_name','original_value','accumulated_depreciation','net_value','monthly_depreciation','status','department','employee_name','location','acquisition_date','depreciation_start_month','useful_life_months','residual_value_rate','source','remark']
-  let csv = H.join('	') + '\n'
-  for (const it of items) csv += F.map(f => it[f] ?? '').join('	') + '\n'
-  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'})
+
+  let csv = H.map(escapeCSV).join(',') + '\n'
+  for (const it of items) {
+    const row = F.map(f => {
+      let v = it[f]
+      if (f === 'status') v = statusMap[v] || v
+      else if (f === 'source') v = sourceMap[v] || v
+      else if (f === 'residual_value_rate') v = v != null ? (v * 100).toFixed(0) + '%' : ''
+      else if (f === 'original_value' || f === 'accumulated_depreciation' || f === 'net_value' || f === 'monthly_depreciation')
+        v = v != null ? Number(v).toFixed(2) : ''
+      else v = v ?? ''
+      return escapeCSV(v)
+    })
+    csv += row.join(',') + '\n'
+  }
+
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = '资产清单_' + new Date().toISOString().slice(0,10) + '.csv'
+  a.download = '资产清单_' + new Date().toISOString().slice(0, 10) + '.csv'
   a.click(); URL.revokeObjectURL(a.href)
   ElMessage.success('已导出 ' + items.length + ' 条')
 }
+
 async function handleImport() {
-  if (!importJson.value.trim()) { ElMessage.warning('请输入JSON'); return }
-  let items
-  try { items = JSON.parse(importJson.value); if (!Array.isArray(items)) throw new Error('必须是数组') }
-  catch(e) { ElMessage.error('JSON错误: ' + e.message); return }
-  if (!items.length) { ElMessage.warning('数据为空'); return }
+  if (!importFileData.value) { ElMessage.warning('请选择CSV文件'); return }
+  const rows = parseCSV(importFileData.value)
+  if (!rows.length) { ElMessage.warning('CSV数据为空'); return }
+
+  const catMap = {}
+  categories.value.forEach(c => { catMap[c.name] = c.id })
+
+  const headerMap = {
+    '编号': 'code', '名称': 'name', '规格型号': 'spec_model', '分类': 'category_name',
+    '原值': 'original_value', '取得日期': 'acquisition_date', '折旧起始月': 'depreciation_start_month',
+    '使用年限(月)': 'useful_life_months', '使用年限': 'useful_life_months',
+    '净残值率': 'residual_value_rate', '状态': 'status', '部门': 'department',
+    '责任人': 'employee_name', '存放地点': 'location', '来源': 'source', '备注': 'remark'
+  }
+
+  const items = rows.map(row => {
+    const item = {}
+    for (const [cn, val] of Object.entries(row)) {
+      const key = headerMap[cn] || cn
+      item[key] = val
+    }
+    if (item.category_name) {
+      const catId = catMap[item.category_name]
+      if (catId) item.category_id = catId
+      else item.category_id = 0
+    }
+    if (item.status) item.status = statusMapReverse[item.status] || item.status
+    if (item.source) item.source = sourceMapReverse[item.source] || item.source
+    if (item.original_value) item.original_value = parseFloat(item.original_value) || 0
+    if (item.useful_life_months) item.useful_life_months = parseInt(item.useful_life_months) || 0
+    if (item.residual_value_rate) {
+      const v = parseFloat(item.residual_value_rate)
+      item.residual_value_rate = v > 1 ? v / 100 : v
+    }
+    return item
+  }).filter(it => it.code && it.name && it.original_value > 0)
+
+  if (!items.length) { ElMessage.warning('无有效数据（需含编号、名称、原值）'); return }
   const { data } = await assetApi.importAssets(bookId, { items })
-  if (data.errors && data.errors.length) ElMessage.warning('导入 ' + data.imported + '/' + data.total + '，失败 ' + data.errors.length + ' 条')
+  if (data.errors && data.errors.length)
+    ElMessage.warning('导入 ' + data.imported + '/' + data.total + '，失败 ' + data.errors.length + ' 条')
   else ElMessage.success('导入成功 ' + data.imported + ' 条')
-  showImportDialog.value = false; importJson.value = ''
+  showImportDialog.value = false; importFileData.value = null; importPreview.value = ''
+  if (importUploadRef.value) importUploadRef.value.clearFiles()
   loadCards(); loadSummary(); loadTransactions()
 }
 

@@ -237,11 +237,12 @@ func exportAssets(db *gorm.DB) gin.HandlerFunc {
 			Code                   string  `json:"code"`
 			Name                   string  `json:"name"`
 			SpecModel              string  `json:"spec_model"`
+			CategoryID             uint    `json:"category_id"`
 			CategoryName           string  `json:"category_name"`
 			OriginalValue          float64 `json:"original_value"`
 			AccumulatedDepreciation float64 `json:"accumulated_depreciation"`
-			NetValue              float64 `json:"net_value"`
-			MonthlyDepreciation   float64 `json:"monthly_depreciation"`
+			NetValue               float64 `json:"net_value"`
+			MonthlyDepreciation    float64 `json:"monthly_depreciation"`
 			Status                 string  `json:"status"`
 			Department             string  `json:"department"`
 			EmployeeName           string  `json:"employee_name"`
@@ -265,11 +266,12 @@ func exportAssets(db *gorm.DB) gin.HandlerFunc {
 				Code:                   card.Code,
 				Name:                   card.Name,
 				SpecModel:              card.SpecModel,
+				CategoryID:             card.CategoryID,
 				CategoryName:           catName,
 				OriginalValue:          card.OriginalValue,
 				AccumulatedDepreciation: card.AccumulatedDepreciation,
-				NetValue:              card.NetValue,
-				MonthlyDepreciation:   card.MonthlyDepreciation,
+				NetValue:               card.NetValue,
+				MonthlyDepreciation:    card.MonthlyDepreciation,
 				Status:                 card.Status,
 				Department:             card.Department,
 				EmployeeName:           card.EmployeeName,
