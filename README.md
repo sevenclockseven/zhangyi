@@ -11,7 +11,7 @@
 - 📒 **账簿查询** — 科目余额表、总账、日记账、多栏账
 - 📈 **标准报表** — 资产负债表、利润表、现金流量表、自定义报表引擎
 - 🔧 **辅助核算** — 7个维度 + 现金流量项目，支持扩展字段、批量导入导出
-- 👤 **用户管理** — JWT认证、登录/注册、密码修改、角色权限
+- 👤 **用户管理** — JWT认证、密码修改、角色权限（管理员创建用户）
 - 🔐 **账套权限** — 管理员分配用户可访问的账套及读写权限
 - 📋 **操作日志** — 自动记录非GET请求，按模块/操作/用户筛选
 - 💾 **自动备份** — 定时备份(SQLite/PG)、手动备份、一键恢复
@@ -37,6 +37,11 @@ services:
       - zhangyi-backups:/app/backups
     environment:
       - TZ=Asia/Shanghai
+      # 安全配置（必填，否则每次启动随机生成）
+      - JWT_SECRET=your-random-secret-key-here
+      - ADMIN_PASSWORD=your-admin-password
+      # CORS白名单（逗号分隔）
+      # - CORS_ORIGINS=https://your-domain.com
       # 数据库切换（默认SQLite，取消注释启用PostgreSQL）
       # - DB_DRIVER=postgres
       # - DB_DSN=host=postgres user=zhangyi password=*** dbname=zhangyi port=5432 sslmode=disable
@@ -108,23 +113,30 @@ DB_DRIVER=postgres DB_DSN="host=localhost user=zhangyi password=*** dbname=zhang
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | PORT | 8080 | 服务端口 |
+| JWT_SECRET | 随机生成 | JWT签名密钥（**生产环境必填**） |
+| ADMIN_PASSWORD | 随机生成 | 管理员初始密码（**生产环境必填**，首次登录后请修改） |
+| CORS_ORIGINS | localhost:8080 | CORS允许源（逗号分隔） |
 | DB_DRIVER | sqlite | 数据库驱动：sqlite / postgres |
 | DB_DSN | data/zhangyi.db | 数据库连接串（SQLite为文件路径，PG为连接串） |
 | BACKUP_SCHEDULE | 24h | 备份周期：disabled / hourly / 6h / 24h |
 | BACKUP_DIR | backups | 备份文件目录 |
 
+> ⚠️ 首次启动时若未设置 `JWT_SECRET` 和 `ADMIN_PASSWORD`，系统会随机生成并打印在日志中。请记录并设置到环境变量。
+
 ## 🔐 默认账号
 
-- 管理员：admin / admin123
+- 管理员：admin / （密码在首次启动时随机生成，查看容器日志获取）
+- 登录后请立即修改默认密码
 
 ## 📋 版本
 
-当前版本：v0.9.0
+当前版本：v0.9.1
 
 ## 📝 版本记录
 
 | 版本 | 日期 | 内容 |
 |------|------|------|
+| v0.9.1 | 2026-06-30 | 安全加固：JWT密钥/管理员密码改环境变量随机生成；备份操作禁用sh -c改exec.Command；路径穿越防护；CORS改白名单；注册BookAccess账套级授权中间件；审计字段改实际用户；角色越权防护；登录限流；禁用公开注册；设备管理CSV导入导出 |
 | v0.9.0 | 2026-06-30 | 设备管理Phase A(资产分类/卡片CRUD/折旧计提/自动凭证/导入导出) + 数据库兼容基础设施 + Go 1.25升级 + JS字符串转义修复 |
 | v0.8.5 | 2026-06-29 | 账套启用/禁用状态切换修复（@v-model 双向绑定导致状态翻转）；利润表取数修复（单边发生额替代净额）；资产负债表合计行修复（加 prop 属性）；科目余额表一级科目颜色权重提升（覆盖 E+ 全量 CSS）；费用表合计行修复；Dockerfile 修复（alpine 镜像移除+aliyun CDN） |
 | v0.8.4 | 2026-06-28 | 科目余额表树形化+可折叠+一级科目颜色标识+父节点金额自动汇总；账簿查询拆分为总账/现金日记账/银行日记账；修复辅助核算扩展字段 |
