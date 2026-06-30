@@ -2,6 +2,51 @@ import axios from 'axios'
 
 const http = axios
 
+// Track active requests for cancellation on book switch
+let activeRequestControllers = new Map()
+let requestCounter = 0
+
+export function cancelBookRequests() {
+  activeRequestControllers.forEach((controller) => {
+    controller.abort()
+  })
+  activeRequestControllers.clear()
+}
+
+// Add request interceptor to track cancellable requests
+http.interceptors.request.use((config) => {
+  // Skip auth/health requests from tracking
+  if (config.url?.includes('/auth/login') || config.url?.includes('/health')) {
+    return config
+  }
+  const requestId = ++requestCounter
+  const controller = new AbortController()
+  config.signal = controller.signal
+  activeRequestControllers.set(requestId, controller)
+  config._requestId = requestId
+  return config
+})
+
+http.interceptors.response.use(
+  (response) => {
+    const requestId = response.config?._requestId
+    if (requestId) {
+      activeRequestControllers.delete(requestId)
+    }
+    return response
+  },
+  (error) => {
+    if (error.config?._requestId) {
+      activeRequestControllers.delete(error.config._requestId)
+    }
+    // Ignore aborted requests (from book switch)
+    if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+      return Promise.reject({ __cancelled: true })
+    }
+    return Promise.reject(error)
+  }
+)
+
 export const bookApi = {
   list: () => http.get('/api/books'),
   get: (id) => http.get(`/api/books/${id}`),

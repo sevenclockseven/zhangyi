@@ -1,4 +1,5 @@
 import { ref, watch } from 'vue'
+import { cancelBookRequests } from '../api/index.js'
 
 const STORAGE_KEY = 'zhangyi_current_book'
 
@@ -8,6 +9,8 @@ const books = ref([])
 const booksLoaded = ref(false)
 
 watch(currentBookId, (val) => {
+  // Cancel in-flight requests when switching books to prevent race conditions
+  cancelBookRequests()
   if (val) {
     localStorage.setItem(STORAGE_KEY, String(val))
   } else {

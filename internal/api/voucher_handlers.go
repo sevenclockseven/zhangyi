@@ -220,7 +220,11 @@ func updateVoucher(db *gorm.DB) gin.HandlerFunc {
 		// Update items if provided
 		if len(req.Items) > 0 {
 			// Delete old items
-			tx.Where("voucher_id = ?", voucher.ID).Delete(&models.VoucherItem{})
+			if err := tx.Where("voucher_id = ?", voucher.ID).Delete(&models.VoucherItem{}).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
 
 			var totalDebit, totalCredit float64
 			for i, item := range req.Items {
@@ -247,13 +251,21 @@ func updateVoucher(db *gorm.DB) gin.HandlerFunc {
 					AuxCostObjectID:  item.AuxCost,
 					CashFlowID:       item.CashFlow,
 				}
-				tx.Create(&vi)
+				if err := tx.Create(&vi).Error; err != nil {
+					tx.Rollback()
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
 			}
 
-			tx.Model(&voucher).Updates(map[string]interface{}{
+			if err := tx.Model(&voucher).Updates(map[string]interface{}{
 				"total_debit":  totalDebit,
 				"total_credit": totalCredit,
-			})
+			}).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
 		}
 
 		tx.Commit()
@@ -277,8 +289,16 @@ func deleteVoucher(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		tx := db.Begin()
-		tx.Where("voucher_id = ?", vid).Delete(&models.VoucherItem{})
-		tx.Delete(&models.Voucher{}, vid)
+		if err := tx.Where("voucher_id = ?", vid).Delete(&models.VoucherItem{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if err := tx.Delete(&models.Voucher{}, vid).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		tx.Commit()
 
 		c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
@@ -298,10 +318,13 @@ func reviewVoucher(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		username, _ := c.Get("username")
-		db.Model(&voucher).Updates(map[string]interface{}{
+		if err := db.Model(&voucher).Updates(map[string]interface{}{
 			"status":      "reviewed",
 			"reviewed_by": username,
-		})
+		}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "审核成功"})
 	}
 }
@@ -318,10 +341,13 @@ func unreviewVoucher(db *gorm.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "只能反审核已审核状态的凭证"})
 			return
 		}
-		db.Model(&voucher).Updates(map[string]interface{}{
+		if err := db.Model(&voucher).Updates(map[string]interface{}{
 			"status":      "draft",
 			"reviewed_by": "",
-		})
+		}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "反审核成功"})
 	}
 }
@@ -345,10 +371,13 @@ func postVoucher(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		db.Model(&voucher).Updates(map[string]interface{}{
+		if err := db.Model(&voucher).Updates(map[string]interface{}{
 			"status":    "posted",
 			"posted_by": c.GetString("username"),
-		})
+		}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "记账成功"})
 	}
 }
@@ -372,10 +401,13 @@ func unpostVoucher(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		db.Model(&voucher).Updates(map[string]interface{}{
+		if err := db.Model(&voucher).Updates(map[string]interface{}{
 			"status":    "reviewed",
 			"posted_by": "",
-		})
+		}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "反记账成功"})
 	}
 }

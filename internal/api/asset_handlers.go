@@ -138,8 +138,9 @@ func listAssetCards(db *gorm.DB) gin.HandlerFunc {
 
 func getAssetCard(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		var card models.AssetCard
-		if err := db.First(&card, c.Param("cardId")).Error; err != nil {
+		if err := db.Where("id = ? AND book_id = ?", c.Param("cardId"), bookID).First(&card).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "资产卡片不存在"})
 			return
 		}
@@ -263,8 +264,9 @@ func createAssetCard(db *gorm.DB) gin.HandlerFunc {
 
 func updateAssetCard(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		var card models.AssetCard
-		if err := db.First(&card, c.Param("cardId")).Error; err != nil {
+		if err := db.Where("id = ? AND book_id = ?", c.Param("cardId"), bookID).First(&card).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "资产卡片不存在"})
 			return
 		}
@@ -283,8 +285,9 @@ func updateAssetCard(db *gorm.DB) gin.HandlerFunc {
 
 func deleteAssetCard(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		id := c.Param("cardId")
-		if err := db.Delete(&models.AssetCard{}, id).Error; err != nil {
+		if err := db.Where("id = ? AND book_id = ?", id, bookID).Delete(&models.AssetCard{}).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

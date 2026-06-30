@@ -21,7 +21,9 @@ func templateDir() string {
 
 func generateID(db *gorm.DB) uint {
 	var maxCode string
-	db.Model(&models.AccountBook{}).Select("COALESCE(MAX(code), 'BK000000')").Row().Scan(&maxCode)
+	if err := db.Model(&models.AccountBook{}).Select("COALESCE(MAX(code), 'BK000000')").Row().Scan(&maxCode); err != nil {
+		maxCode = "BK000000"
+	}
 	// Extract number from BK000001 format
 	num := 0
 	if len(maxCode) > 2 {

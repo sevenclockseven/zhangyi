@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { bookApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
@@ -121,6 +121,10 @@ const form = ref({
 })
 
 const route = useRoute()
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth < 768
+}
 
 const loadBooks = async () => {
   try {
@@ -178,7 +182,11 @@ const deleteBook = async (book) => {
 
 onMounted(() => {
   loadBooks()
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768 })
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
