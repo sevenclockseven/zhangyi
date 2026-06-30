@@ -324,11 +324,11 @@
 - [x] 回归测试: SQLite 现有功能全通
 - [x] 验证 PG 构建通过
 
-## Step 2: 设备管理 Phase A
-- [ ] 数据模型 (models/asset.go)
-- [ ] AutoMigrate + 回归测试
-- [ ] 分类管理 API + 前端
-- [ ] 资产卡片 CRUD API + 前端
-- [ ] 折旧计提服务 (直线法)
-- [ ] 自动凭证推送总账
-- [ ] 资产台账报表
+## Step 2: 设备管理 Phase A [完成]
+- [x] 数据模型 (internal/models/asset.go)
+- [x] AutoMigrate + 回归测试
+- [x] 分类管理 API + 前端
+- [x] 资产卡片 CRUD API + 前端
+- [x] 折旧计提服务 (直线法)
+- [x] 自动凭证推送总账
+- [x] 资产台账报表 (summary API)
