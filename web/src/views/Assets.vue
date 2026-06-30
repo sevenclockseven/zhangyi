@@ -112,34 +112,16 @@
 
       <!-- ========== 台账汇总 ========== -->
       <el-tab-pane label="台账汇总" name="summary">
-        <div class="summary-cards">
-          <el-card shadow="hover" class="summary-card">
-            <div class="summary-label">资产总数</div>
-            <div class="summary-value">{{ summaryData.total_count || 0 }}</div>
-          </el-card>
-          <el-card shadow="hover" class="summary-card">
-            <div class="summary-label">资产原值合计</div>
-            <div class="summary-value">{{ fmt(summaryData.total_original_value) }}</div>
-          </el-card>
-          <el-card shadow="hover" class="summary-card">
-            <div class="summary-label">累计折旧合计</div>
-            <div class="summary-value">{{ fmt(summaryData.total_accumulated_depreciation) }}</div>
-          </el-card>
-          <el-card shadow="hover" class="summary-card">
-            <div class="summary-label">资产净值合计</div>
-            <div class="summary-value">{{ fmt(summaryData.total_net_value) }}</div>
-          </el-card>
-        </div>
-        <el-table :data="summaryData.summary || []" border size="small" style="width: 100%; margin-top: 16px" show-summary>
+        <el-table :data="summaryData.summary || []" border size="small" style="width: 100%" show-summary>
           <el-table-column prop="category_name" label="分类" min-width="150" />
           <el-table-column prop="count" label="数量" width="80" align="center" />
-          <el-table-column label="原值合计" width="140" align="right">
+          <el-table-column label="原值合计" width="140" align="right" prop="total_original_value">
             <template #default="{ row }">{{ fmt(row.total_original_value) }}</template>
           </el-table-column>
-          <el-table-column label="累计折旧" width="140" align="right">
+          <el-table-column label="累计折旧合计" width="140" align="right" prop="total_accumulated_depreciation">
             <template #default="{ row }">{{ fmt(row.total_accumulated_depreciation) }}</template>
           </el-table-column>
-          <el-table-column label="净值合计" width="140" align="right">
+          <el-table-column label="净值合计" width="140" align="right" prop="total_net_value">
             <template #default="{ row }">{{ fmt(row.total_net_value) }}</template>
           </el-table-column>
         </el-table>
