@@ -14,27 +14,7 @@
           <el-tab-pane label="员工" name="employee" />
           <el-tab-pane label="仓库" name="warehouse" />
           <el-tab-pane label="银行" name="bank_account" />
-            <!-- Voucher Template Edit Dialog -->
-    <el-dialog v-model="showVtplEdit" :title="editingVtpl ? '编辑模板' : '新增模板'" :width="isMobile ? '95%' : '600px'">
-      <el-form :model="vtplForm" label-width="80px">
-        <el-form-item label="模板名称" required><el-input v-model="vtplForm.name" placeholder="如：收货款" /></el-form-item>
-        <el-form-item label="分类"><el-input v-model="vtplForm.category" placeholder="如：收入、费用" /></el-form-item>
-        <el-form-item label="分录">
-          <div v-for="(item, i) in vtplForm.items" :key="i" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center">
-            <el-select v-model="item.account_id" filterable placeholder="科目" style="flex: 1">
-              <el-option v-for="a in accounts" :key="a.id" :label="a.code + ' ' + a.name" :value="a.id" :disabled="!a.is_leaf" />
-            </el-select>
-            <el-input v-model="item.memo" placeholder="摘要" style="width: 130px" />
-            <el-button size="small" type="danger" link @click="vtplForm.items.splice(i, 1)" :disabled="vtplForm.items.length <= 1"><el-icon><Delete /></el-icon></el-button>
-          </div>
-          <el-button size="small" @click="vtplForm.items.push({ account_id: null, memo: '' })"><el-icon><Plus /></el-icon>添加</el-button>
-        </el-form-item>
-      </el-form>
-      <template #footer><el-button @click="showVtplEdit = false">取消</el-button><el-button type="primary" @click="saveVtpl">保存</el-button></template>
-    </el-dialog>
-
-    
-</el-tabs>
+        </el-tabs>
 
         <div class="toolbar">
           <el-button type="primary" size="small" @click="openAdd">
@@ -362,7 +342,9 @@
         </div>
       </el-tab-pane>
 
-        <!-- Voucher Template Edit Dialog -->
+        </el-tabs>
+
+    <!-- Voucher Template Edit Dialog -->
     <el-dialog v-model="showVtplEdit" :title="editingVtpl ? '编辑模板' : '新增模板'" :width="isMobile ? '95%' : '600px'">
       <el-form :model="vtplForm" label-width="80px">
         <el-form-item label="模板名称" required><el-input v-model="vtplForm.name" placeholder="如：收货款" /></el-form-item>
@@ -380,9 +362,6 @@
       </el-form>
       <template #footer><el-button @click="showVtplEdit = false">取消</el-button><el-button type="primary" @click="saveVtpl">保存</el-button></template>
     </el-dialog>
-
-    
-</el-tabs>
 
     <!-- Add/Edit dialog -->
     <el-dialog v-model="showEdit" :title="editingItem ? '编辑' : '新增' + auxLabel" :width="isMobile ? '95%' : '550px'">

@@ -17,9 +17,19 @@ import (
 //go:embed all:web/dist
 var webDist embed.FS
 
+//go:embed templates/*.json templates/v2/*
+var templateDist embed.FS
+
 func main() {
 	if err := os.MkdirAll("data", 0755); err != nil {
 		log.Fatalf("Failed to create data directory: %v", err)
+	}
+
+	// Extract embedded templates to filesystem if no local templates/ exists
+	if _, err := os.Stat("templates"); os.IsNotExist(err) {
+		if err := extractTemplates(); err != nil {
+			log.Printf("Warning: failed to extract embedded templates: %v", err)
+		}
 	}
 
 	// Initialize database (env-driven: sqlite or postgres)
@@ -81,4 +91,24 @@ func main() {
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// extractTemplates extracts embedded template files to the local filesystem
+func extractTemplates() error {
+	return fs.WalkDir(templateDist, "templates", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return os.MkdirAll(path, 0755)
+		}
+		data, err := fs.ReadFile(templateDist, path)
+		if err != nil {
+			return fmt.Errorf("failed to read embedded %s: %w", path, err)
+		}
+		if err := os.WriteFile(path, data, 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", path, err)
+		}
+		return nil
+	})
 }
