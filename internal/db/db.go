@@ -80,6 +80,7 @@ func AllModels() []interface{} {
 		&models.AuxItem{},
 		&models.VoucherTemplate{},
 		&models.ReportTemplate{},
+		&models.BookUser{},
 		&models.OperationLog{},
 		&models.AssetCategory{},
 		&models.AssetCard{},

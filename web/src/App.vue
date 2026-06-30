@@ -38,7 +38,9 @@
         @select="onMenuSelect"
       >
         <el-menu-item v-for="item in menuItems" :key="item.index" :index="item.index">
-          <component :is="item.icon" style="width:18px;height:18px;color:#bfcbd9;flex-shrink:0" />
+          <el-icon style="color:#bfcbd9; display:block; width:24px; height:24px; flex-shrink:0">
+            <component :is="item.icon" :key="item.iconKey" />
+          </el-icon>
           <span>{{ item.label }}</span>
         </el-menu-item>
       </el-menu>
@@ -155,7 +157,7 @@ const defaultMenuConfig = [
   { index: '/assets', label: '设备管理', icon: 'Box', visible: true },
   { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
   { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
-  { index: '/settings', label: '系统设置', icon: 'Tools', visible: true },
+  { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
 ]
 
 const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Box, Tools }
@@ -164,7 +166,11 @@ const menuConfig = ref(defaultMenuConfig)
 const menuItems = computed(() =>
   menuConfig.value
     .filter(item => item.visible !== false)
-    .map(item => ({ ...item, icon: iconMap[item.icon] || HomeFilled }))
+    .map((item, index, arr) => ({ 
+      ...item, 
+      icon: iconMap[item.icon] || HomeFilled,
+      iconKey: `${item.index}-${index}` // force re-render on position change
+    }))
 )
 
 const loadMenuConfig = () => {
@@ -172,11 +178,12 @@ const loadMenuConfig = () => {
     const saved = localStorage.getItem('zhangyi_menu_config')
     if (saved) {
       const parsed = JSON.parse(saved)
-      // Merge: use defaultMenuConfig order, overlay with saved overrides
-      const savedMap = Object.fromEntries(parsed.map(p => [p.index, p]))
-      menuConfig.value = defaultMenuConfig.map(def => {
-        const savedItem = savedMap[def.index]
-        return savedItem ? { ...def, ...savedItem } : def
+      // Use saved order, append new default items not in saved config
+      const savedIndexes = new Set(parsed.map(p => p.index))
+      const extras = defaultMenuConfig.filter(d => !savedIndexes.has(d.index))
+      menuConfig.value = [...parsed, ...extras].map(item => {
+        const def = defaultMenuConfig.find(d => d.index === item.index)
+        return def ? { ...def, ...item } : item
       })
     }
   } catch {}
@@ -236,7 +243,7 @@ const changePassword = async () => {
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 .app-container { height: 100vh; }
-.app-aside { background-color: #304156; overflow: hidden; transition: transform 0.3s ease; }
+.app-aside { background-color: #304156; overflow-y: auto; overflow-x: hidden; transition: transform 0.3s ease; }
 .sidebar-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; }
 .sidebar-mobile { position: fixed; top: 0; left: 0; bottom: 0; z-index: 1000; transform: translateX(-100%); }
 .sidebar-mobile.sidebar-open { transform: translateX(0); }
@@ -244,6 +251,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 .logo-text h2 { font-size: 20px; color: #fff; margin: 0; line-height: 1.2; }
 .logo-text span { font-size: 11px; color: #bfcbd9; }
 .aside-menu { border-right: none; }
+.aside-menu .el-menu-item .el-icon,
+.aside-menu .el-menu-item > .el-icon,
+.el-menu-item .el-icon { 
+  display: inline-flex !important; 
+  visibility: visible !important; 
+  opacity: 1 !important;
+  width: 24px !important;
+  height: 24px !important;
+  flex-shrink: 0 !important;
+}
 .app-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e6e6e6; background: #fff; padding: 0 16px; }
 .header-right .el-select { --el-select-input-color: #606266; }
 .header-left { display: flex; align-items: center; gap: 8px; }

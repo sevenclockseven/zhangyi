@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o zhangyi .
 # Stage 3: Production
 FROM golang:1.25-alpine
 RUN sed -i "s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g" /etc/apk/repositories 2>/dev/null; true
-RUN apk add --no-cache ca-certificates curl tzdata
+RUN apk add --no-cache ca-certificates curl tzdata sqlite gzip
 ENV TZ=Asia/Shanghai
 WORKDIR /app
 COPY --from=backend /app/zhangyi .

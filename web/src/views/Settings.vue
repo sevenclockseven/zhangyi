@@ -750,6 +750,9 @@ const onTabChange = () => {
   else if (activeTab.value === 'menu') loadMenuConfig()
   else if (activeTab.value === 'templates') loadTemplateVersions()
   else if (activeTab.value === 'vtpl') loadVtplList()
+  else if (activeTab.value === 'permissions') loadBookUsers()
+  else if (activeTab.value === 'logs') loadLogs()
+  else if (activeTab.value === 'backup') loadBackups()
   }
 
 const onSelectionChange = (rows) => { selectedItems.value = rows }
