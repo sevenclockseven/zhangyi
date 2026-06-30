@@ -172,11 +172,11 @@ const loadMenuConfig = () => {
     const saved = localStorage.getItem('zhangyi_menu_config')
     if (saved) {
       const parsed = JSON.parse(saved)
-      const savedIndexes = new Set(parsed.map(p => p.index))
-      const extras = defaultMenuConfig.filter(d => !savedIndexes.has(d.index))
-      menuConfig.value = [...parsed, ...extras].map(item => {
-        const def = defaultMenuConfig.find(d => d.index === item.index)
-        return def ? { ...def, ...item } : item
+      // Merge: use defaultMenuConfig order, overlay with saved overrides
+      const savedMap = Object.fromEntries(parsed.map(p => [p.index, p]))
+      menuConfig.value = defaultMenuConfig.map(def => {
+        const savedItem = savedMap[def.index]
+        return savedItem ? { ...def, ...savedItem } : def
       })
     }
   } catch {}

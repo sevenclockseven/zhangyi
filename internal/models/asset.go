@@ -33,8 +33,10 @@ type AssetCard struct {
 	ResidualValue         float64   `json:"residual_value" gorm:"type:decimal(14,2)"` // 预计净残值
 	Status                string    `json:"status" gorm:"size:20;default:'in_use';index"` // in_use/idle/scrapped/maintenance
 	BookID                uint      `json:"book_id" gorm:"index;not null"`
-	Department            string    `json:"department" gorm:"size:50"`            // 使用部门
-	EmployeeName          string    `json:"employee_name" gorm:"size:30"`          // 责任人
+	DepartmentID         *uint     `json:"department_id" gorm:"index"`           // 使用部门(关联aux_items)
+	EmployeeID           *uint     `json:"employee_id" gorm:"index"`              // 责任人(关联aux_items)
+	Department           string    `json:"department" gorm:"size:50"`             // 部门名称(冗余显示)
+	EmployeeName         string    `json:"employee_name" gorm:"size:30"`          // 人员姓名(冗余显示)
 	Location              string    `json:"location" gorm:"size:200"`               // 存放地点
 	AcquisitionDate       string    `json:"acquisition_date" gorm:"size:10"`        // 取得日期 YYYY-MM-DD
 	DepreciationStartMonth string   `json:"depreciation_start_month" gorm:"size:7"` // 折旧起始月 YYYY-MM

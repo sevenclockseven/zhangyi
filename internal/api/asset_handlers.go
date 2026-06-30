@@ -159,6 +159,8 @@ func createAssetCard(db *gorm.DB) gin.HandlerFunc {
 			CategoryID             uint    `json:"category_id" binding:"required"`
 			OriginalValue          float64 `json:"original_value" binding:"required"`
 			Status                 string  `json:"status"`
+			DepartmentID           *uint   `json:"department_id"`
+			EmployeeID             *uint   `json:"employee_id"`
 			Department             string  `json:"department"`
 			EmployeeName           string  `json:"employee_name"`
 			Location               string  `json:"location"`
@@ -194,6 +196,20 @@ func createAssetCard(db *gorm.DB) gin.HandlerFunc {
 			monthlyDepreciation = (req.OriginalValue - residualValue) / float64(req.UsefulLifeMonths)
 		}
 
+		// Resolve department/employee names from aux_items if IDs provided
+		if req.DepartmentID != nil {
+			var dept models.AuxItem
+			if err := db.Where("id = ? AND type = ?", *req.DepartmentID, "department").First(&dept).Error; err == nil {
+				req.Department = dept.Name
+			}
+		}
+		if req.EmployeeID != nil {
+			var emp models.AuxItem
+			if err := db.Where("id = ? AND type = ?", *req.EmployeeID, "employee").First(&emp).Error; err == nil {
+				req.EmployeeName = emp.Name
+			}
+		}
+
 		card := models.AssetCard{
 			Code:                   req.Code,
 			Name:                   req.Name,
@@ -206,6 +222,8 @@ func createAssetCard(db *gorm.DB) gin.HandlerFunc {
 			ResidualValue:          residualValue,
 			Status:                 req.Status,
 			BookID:                 uint(bid),
+			DepartmentID:           req.DepartmentID,
+			EmployeeID:             req.EmployeeID,
 			Department:             req.Department,
 			EmployeeName:           req.EmployeeName,
 			Location:               req.Location,
@@ -516,8 +534,9 @@ func assetSummary(db *gorm.DB) gin.HandlerFunc {
 		type Stat struct {
 			CategoryName       string  `json:"category_name"`
 			Count              int64   `json:"count"`
-			TotalOriginalValue float64 `json:"total_original_value"`
-			TotalNetValue      float64 `json:"total_net_value"`
+			TotalOriginalValue          float64 `json:"total_original_value"`
+			TotalAccumulatedDepreciation float64 `json:"total_accumulated_depreciation"`
+			TotalNetValue               float64 `json:"total_net_value"`
 		}
 		var stats []Stat
 
@@ -535,16 +554,18 @@ func assetSummary(db *gorm.DB) gin.HandlerFunc {
 
 		// 总计
 		var totalCount int64
-		var totalOriginal, totalNet float64
+		var totalOriginal, totalDep, totalNet float64
 		db.Model(&models.AssetCard{}).Where("book_id = ?", bookID).Count(&totalCount)
 		db.Model(&models.AssetCard{}).Where("book_id = ?", bookID).Select("COALESCE(SUM(original_value), 0)").Scan(&totalOriginal)
+		db.Model(&models.AssetCard{}).Where("book_id = ?", bookID).Select("COALESCE(SUM(accumulated_depreciation), 0)").Scan(&totalDep)
 		db.Model(&models.AssetCard{}).Where("book_id = ?", bookID).Select("COALESCE(SUM(net_value), 0)").Scan(&totalNet)
 
 		c.JSON(http.StatusOK, gin.H{
 			"summary":     stats,
 			"total_count": totalCount,
-			"total_original_value": totalOriginal,
-			"total_net_value":      totalNet,
+			"total_original_value":          totalOriginal,
+			"total_accumulated_depreciation": totalDep,
+			"total_net_value":               totalNet,
 		})
 	}
 }

@@ -122,6 +122,10 @@
             <div class="summary-value">{{ fmt(summaryData.total_original_value) }}</div>
           </el-card>
           <el-card shadow="hover" class="summary-card">
+            <div class="summary-label">累计折旧合计</div>
+            <div class="summary-value">{{ fmt(summaryData.total_accumulated_depreciation) }}</div>
+          </el-card>
+          <el-card shadow="hover" class="summary-card">
             <div class="summary-label">资产净值合计</div>
             <div class="summary-value">{{ fmt(summaryData.total_net_value) }}</div>
           </el-card>
@@ -131,6 +135,9 @@
           <el-table-column prop="count" label="数量" width="80" align="center" />
           <el-table-column label="原值合计" width="140" align="right">
             <template #default="{ row }">{{ fmt(row.total_original_value) }}</template>
+          </el-table-column>
+          <el-table-column label="累计折旧" width="140" align="right">
+            <template #default="{ row }">{{ fmt(row.total_accumulated_depreciation) }}</template>
           </el-table-column>
           <el-table-column label="净值合计" width="140" align="right">
             <template #default="{ row }">{{ fmt(row.total_net_value) }}</template>
@@ -185,10 +192,14 @@
           <span style="margin-left: 8px; color: #999">{{ ((cardForm.residual_value_rate || 0) * 100).toFixed(0) }}%</span>
         </el-form-item>
         <el-form-item label="使用部门">
-          <el-input v-model="cardForm.department" />
+          <el-select v-model="cardForm.department_id" placeholder="选择部门" clearable filterable style="width: 100%" @change="onDeptChange">
+            <el-option v-for="d in departments" :key="d.id" :label="d.name" :value="d.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="责任人">
-          <el-input v-model="cardForm.employee_name" />
+          <el-select v-model="cardForm.employee_id" placeholder="选择人员" clearable filterable style="width: 100%" @change="onEmpChange">
+            <el-option v-for="e in employees" :key="e.id" :label="e.name" :value="e.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="存放地点">
           <el-input v-model="cardForm.location" />
@@ -261,7 +272,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { assetApi } from '../api'
+import { assetApi, auxApi } from '../api'
 
 const route = useRoute()
 const bookId = route.query.book || route.params.id || 1
@@ -273,6 +284,8 @@ const filterStatus = ref('')
 
 const cards = ref([])
 const categories = ref([])
+const departments = ref([])
+const employees = ref([])
 const depResults = ref([])
 const depPeriod = ref(new Date().toISOString().slice(0, 7))
 const depTotal = ref(0)
@@ -283,7 +296,7 @@ const cardForm = reactive({
   id: null, code: '', name: '', spec_model: '', category_id: null,
   original_value: 0, acquisition_date: '', depreciation_start_month: '',
   useful_life_months: 36, residual_value_rate: 0.05,
-  department: '', employee_name: '', location: '',
+  department_id: null, employee_id: null, department: '', employee_name: '', location: '',
   source: 'purchase', remark: ''
 })
 
@@ -327,6 +340,30 @@ async function loadCards() {
 async function loadCategories() {
   const { data } = await assetApi.listCategories(bookId)
   categories.value = data.data || []
+}
+
+async function loadDepartments() {
+  try {
+    const { data } = await auxApi.list(bookId, { type: 'department' })
+    departments.value = (data.data || []).filter(d => d.is_active !== false)
+  } catch { departments.value = [] }
+}
+
+async function loadEmployees() {
+  try {
+    const { data } = await auxApi.list(bookId, { type: 'employee' })
+    employees.value = (data.data || []).filter(e => e.is_active !== false)
+  } catch { employees.value = [] }
+}
+
+function onDeptChange(id) {
+  const dept = departments.value.find(d => d.id === id)
+  cardForm.department = dept ? dept.name : ''
+}
+
+function onEmpChange(id) {
+  const emp = employees.value.find(e => e.id === id)
+  cardForm.employee_name = emp ? emp.name : ''
 }
 
 async function loadSummary() {
@@ -455,6 +492,8 @@ async function handleImport() {
 onMounted(() => {
   loadCards()
   loadCategories()
+  loadDepartments()
+  loadEmployees()
   loadSummary()
   loadTransactions()
 })
