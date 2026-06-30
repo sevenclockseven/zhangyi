@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -19,11 +21,25 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	// 初始化管理员
 	services.InitAdmin(db)
 
-	// CORS middleware
+	// CORS middleware - 白名单
+	allowedOrigins := map[string]bool{
+		"http://localhost:8080":  true,
+		"http://localhost:3000": true,
+	}
+	// 从环境变量加载额外的白名单
+	if envOrigins := os.Getenv("CORS_ORIGINS"); envOrigins != "" {
+		for _, o := range strings.Split(envOrigins, ",") {
+			allowedOrigins[strings.TrimSpace(o)] = true
+		}
+	}
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+		if allowedOrigins[origin] {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -39,8 +55,8 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "ok", "name": "易记", "version": AppVersion})
 		})
-		api.POST("/auth/login", loginHandler(db))
-		api.POST("/auth/register", registerHandler(db))
+		api.POST("/auth/login", middleware.LoginRateLimit(), loginHandler(db))
+		// 注册功能已禁用，用户只能由管理员创建
 
 		// 需要登录的接口
 		auth := api.Group("")
@@ -62,160 +78,135 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				users.PUT("/:uid/reset-password", resetPassword(db))
 			}
 
-			// 账套
-			books := auth.Group("/books")
-			{
-				books.GET("", listBooks(db))
-				books.POST("", createBook(db))
-				books.GET("/:id", getBook(db))
-				books.PUT("/:id", updateBook(db))
-				books.DELETE("/:id", deleteBook(db))
-				books.POST("/:id/sync-template", syncTemplate(db))
-				books.POST("/:id/sync-all-templates", syncAllTemplates(db))
-				books.GET("/:id/trial-balance", trialBalance(db))
-			books.GET("/:id/opening-balances", getOpeningBalances(db))
-			books.POST("/:id/opening-balances", saveOpeningBalances(db))
-			books.GET("/:id/opening-balances/export", exportOpeningBalances(db))
-			books.POST("/:id/opening-balances/import", importOpeningBalances(db))
-			
-			}
+		// 账套
+		books := auth.Group("/books")
+		{
+			books.GET("", listBooks(db))
+			books.POST("", createBook(db))
+			books.GET("/:id", getBook(db))
+			books.PUT("/:id", updateBook(db))
+			books.DELETE("/:id", deleteBook(db))
+			books.POST("/:id/sync-template", syncTemplate(db))
+			books.POST("/:id/sync-all-templates", syncAllTemplates(db))
+			books.GET("/:id/trial-balance", trialBalance(db))
+		books.GET("/:id/opening-balances", getOpeningBalances(db))
+		books.POST("/:id/opening-balances", saveOpeningBalances(db))
+		books.GET("/:id/opening-balances/export", exportOpeningBalances(db))
+		books.POST("/:id/opening-balances/import", importOpeningBalances(db))
+		
+		}
 
+		// 需要账套权限的接口
+		bookScoped := auth.Group("/books/:id")
+		bookScoped.Use(middleware.BookAccess(db))
+		{
 			// 科目
-			accounts := auth.Group("/books/:id/accounts")
-			{
-				accounts.GET("", listAccounts(db))
-				accounts.GET("/tree", getAccountTree(db))
-				accounts.POST("", createAccount(db))
-				accounts.PUT("/:acid", updateAccount(db))
-				accounts.DELETE("/:acid", deleteAccount(db))
-				accounts.POST("/dedup", func(c *gin.Context) {
-					bookID := c.Param("id")
-					var accounts []models.Account
-					db.Where("book_id = ?", bookID).Order("id").Find(&accounts)
-					seen := make(map[string]bool)
-					var toDelete []uint
-					for _, a := range accounts {
-						if seen[a.Code] {
-							toDelete = append(toDelete, a.ID)
-						} else {
-							seen[a.Code] = true
-						}
+			bookScoped.GET("/accounts", listAccounts(db))
+			bookScoped.GET("/accounts/tree", getAccountTree(db))
+			bookScoped.POST("/accounts", createAccount(db))
+			bookScoped.PUT("/accounts/:acid", updateAccount(db))
+			bookScoped.DELETE("/accounts/:acid", deleteAccount(db))
+			bookScoped.POST("/accounts/dedup", func(c *gin.Context) {
+				bookID := c.Param("id")
+				var accounts []models.Account
+				db.Where("book_id = ?", bookID).Order("id").Find(&accounts)
+				seen := make(map[string]bool)
+				var toDelete []uint
+				for _, a := range accounts {
+					if seen[a.Code] {
+						toDelete = append(toDelete, a.ID)
+					} else {
+						seen[a.Code] = true
 					}
-					if len(toDelete) > 0 {
-						db.Where("id IN ?", toDelete).Delete(&models.Account{})
-					}
-					c.JSON(http.StatusOK, gin.H{"deleted": len(toDelete), "remaining": len(accounts) - len(toDelete)})
-				})
-			}
+				}
+				if len(toDelete) > 0 {
+					db.Where("id IN ?", toDelete).Delete(&models.Account{})
+				}
+				c.JSON(http.StatusOK, gin.H{"deleted": len(toDelete), "remaining": len(accounts) - len(toDelete)})
+			})
 
 			// 凭证
-			vouchers := auth.Group("/books/:id/vouchers")
-			{
-				vouchers.GET("", listVouchers(db))
-				vouchers.POST("", createVoucher(db))
-				vouchers.GET("/:vid", getVoucher(db))
-				vouchers.PUT("/:vid", updateVoucher(db))
-				vouchers.DELETE("/:vid", deleteVoucher(db))
-				vouchers.POST("/:vid/review", reviewVoucher(db))
-				vouchers.POST("/:vid/unreview", unreviewVoucher(db))
-				vouchers.POST("/:vid/post", postVoucher(db))
-				vouchers.POST("/:vid/unpost", unpostVoucher(db))
-				vouchers.POST("/:vid/void", voidVoucher(db))
-				vouchers.POST("/:vid/restore", restoreVoucher(db))
-				vouchers.POST("/batch-review", batchReview(db))
-				vouchers.POST("/batch-post", batchPost(db))
-				vouchers.GET("/export", exportVouchers(db))
-			}
+			bookScoped.GET("/vouchers", listVouchers(db))
+			bookScoped.POST("/vouchers", createVoucher(db))
+			bookScoped.GET("/vouchers/:vid", getVoucher(db))
+			bookScoped.PUT("/vouchers/:vid", updateVoucher(db))
+			bookScoped.DELETE("/vouchers/:vid", deleteVoucher(db))
+			bookScoped.POST("/vouchers/:vid/review", reviewVoucher(db))
+			bookScoped.POST("/vouchers/:vid/unreview", unreviewVoucher(db))
+			bookScoped.POST("/vouchers/:vid/post", postVoucher(db))
+			bookScoped.POST("/vouchers/:vid/unpost", unpostVoucher(db))
+			bookScoped.POST("/vouchers/:vid/void", voidVoucher(db))
+			bookScoped.POST("/vouchers/:vid/restore", restoreVoucher(db))
+			bookScoped.POST("/vouchers/batch-review", batchReview(db))
+			bookScoped.POST("/vouchers/batch-post", batchPost(db))
+			bookScoped.GET("/vouchers/export", exportVouchers(db))
 
 			// 凭证模板
-			tpls := auth.Group("/books/:id/voucher-templates")
-			{
-			tpls.GET("", listVoucherTemplates(db))
-			tpls.POST("", createVoucherTemplate(db))
-			tpls.PUT("/:tid", updateVoucherTemplate(db))
-			tpls.DELETE("/:tid", deleteVoucherTemplate(db))
-			}
+			bookScoped.GET("/voucher-templates", listVoucherTemplates(db))
+			bookScoped.POST("/voucher-templates", createVoucherTemplate(db))
+			bookScoped.PUT("/voucher-templates/:tid", updateVoucherTemplate(db))
+			bookScoped.DELETE("/voucher-templates/:tid", deleteVoucherTemplate(db))
 
 			// 账簿查询
-			books.GET("/:id/ledger/journal", journal(db))
-			books.GET("/:id/ledger/multi-column", multiColumnLedger(db))
+			bookScoped.GET("/ledger/journal", journal(db))
+			bookScoped.GET("/ledger/multi-column", multiColumnLedger(db))
 
 			// 报表
-			reports := auth.Group("/books/:id/reports")
-			{
-				reports.GET("/balance-sheet", balanceSheet(db))
-				reports.GET("/income-statement", incomeStatement(db))
-				reports.GET("/cash-flow", cashFlowStatement(db))
-				reports.GET("/account-balance", accountBalanceReport(db))
-				reports.GET("/export", exportReport(db))
-			reports.GET("/templates", listReportTemplates(db))
-			reports.POST("/templates", createReportTemplate(db))
-			reports.PUT("/templates/:tid", updateReportTemplate(db))
-			reports.DELETE("/templates/:tid", deleteReportTemplate(db))
-			reports.GET("/custom/:rid", customReport(db))
-			reports.GET("/income-statement-v2", incomeStatementEnhanced(db))
-			reports.GET("/expense", expenseReport(db))
-			reports.GET("/general-ledger", generalLedgerReport(db))
-			reports.GET("/ar-ap", arApReport(db))
-			}
+			bookScoped.GET("/reports/balance-sheet", balanceSheet(db))
+			bookScoped.GET("/reports/income-statement", incomeStatement(db))
+			bookScoped.GET("/reports/cash-flow", cashFlowStatement(db))
+			bookScoped.GET("/reports/account-balance", accountBalanceReport(db))
+			bookScoped.GET("/reports/export", exportReport(db))
+			bookScoped.GET("/reports/templates", listReportTemplates(db))
+			bookScoped.POST("/reports/templates", createReportTemplate(db))
+			bookScoped.PUT("/reports/templates/:tid", updateReportTemplate(db))
+			bookScoped.DELETE("/reports/templates/:tid", deleteReportTemplate(db))
+			bookScoped.GET("/reports/custom/:rid", customReport(db))
+			bookScoped.GET("/reports/income-statement-v2", incomeStatementEnhanced(db))
+			bookScoped.GET("/reports/expense", expenseReport(db))
+			bookScoped.GET("/reports/general-ledger", generalLedgerReport(db))
+			bookScoped.GET("/reports/ar-ap", arApReport(db))
 
 			// 设备管理
-			assets := auth.Group("/books/:id/assets")
-			{
-				assets.GET("/categories", listAssetCategories(db))
-				assets.POST("/categories", createAssetCategory(db))
-				assets.PUT("/categories/:aid", updateAssetCategory(db))
-				assets.DELETE("/categories/:aid", deleteAssetCategory(db))
-
-				assets.GET("", listAssetCards(db))
-				assets.POST("", createAssetCard(db))
-				assets.GET("/:cardId", getAssetCard(db))
-				assets.PUT("/:cardId", updateAssetCard(db))
-				assets.DELETE("/:cardId", deleteAssetCard(db))
-
-				assets.GET("/depreciation/calc", calcDepreciation(db))
-				assets.POST("/depreciation/run", runDepreciation(db))
-
-				assets.GET("/summary", assetSummary(db))
-
-				// 资产变动
-				assets.PUT("/:cardId/status", changeAssetStatus(db))
-				assets.GET("/transactions/:cardId", listAssetTransactions(db))
-				assets.GET("/transactions", listAllAssetTransactions(db))
-				// 资产导入导出
-				assets.POST("/import", importAssets(db))
-				assets.GET("/export", exportAssets(db))
-			}
+			bookScoped.GET("/assets/categories", listAssetCategories(db))
+			bookScoped.POST("/assets/categories", createAssetCategory(db))
+			bookScoped.PUT("/assets/categories/:aid", updateAssetCategory(db))
+			bookScoped.DELETE("/assets/categories/:aid", deleteAssetCategory(db))
+			bookScoped.GET("/assets", listAssetCards(db))
+			bookScoped.POST("/assets", createAssetCard(db))
+			bookScoped.GET("/assets/:cardId", getAssetCard(db))
+			bookScoped.PUT("/assets/:cardId", updateAssetCard(db))
+			bookScoped.DELETE("/assets/:cardId", deleteAssetCard(db))
+			bookScoped.GET("/assets/depreciation/calc", calcDepreciation(db))
+			bookScoped.POST("/assets/depreciation/run", runDepreciation(db))
+			bookScoped.GET("/assets/summary", assetSummary(db))
+			bookScoped.PUT("/assets/:cardId/status", changeAssetStatus(db))
+			bookScoped.GET("/assets/transactions/:cardId", listAssetTransactions(db))
+			bookScoped.GET("/assets/transactions", listAllAssetTransactions(db))
+			bookScoped.POST("/assets/import", importAssets(db))
+			bookScoped.GET("/assets/export", exportAssets(db))
 
 			// 辅助核算
-			aux := auth.Group("/books/:id/aux/:type")
-			{
-				aux.GET("", listAuxItems(db))
-				aux.POST("", createAuxItem(db))
-				aux.PUT("/:aid", updateAuxItem(db))
-				aux.DELETE("/:aid", deleteAuxItem(db))
-			aux.GET("/export", exportAuxItems(db))
-			aux.POST("/import", importAuxItems(db))
-			aux.POST("/batch-delete", batchDeleteAuxItems(db))
-			}
+			bookScoped.GET("/aux/:type", listAuxItems(db))
+			bookScoped.POST("/aux/:type", createAuxItem(db))
+			bookScoped.PUT("/aux/:type/:aid", updateAuxItem(db))
+			bookScoped.DELETE("/aux/:type/:aid", deleteAuxItem(db))
+			bookScoped.GET("/aux/:type/export", exportAuxItems(db))
+			bookScoped.POST("/aux/:type/import", importAuxItems(db))
+			bookScoped.POST("/aux/:type/batch-delete", batchDeleteAuxItems(db))
 
 			// 期末处理
-			closing := auth.Group("/books/:id/closing")
-			{
-				closing.POST("/auto-transfer", autoTransfer(db))
-				closing.POST("/close", closePeriod(db))
-				closing.POST("/unclose", unclosePeriod(db))
-				closing.GET("/status", closingStatus(db))
-			}
+			bookScoped.POST("/closing/auto-transfer", autoTransfer(db))
+			bookScoped.POST("/closing/close", closePeriod(db))
+			bookScoped.POST("/closing/unclose", unclosePeriod(db))
+			bookScoped.GET("/closing/status", closingStatus(db))
 
 			// 账套权限管理
-			bookUsers := auth.Group("/books/:id/users")
-			{
-				bookUsers.GET("", listBookUsers(db))
-				bookUsers.POST("", addBookUser(db))
-				bookUsers.PUT("/:buid", updateBookUser(db))
-				bookUsers.DELETE("/:buid", deleteBookUser(db))
-			}
+			bookScoped.GET("/users", listBookUsers(db))
+			bookScoped.POST("/users", addBookUser(db))
+			bookScoped.PUT("/users/:buid", updateBookUser(db))
+			bookScoped.DELETE("/users/:buid", deleteBookUser(db))
+		}
 
 			// 系统级接口（备份、日志）
 			auth.GET("/system/backups", listBackups(db))

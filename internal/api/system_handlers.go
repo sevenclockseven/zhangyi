@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +16,26 @@ import (
 
 	"github.com/sevenclockseven/zhangyi/internal/models"
 )
+
+// 校验备份文件名
+var backupNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+\.sql\.gz$`)
+
+func validateBackupName(name string) bool {
+	return backupNameRegex.MatchString(name)
+}
+
+func safeBackupPath(backupDir, name string) (string, error) {
+	if !validateBackupName(name) {
+		return "", fmt.Errorf("非法文件名")
+	}
+	path := filepath.Join(backupDir, filepath.Base(name))
+	absPath, _ := filepath.Abs(path)
+	absDir, _ := filepath.Abs(backupDir)
+	if !strings.HasPrefix(absPath, absDir+string(os.PathSeparator)) && absPath != absDir {
+		return "", fmt.Errorf("路径越界")
+	}
+	return path, nil
+}
 
 // ===== Backup =====
 
@@ -71,19 +92,26 @@ func createBackup(db *gorm.DB) gin.HandlerFunc {
 		var cmd *exec.Cmd
 		if dbDriver == "postgres" {
 			dsn := os.Getenv("DB_DSN")
-			cmd = exec.Command("sh", "-c", fmt.Sprintf("pg_dump '%s' | gzip > '%s'", dsn, path))
+			cmd = exec.Command("pg_dump", dsn)
 		} else {
 			dbPath := os.Getenv("DB_DSN")
 			if dbPath == "" {
 				dbPath = "data/zhangyi.db"
 			}
-			cmd = exec.Command("sh", "-c", fmt.Sprintf("sqlite3 '%s' '.dump' | gzip > '%s'", dbPath, path))
+			cmd = exec.Command("sqlite3", dbPath, ".dump")
 		}
 
+		gzipCmd := exec.Command("gzip")
+		gzipCmd.Stdout, _ = os.Create(path)
+		defer gzipCmd.Stdout.(interface{ Close() error }).Close()
+		cmd.Stdout, _ = gzipCmd.StdinPipe()
+		_ = gzipCmd.Start()
 		if out, err := cmd.CombinedOutput(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("备份失败: %s", string(out))})
 			return
 		}
+		cmd.Wait()
+		gzipCmd.Wait()
 
 		info, _ := os.Stat(path)
 		c.JSON(http.StatusOK, gin.H{"message": "备份成功", "file": filename, "size": info.Size()})
@@ -97,7 +125,11 @@ func downloadBackup(db *gorm.DB) gin.HandlerFunc {
 		if backupDir == "" {
 			backupDir = "backups"
 		}
-		path := filepath.Join(backupDir, name)
+		path, err := safeBackupPath(backupDir, name)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "非法文件名"})
+			return
+		}
 
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "备份文件不存在"})
@@ -114,7 +146,11 @@ func deleteBackup(db *gorm.DB) gin.HandlerFunc {
 		if backupDir == "" {
 			backupDir = "backups"
 		}
-		path := filepath.Join(backupDir, name)
+		path, err := safeBackupPath(backupDir, name)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "非法文件名"})
+			return
+		}
 
 		if err := os.Remove(path); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败"})
@@ -131,7 +167,11 @@ func restoreBackup(db *gorm.DB) gin.HandlerFunc {
 		if backupDir == "" {
 			backupDir = "backups"
 		}
-		path := filepath.Join(backupDir, name)
+		path, err := safeBackupPath(backupDir, name)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "非法文件名"})
+			return
+		}
 
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "备份文件不存在"})
@@ -143,38 +183,54 @@ func restoreBackup(db *gorm.DB) gin.HandlerFunc {
 			dbDriver = "sqlite"
 		}
 
-		// Create a backup before restoring
+		dbPath := os.Getenv("DB_DSN")
+		if dbPath == "" {
+			dbPath = "data/zhangyi.db"
+		}
+
+		// 恢复前备份
 		preRestoreName := fmt.Sprintf("pre_restore_%s.sql.gz", time.Now().Format("2006-01-02_150405"))
 		preRestorePath := filepath.Join(backupDir, preRestoreName)
 
 		if dbDriver == "postgres" {
 			dsn := os.Getenv("DB_DSN")
-			exec.Command("sh", "-c", fmt.Sprintf("pg_dump '%s' | gzip > '%s'", dsn, preRestorePath)).Run()
+			dumpCmd := exec.Command("pg_dump", dsn)
+			gzipCmd := exec.Command("gzip")
+			gzipFile, _ := os.Create(preRestorePath)
+			gzipCmd.Stdout = gzipFile
+			dumpCmd.Stdout, _ = gzipCmd.StdinPipe()
+			_ = gzipCmd.Start()
+			dumpCmd.Run()
+			gzipCmd.Wait()
+			gzipFile.Close()
 		} else {
-			dbPath := os.Getenv("DB_DSN")
-			if dbPath == "" {
-				dbPath = "data/zhangyi.db"
-			}
-			exec.Command("sh", "-c", fmt.Sprintf("sqlite3 '%s' '.dump' | gzip > '%s'", dbPath, preRestorePath)).Run()
+			dumpCmd := exec.Command("sqlite3", dbPath, ".dump")
+			gzipCmd := exec.Command("gzip")
+			gzipFile, _ := os.Create(preRestorePath)
+			gzipCmd.Stdout = gzipFile
+			dumpCmd.Stdout, _ = gzipCmd.StdinPipe()
+			_ = gzipCmd.Start()
+			dumpCmd.Run()
+			gzipCmd.Wait()
+			gzipFile.Close()
 		}
 
-		// Restore
-		var cmd *exec.Cmd
+		// 恢复
+		gunzipCmd := exec.Command("gunzip", "-c", path)
+		var restoreCmd *exec.Cmd
 		if dbDriver == "postgres" {
 			dsn := os.Getenv("DB_DSN")
-			cmd = exec.Command("sh", "-c", fmt.Sprintf("gunzip -c '%s' | psql '%s'", path, dsn))
+			restoreCmd = exec.Command("psql", dsn)
 		} else {
-			dbPath := os.Getenv("DB_DSN")
-			if dbPath == "" {
-				dbPath = "data/zhangyi.db"
-			}
-			cmd = exec.Command("sh", "-c", fmt.Sprintf("gunzip -c '%s' | sqlite3 '%s'", path, dbPath))
+			restoreCmd = exec.Command("sqlite3", dbPath)
 		}
-
-		if out, err := cmd.CombinedOutput(); err != nil {
+		restoreCmd.Stdin, _ = gunzipCmd.StdoutPipe()
+		_ = gunzipCmd.Start()
+		if out, err := restoreCmd.CombinedOutput(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("恢复失败: %s", string(out))})
 			return
 		}
+		gunzipCmd.Wait()
 
 		c.JSON(http.StatusOK, gin.H{"message": "恢复成功，请重启服务", "pre_restore_backup": preRestoreName})
 	}

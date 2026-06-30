@@ -22,6 +22,10 @@ FROM golang:1.25-alpine
 RUN sed -i "s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g" /etc/apk/repositories 2>/dev/null; true
 RUN apk add --no-cache ca-certificates curl tzdata sqlite gzip
 ENV TZ=Asia/Shanghai
+# 安全配置 - 部署时必须设置
+ENV JWT_SECRET=""
+ENV ADMIN_PASSWORD=""
+ENV CORS_ORIGINS=""
 WORKDIR /app
 COPY --from=backend /app/zhangyi .
 COPY templates/ ./templates/

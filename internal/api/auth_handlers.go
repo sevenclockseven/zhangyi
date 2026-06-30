@@ -174,9 +174,18 @@ func updateUser(db *gorm.DB) gin.HandlerFunc {
 			updates["real_name"] = req.RealName
 		}
 		if req.Role != "" {
+			// 限制角色值域
+			if req.Role != "admin" && req.Role != "user" && req.Role != "viewer" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "无效的角色值"})
+				return
+			}
 			updates["role"] = req.Role
 		}
 		if req.Status != "" {
+			if req.Status != "active" && req.Status != "disabled" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "无效的状态值"})
+				return
+			}
 			updates["status"] = req.Status
 		}
 		db.Model(&user).Updates(updates)

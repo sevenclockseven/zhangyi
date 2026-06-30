@@ -297,9 +297,10 @@ func reviewVoucher(db *gorm.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "只能审核草稿状态的凭证"})
 			return
 		}
+		username, _ := c.Get("username")
 		db.Model(&voucher).Updates(map[string]interface{}{
 			"status":      "reviewed",
-			"reviewed_by": "admin",
+			"reviewed_by": username,
 		})
 		c.JSON(http.StatusOK, gin.H{"message": "审核成功"})
 	}
@@ -346,7 +347,7 @@ func postVoucher(db *gorm.DB) gin.HandlerFunc {
 
 		db.Model(&voucher).Updates(map[string]interface{}{
 			"status":    "posted",
-			"posted_by": "admin",
+			"posted_by": c.GetString("username"),
 		})
 		c.JSON(http.StatusOK, gin.H{"message": "记账成功"})
 	}

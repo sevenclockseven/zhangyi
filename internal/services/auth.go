@@ -1,7 +1,11 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -11,8 +15,24 @@ import (
 	"github.com/sevenclockseven/zhangyi/internal/models"
 )
 
-// JWT密钥 - 生产环境应从环境变量读取
-var JWTSecret = []byte("zhangyi-jwt-secret-2026")
+// JWT密钥 - 从环境变量读取，未设置时随机生成
+var JWTSecret = initJWTSecret()
+
+func initJWTSecret() []byte {
+	if secret := os.Getenv("JWT_SECRET"); secret != "" {
+		return []byte(secret)
+	}
+	// 首次启动随机生成并打印，后续需设置环境变量
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// fallback 不应到达
+		return []byte("zhangyi-fallback-jwt-secret-change-me")
+	}
+	generated := hex.EncodeToString(b)
+	fmt.Printf("⚠️  未设置 JWT_SECRET 环境变量，已随机生成: %s\n", generated)
+	fmt.Printf("   请设置: export JWT_SECRET=%s\n\n", generated)
+	return []byte(generated)
+}
 
 // Claims JWT声明
 type Claims struct {
@@ -90,7 +110,16 @@ func InitAdmin(db *gorm.DB) {
 	var count int64
 	db.Model(&models.User{}).Count(&count)
 	if count == 0 {
-		hash, _ := HashPassword("admin123")
+		adminPassword := os.Getenv("ADMIN_PASSWORD")
+		if adminPassword == "" {
+			// 随机生成8位密码
+			b := make([]byte, 4)
+			rand.Read(b)
+			adminPassword = hex.EncodeToString(b)
+			fmt.Printf("⚠️  未设置 ADMIN_PASSWORD 环境变量，已随机生成管理员密码: %s\n", adminPassword)
+			fmt.Printf("   请设置: export ADMIN_PASSWORD=%s\n\n", adminPassword)
+		}
+		hash, _ := HashPassword(adminPassword)
 		admin := models.User{
 			Username: "admin",
 			Password: hash,

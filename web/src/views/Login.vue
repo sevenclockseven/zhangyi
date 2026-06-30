@@ -33,7 +33,6 @@
           <el-button type="primary" size="large" style="width: 100%" :loading="loading" @click="handleLogin">登 录</el-button>
         </el-form-item>
       </el-form>
-      <div class="login-footer">默认账号: admin / admin123</div>
     </div>
   </div>
 </template>
