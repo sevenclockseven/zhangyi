@@ -156,7 +156,6 @@ export const assetApi = {
   getAllTransactions: (bookId) => http.get(`/api/books/${bookId}/assets/transactions`),
   importAssets: (bookId, data) => http.post(`/api/books/${bookId}/assets/import`, data),
   exportAssets: (bookId) => http.get(`/api/books/${bookId}/assets/export`),
-,
 }
 
 export const healthApi = {

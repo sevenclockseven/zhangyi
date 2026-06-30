@@ -430,10 +430,8 @@ async function handleExport() {
   if (!items.length) { ElMessage.warning('暂无资产'); return }
   const H = ['编号','名称','规格','分类','原值','累计折旧','净值','月折旧','状态','部门','责任人','存放地点','取得日期','折旧起始月','使用年限','净残值率','来源','备注']
   const F = ['code','name','spec_model','category_name','original_value','accumulated_depreciation','net_value','monthly_depreciation','status','department','employee_name','location','acquisition_date','depreciation_start_month','useful_life_months','residual_value_rate','source','remark']
-  let csv = H.join('	') + '
-'
-  for (const it of items) csv += F.map(f => it[f] ?? '').join('	') + '
-'
+  let csv = H.join('	') + '\n'
+  for (const it of items) csv += F.map(f => it[f] ?? '').join('	') + '\n'
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'})
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
