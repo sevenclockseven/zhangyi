@@ -120,6 +120,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			bookScoped.GET("/reports/expense", expenseReport(db))
 			bookScoped.GET("/reports/general-ledger", generalLedgerReport(db))
 			bookScoped.GET("/reports/ar-ap", arApReport(db))
+			bookScoped.GET("/reports/monthly-trend", monthlyTrend(db))
 			bookScoped.GET("/assets/categories", listAssetCategories(db))
 			bookScoped.GET("/assets", listAssetCards(db))
 			bookScoped.GET("/assets/:cardId", getAssetCard(db))

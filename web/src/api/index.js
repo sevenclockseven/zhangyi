@@ -98,7 +98,8 @@ export const reportApi = {
   incomeStatementV2: (bookId, period) => http.get(`/api/books/${bookId}/reports/income-statement-v2`, { params: { period } }),
   expense: (bookId) => http.get(`/api/books/${bookId}/reports/expense`),
   generalLedger: (bookId) => http.get(`/api/books/${bookId}/reports/general-ledger`),
-  arAp: (bookId) => http.get(`/api/books/${bookId}/reports/ar-ap`),
+  arAp: (bookId, type) => http.get(`/api/books/${bookId}/reports/ar-ap`, { params: { type } }),
+  monthlyTrend: (bookId, year) => http.get(`/api/books/${bookId}/reports/monthly-trend`, { params: { year } }),
   custom: (bookId, rid) => http.get(`/api/books/${bookId}/reports/custom/${rid}`),
   exportUrl: (bookId) => `/api/books/${bookId}/reports/export`,
   templates: {

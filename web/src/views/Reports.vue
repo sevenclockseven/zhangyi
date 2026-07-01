@@ -14,21 +14,32 @@
       <el-tab-pane label="应收统计" name="ar" />
       <el-tab-pane label="应付统计" name="ap" />
       <el-tab-pane label="自定义报表" name="custom" />
+      <el-tab-pane label="图表分析" name="charts" />
 
-      <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
-        <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadReport()" :size="isMobile ? 'small' : 'default'" />
-        <el-dropdown @command="exportReport" :disabled="!reportData && !crResult">
-          <el-button size="small" :disabled="!reportData">
-            <el-icon><Download /></el-icon>导出 <el-icon><ArrowDown /></el-icon>
+      <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+        <template v-if="activeTab !== 'charts'">
+          <el-date-picker v-model="period" type="month" value-format="YYYY-MM" placeholder="期间" @change="loadReport()" :size="isMobile ? 'small' : 'default'" />
+          <el-dropdown @command="exportReport" :disabled="!reportData && !crResult">
+            <el-button size="small" :disabled="!reportData">
+              <el-icon><Download /></el-icon>导出 <el-icon><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="csv">导出CSV</el-dropdown-item>
+                <el-dropdown-item command="excel">导出Excel</el-dropdown-item>
+                <el-dropdown-item command="print">打印</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </template>
+        <template v-else>
+          <el-button size="small" :disabled="!chartTrend || !chartPie || !chartProfit" @click="exportChartPNG">
+            <el-icon><Download /></el-icon>导出PNG
           </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="csv">导出CSV</el-dropdown-item>
-              <el-dropdown-item command="excel">导出Excel</el-dropdown-item>
-              <el-dropdown-item command="print">打印</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+          <el-button size="small" :disabled="!chartTrend || !chartPie || !chartProfit" @click="printChartReport">
+            打印图表
+          </el-button>
+        </template>
       </div>
 
       <!-- 利润表 (新格式) -->
@@ -303,6 +314,35 @@
       </div>
     </el-tabs>
 
+    <!-- 图表分析 -->
+    <div v-if="activeTab === 'charts' && currentBook" style="margin-top: 12px">
+      <el-card shadow="never">
+        <template #header>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong>图表分析</strong>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-size:13px;color:#909399">年度：</span>
+              <el-date-picker v-model="chartYear" type="year" value-format="YYYY" placeholder="选择年份" size="small" @change="loadChartData" style="width:100px" />
+            </div>
+          </div>
+        </template>
+        <div class="chart-grid">
+          <div>
+            <div class="chart-label">收支趋势</div>
+            <div ref="chartTrendRef" class="chart-box"></div>
+          </div>
+          <div>
+            <div class="chart-label">费用构成</div>
+            <div ref="chartPieRef" class="chart-box"></div>
+          </div>
+        </div>
+        <div style="margin-top:16px">
+          <div class="chart-label">利润趋势</div>
+          <div ref="chartProfitRef" class="chart-box-tall"></div>
+        </div>
+      </el-card>
+    </div>
+
     <!-- Custom Report Edit Dialog -->
     <el-dialog v-model="showCrEdit" :title="crForm.id ? '编辑自定义报表' : '新建自定义报表'" :width="isMobile ? '95%' : '650px'">
       <el-form :model="crForm" label-width="80px">
@@ -325,13 +365,14 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, watch } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
 import { reportApi } from '../api'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, ArrowDown, Plus, Minus } from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
 
 const { isMobile } = useMobile()
 const tableMaxHeight = isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)'
@@ -343,6 +384,155 @@ const reportData = ref(null)
 const balanceTableRef = ref(null)
 
 const expandRowKeys = ref([])
+
+// 图表分析
+const chartYear = ref(new Date().getFullYear().toString())
+const chartTrendRef = ref(null)
+const chartPieRef = ref(null)
+const chartProfitRef = ref(null)
+let chartTrend = null
+let chartPie = null
+let chartProfit = null
+
+const loadChartData = async () => {
+  if (!currentBook.value) return
+  try {
+    const { data } = await reportApi.monthlyTrend(currentBook.value, chartYear.value)
+    await nextTick()
+    renderChartTrend(data)
+    renderChartPie(data)
+    renderChartProfit(data)
+  } catch (e) { console.error(e) }
+}
+
+const renderChartTrend = (d) => {
+  if (!chartTrendRef.value || !d.months) return
+  if (!chartTrend) chartTrend = echarts.init(chartTrendRef.value)
+  const shortMonths = d.months.map(m => m.split('-')[1] + '月')
+  chartTrend.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['收入', '费用'], right: 10, top: 0 },
+    grid: { left: 55, right: 15, top: 35, bottom: 25 },
+    xAxis: { type: 'category', data: shortMonths },
+    yAxis: { type: 'value', axisLabel: { formatter: v => v >= 10000 ? (v/10000).toFixed(0) + '万' : v } },
+    series: [
+      { name: '收入', type: 'bar', data: d.revenue, itemStyle: { color: '#67C23A' } },
+      { name: '费用', type: 'bar', data: d.expense, itemStyle: { color: '#E6A23C' } }
+    ]
+  })
+}
+
+const renderChartPie = (d) => {
+  if (!chartPieRef.value || !d.expense_breakdown || d.expense_breakdown.length === 0) return
+  if (!chartPie) chartPie = echarts.init(chartPieRef.value)
+  const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#b37feb', '#36cfc9']
+  chartPie.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c}万 ({d}%)' },
+    legend: { orient: 'vertical', right: 10, top: 'center' },
+    series: [{
+      type: 'pie', radius: ['35%', '65%'], center: ['38%', '50%'],
+      label: { show: false },
+      emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
+      data: d.expense_breakdown.map((item, i) => ({
+        value: item.value >= 10000 ? +(item.value / 10000).toFixed(2) : +item.value.toFixed(2),
+        name: item.name,
+        itemStyle: { color: colors[i % colors.length] }
+      }))
+    }]
+  })
+}
+
+const renderChartProfit = (d) => {
+  if (!chartProfitRef.value || !d.months) return
+  if (!chartProfit) chartProfit = echarts.init(chartProfitRef.value)
+  const shortMonths = d.months.map(m => m.split('-')[1] + '月')
+  chartProfit.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 55, right: 15, top: 20, bottom: 25 },
+    xAxis: { type: 'category', data: shortMonths },
+    yAxis: { type: 'value', axisLabel: { formatter: v => v >= 10000 ? (v/10000).toFixed(0) + '万' : v } },
+    series: [{
+      type: 'bar', data: d.profit, barWidth: 20,
+      itemStyle: { color: p => p.value >= 0 ? '#409EFF' : '#F56C6C' },
+      markLine: { data: [{ type: 'average', name: '平均', lineStyle: { type: 'dashed', color: '#909399' } }], label: { fontSize: 11 } }
+    }]
+  })
+}
+
+const mergeChartImages = () => {
+  const dpr = 2
+  const gap = 20
+  const titleHeight = 50
+  const charts = [chartTrend, chartPie, chartProfit].filter(c => c)
+  if (!charts.length) return null
+
+  let maxWidth = 0
+  const images = charts.map(c => {
+    const img = new Image()
+    img.src = c.getDataURL({ pixelRatio: dpr, backgroundColor: '#fff' })
+    if (c === chartTrend) maxWidth = img.width || 600
+    return img
+  })
+
+  // Wait for all images to load
+  return new Promise((resolve) => {
+    let loaded = 0
+    const check = () => {
+      loaded++
+      if (loaded < images.length) return
+      const totalHeight = images.reduce((s, img) => s + img.height, 0) + gap * (images.length - 1) + titleHeight
+      const w = Math.max(...images.map(img => img.width), 600)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = totalHeight
+      const ctx = canvas.getContext('2d')
+
+      // Title
+      ctx.fillStyle = '#303133'
+      ctx.font = `bold ${16 * dpr}px Microsoft YaHei, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.fillText(`图表分析 - ${chartYear.value}年`, w / 2, 30 * dpr)
+
+      let y = titleHeight
+      images.forEach(img => {
+        ctx.drawImage(img, 0, y)
+        y += img.height + gap
+      })
+
+      resolve(canvas.toDataURL('image/png'))
+    }
+    images.forEach(img => {
+      if (img.complete) { check() } else { img.onload = check; img.onerror = check }
+    })
+  })
+}
+
+const exportChartPNG = async () => {
+  try {
+    const dataURL = await mergeChartImages()
+    if (!dataURL) { ElMessage.warning('无可导出的图表'); return }
+    const a = document.createElement('a')
+    a.href = dataURL
+    a.download = `图表分析_${chartYear.value}.png`
+    a.click()
+    ElMessage.success('导出成功')
+  } catch (e) { console.error(e); ElMessage.error('导出失败') }
+}
+
+const printChartReport = async () => {
+  try {
+    const dataURL = await mergeChartImages()
+    if (!dataURL) { ElMessage.warning('无可打印的图表'); return }
+    const printWin = window.open('', '_blank')
+    printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>图表分析 ${chartYear.value}</title>
+      <style>*{margin:0;padding:0;box-sizing:border-box}body{padding:15mm;text-align:center}img{max-width:100%;height:auto}@media print{body{padding:10mm}@page{margin:10mm}}</style></head><body>
+      <img src="${dataURL}"></body></html>`)
+    printWin.document.close()
+    printWin.focus()
+    setTimeout(() => { printWin.print(); printWin.close() }, 300)
+  } catch (e) { console.error(e); ElMessage.error('打印失败') }
+}
 
 const expandAllBalance = () => {
   // Use nextTick to ensure table is rendered with new data
@@ -393,6 +583,7 @@ const balanceSummaryMethod = ({ columns, data }) => {
 
 const loadReport = async () => {
   if (activeTab.value === 'custom') { loadCrList(); return }
+  if (activeTab.value === 'charts') { loadChartData(); return }
   if (!currentBook.value || !period.value) return
   reportData.value = null
   try {
@@ -561,10 +752,18 @@ const fmt = (v) => {
   return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-watch(currentBook, (val) => { if (val) loadReport() })
+watch(currentBook, (val) => { if (val) { loadReport(); if (activeTab.value === 'charts') loadChartData() } })
 onMounted(() => {
   if (currentBook.value) loadReport()
+  window.addEventListener('resize', handleChartResize)
 })
+onUnmounted(() => {
+  window.removeEventListener('resize', handleChartResize)
+  chartTrend?.dispose(); chartPie?.dispose(); chartProfit?.dispose()
+})
+const handleChartResize = () => {
+  chartTrend?.resize(); chartPie?.resize(); chartProfit?.resize()
+}
 // Custom Reports
 const crList = ref([])
 const crRunPeriod = ref(new Date().toISOString().slice(0, 7))
@@ -648,6 +847,12 @@ const deleteCr = async (tpl) => {
 .report-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .report-stack { display: flex; flex-direction: column; gap: 12px; }
 .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chart-label { font-size: 13px; color: #606266; font-weight: 500; margin-bottom: 8px; }
+.chart-box { height: 280px; }
+.chart-box-tall { height: 280px; }
+@media (max-width: 768px) { .chart-grid { grid-template-columns: 1fr; } }
 
 /* 一级科目颜色标识 */
 :deep(.row-asset) td,

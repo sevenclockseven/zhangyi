@@ -1095,3 +1095,101 @@ func deleteReportTemplate(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "已删除"})
 	}
 }
+
+// monthlyTrend returns monthly revenue/expense/profit for a given year
+func monthlyTrend(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID := c.Param("id")
+		year := c.DefaultQuery("year", fmt.Sprintf("%d", time.Now().Year()))
+
+		// 初始化12个月
+		months := make([]string, 12)
+		revenue := make([]float64, 12)
+		expense := make([]float64, 12)
+
+		for i := 0; i < 12; i++ {
+			months[i] = fmt.Sprintf("%s-%02d", year, i+1)
+		}
+
+		// 查询该年所有已记账的科目余额
+		type BalanceRow struct {
+			Period       string
+			AccountCode  string
+			PeriodDebit  float64
+			PeriodCredit float64
+		}
+		var rows []BalanceRow
+		db.Model(&models.AccountBalance{}).
+			Select("account_balances.period, accounts.code as account_code, account_balances.period_debit, account_balances.period_credit").
+			Joins("JOIN accounts ON accounts.id = account_balances.account_id").
+			Where("account_balances.book_id = ? AND account_balances.period LIKE ? AND accounts.is_active = ?",
+				bookID, year+"%", true).
+			Find(&rows)
+
+		// 按月汇总
+		for _, r := range rows {
+			monthIdx := -1
+			for i, m := range months {
+				if r.Period == m {
+					monthIdx = i
+					break
+				}
+			}
+			if monthIdx < 0 {
+				continue
+			}
+
+			code := r.AccountCode
+			if len(code) < 4 {
+				continue
+			}
+
+			switch {
+			case code >= "5000" && code <= "5399":
+				// 收入类：贷方发生额 - 借方发生额
+				revenue[monthIdx] += r.PeriodCredit - r.PeriodDebit
+			case code >= "5400" && code <= "5999":
+				// 费用类：借方发生额 - 贷方发生额
+				expense[monthIdx] += r.PeriodDebit - r.PeriodCredit
+			}
+		}
+
+		// 计算利润
+		profit := make([]float64, 12)
+		for i := 0; i < 12; i++ {
+			profit[i] = math.Round((revenue[i]-expense[i])*100) / 100
+			revenue[i] = math.Round(revenue[i]*100) / 100
+			expense[i] = math.Round(expense[i]*100) / 100
+		}
+
+		// 费用构成：当年各一级费用科目的合计
+		type ExpenseBreakdown struct {
+			AccountName string  `json:"name"`
+			Amount      float64 `json:"value"`
+		}
+		var breakdown []ExpenseBreakdown
+		db.Model(&models.AccountBalance{}).
+			Select("accounts.name as account_name, SUM(account_balances.period_debit - account_balances.period_credit) as amount").
+			Joins("JOIN accounts ON accounts.id = account_balances.account_id").
+			Where("account_balances.book_id = ? AND account_balances.period LIKE ? AND accounts.code >= ? AND accounts.code <= ? AND accounts.is_active = ? AND accounts.level = 1",
+				bookID, year+"%", "5400", "5999", true).
+			Group("accounts.name").
+			Having("SUM(account_balances.period_debit - account_balances.period_credit) > 0").
+			Order("amount DESC").
+			Find(&breakdown)
+
+		// 四舍五入
+		for i := range breakdown {
+			breakdown[i].Amount = math.Round(breakdown[i].Amount*100) / 100
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"year":             year,
+			"months":           months,
+			"revenue":          revenue,
+			"expense":          expense,
+			"profit":           profit,
+			"expense_breakdown": breakdown,
+		})
+	}
+}
