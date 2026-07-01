@@ -3,9 +3,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
-	"strconv"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -456,82 +457,130 @@ func arApReport(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 		reportType := c.DefaultQuery("type", "ar") // ar or ap
+		now := time.Now()
 
 		type AgingRow struct {
 			Code      string  `json:"code"`
 			Name      string  `json:"name"`
 			Total     float64 `json:"total"`
-			Current   float64 `json:"current"`     // 未到期
-			Month1    float64 `json:"month_1"`     // 1个月内
-			Month3    float64 `json:"month_3"`     // 1-3个月
-			Month6    float64 `json:"month_6"`     // 3-6个月
-			Month12   float64 `json:"month_12"`    // 6-12个月
-			Over1Year float64 `json:"over_1_year"` // 1年以上
+			Current   float64 `json:"current"`     // 30天内
+			Month1    float64 `json:"month_1"`     // 1-3个月
+			Month3    float64 `json:"month_3"`     // 3-6个月
+			Month6    float64 `json:"month_6"`     // 6-12个月
+			Month12   float64 `json:"month_12"`    // 12-24个月
+			Over1Year float64 `json:"over_1_year"` // 2年以上
 		}
 
-		// Get account codes based on type
 		var accountCodes []string
+		auxType := "customer"
 		if reportType == "ar" {
 			accountCodes = []string{"1122", "2203"} // 应收账款, 预收账款
 		} else {
 			accountCodes = []string{"2202", "1123"} // 应付账款, 预付账款
+			auxType = "supplier"
 		}
 
-		var rows []AgingRow
+		// 收集所有辅助项的账龄数据
+		type AgingEntry struct {
+			AuxID   uint
+			AuxCode string
+			AuxName string
+			Date    string
+			Amount  float64 // 正数=应收/应付余额
+		}
+		var entries []AgingEntry
+
 		for _, code := range accountCodes {
-			// Get aux items with balances
 			var auxItems []models.AuxItem
-			auxType := "customer"
-			if reportType == "ap" {
-				auxType = "supplier"
-			}
 			db.Where("book_id = ? AND type = ? AND is_active = ?", bookID, auxType, true).Find(&auxItems)
 
 			for _, aux := range auxItems {
-				// Get balance for this aux item
-				var totalDebit, totalCredit float64
+				// 查询该辅助项下所有已记账的凭证明细
+				type VoucherDetail struct {
+					Date   string
+					Debit  float64
+					Credit float64
+				}
+				var details []VoucherDetail
 				db.Model(&models.VoucherItem{}).
 					Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
 					Where("vouchers.book_id = ? AND vouchers.status = ? AND voucher_items.account_code LIKE ? AND voucher_items.aux_"+auxType+"_id = ?",
 						bookID, "posted", code+"%", aux.ID).
-					Select("COALESCE(SUM(debit), 0), COALESCE(SUM(credit), 0)").
-					Row().Scan(&totalDebit, &totalCredit)
+					Select("vouchers.date, voucher_items.debit, voucher_items.credit").
+					Order("vouchers.date ASC").
+					Find(&details)
 
-				balance := totalDebit - totalCredit
-				if reportType == "ap" {
-					balance = totalCredit - totalDebit
+				// 逐笔计算每条记录对账龄的贡献
+				for _, d := range details {
+					var amount float64
+					if reportType == "ar" {
+						amount = d.Debit - d.Credit // 应收：借方-贷方
+					} else {
+						amount = d.Credit - d.Debit // 应付：贷方-借方
+					}
+					if amount <= 0 {
+						continue // 负数表示已结算，不计入账龄
+					}
+					entries = append(entries, AgingEntry{
+						AuxID:   aux.ID,
+						AuxCode: aux.Code,
+						AuxName: aux.Name,
+						Date:    d.Date,
+						Amount:  amount,
+					})
 				}
-				if balance <= 0 {
+			}
+		}
+
+		// 按辅助项聚合，逐笔归入账龄桶
+		auxMap := make(map[uint]*AgingRow)
+		for _, e := range entries {
+			row, exists := auxMap[e.AuxID]
+			if !exists {
+				row = &AgingRow{Code: e.AuxCode, Name: e.AuxName}
+				auxMap[e.AuxID] = row
+			}
+			row.Total += e.Amount
+
+			// 解析日期
+			entryDate, err := time.Parse("2006-01-02", e.Date)
+			if err != nil {
+				entryDate, err = time.Parse("2006-01", e.Date)
+				if err != nil {
+					row.Current += e.Amount
 					continue
 				}
+			}
+			ageDays := int(now.Sub(entryDate).Hours() / 24)
 
-				row := AgingRow{
-					Code:  aux.Code,
-					Name:  aux.Name,
-					Total: balance,
-				}
+			switch {
+			case ageDays <= 30:
+				row.Current += e.Amount
+			case ageDays <= 90:
+				row.Month1 += e.Amount
+			case ageDays <= 180:
+				row.Month3 += e.Amount
+			case ageDays <= 365:
+				row.Month6 += e.Amount
+			case ageDays <= 730:
+				row.Month12 += e.Amount
+			default:
+				row.Over1Year += e.Amount
+			}
+		}
 
-				// Simplified aging: distribute evenly (real aging needs invoice-level tracking)
-				// For now, use voucher date-based aging
-				var oldestDate string
-				db.Model(&models.VoucherItem{}).
-					Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
-					Where("vouchers.book_id = ? AND vouchers.status = ? AND voucher_items.account_code LIKE ? AND voucher_items.aux_"+auxType+"_id = ?",
-						bookID, "posted", code+"%", aux.ID).
-					Select("MIN(vouchers.date)").
-					Row().Scan(&oldestDate)
-
-				if oldestDate != "" {
-					// Simple aging distribution
-					row.Current = balance * 0.4
-					row.Month1 = balance * 0.2
-					row.Month3 = balance * 0.15
-					row.Month6 = balance * 0.1
-					row.Month12 = balance * 0.1
-					row.Over1Year = balance * 0.05
-				}
-
-				rows = append(rows, row)
+		// 转为数组并四舍五入
+		var rows []AgingRow
+		for _, row := range auxMap {
+			row.Total = math.Round(row.Total*100) / 100
+			row.Current = math.Round(row.Current*100) / 100
+			row.Month1 = math.Round(row.Month1*100) / 100
+			row.Month3 = math.Round(row.Month3*100) / 100
+			row.Month6 = math.Round(row.Month6*100) / 100
+			row.Month12 = math.Round(row.Month12*100) / 100
+			row.Over1Year = math.Round(row.Over1Year*100) / 100
+			if row.Total > 0 {
+				rows = append(rows, *row)
 			}
 		}
 
