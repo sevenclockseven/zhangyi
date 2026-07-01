@@ -599,6 +599,9 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Cash account codes: 1001 (库存现金), 1002 (银行存款), 1012 (其他货币资金)
+		cashCodes := []string{"1001", "1002", "1012"}
+
 		// Get all cash flow items for this book
 		var auxItems []models.AuxItem
 		db.Where("book_id = ? AND type = ? AND is_active = ?", bookID, "cash_flow", true).Order("code").Find(&auxItems)
@@ -612,17 +615,15 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 		// Query voucher items with cash_flow_id, grouped by cash_flow_id
 		type CFResult struct {
 			CashFlowID uint
-			NetAmount  float64 // sum(debit) - sum(credit) for cash accounts
+			NetAmount  float64
 		}
 
-		// Cash account codes: 1001 (库存现金), 1002 (银行存款), 1012 (其他货币资金)
 		var results []CFResult
 		db.Model(&models.VoucherItem{}).
 			Select("voucher_items.cash_flow_id, COALESCE(SUM(voucher_items.debit - voucher_items.credit), 0) as net_amount").
 			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
 			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? AND voucher_items.cash_flow_id IS NOT NULL AND voucher_items.account_code IN (?)",
-				bookID, "posted", period+"%",
-				[]string{"1001", "1002", "1012"}).
+				bookID, "posted", period+"%", cashCodes).
 			Group("voucher_items.cash_flow_id").
 			Scan(&results)
 
@@ -636,9 +637,9 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 
 		var flowItems []FlowItem
 		categoryTotals := map[string]float64{
-			"operating":  0,
-			"investing":  0,
-			"financing":  0,
+			"operating": 0,
+			"investing": 0,
+			"financing": 0,
 		}
 
 		for _, r := range results {
@@ -688,13 +689,77 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 			})
 		}
 
+		reportIncrease := categoryTotals["operating"] + categoryTotals["investing"] + categoryTotals["financing"]
+
+		// === P0: 未标记凭证检测 ===
+		type UntaggedItem struct {
+			VoucherID   uint    `json:"voucher_id"`
+			VoucherDate string  `json:"voucher_date"`
+			VoucherNo   string  `json:"voucher_no"`
+			AccountCode string  `json:"account_code"`
+			AccountName string  `json:"account_name"`
+			Debit       float64 `json:"debit"`
+			Credit      float64 `json:"credit"`
+			Memo        string  `json:"memo"`
+		}
+		var untagged []UntaggedItem
+		db.Model(&models.VoucherItem{}).
+			Select("voucher_items.voucher_id, vouchers.date as voucher_date, vouchers.no as voucher_no, "+
+				"voucher_items.account_code, voucher_items.account_name, "+
+				"voucher_items.debit, voucher_items.credit, voucher_items.memo").
+			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").
+			Where("vouchers.book_id = ? AND vouchers.status = ? AND vouchers.date LIKE ? "+
+				"AND voucher_items.account_code IN (?) AND voucher_items.cash_flow_id IS NULL",
+				bookID, "posted", period+"%", cashCodes).
+			Order("vouchers.date").
+			Scan(&untagged)
+
+		// === P1+P2: 期初/期末现金余额 + 勾稽校验 ===
+		// Get account IDs for cash codes
+		var cashAccountIDs []uint
+		db.Model(&models.Account{}).
+			Select("id").
+			Where("book_id = ? AND code IN (?)", bookID, cashCodes).
+			Scan(&cashAccountIDs)
+
+		type BalanceResult struct {
+			OpeningDebit  float64
+			OpeningCredit float64
+			ClosingDebit  float64
+			ClosingCredit float64
+		}
+
+		var currentBalance BalanceResult
+		if len(cashAccountIDs) > 0 {
+			db.Model(&models.AccountBalance{}).
+				Select("SUM(opening_debit) as opening_debit, SUM(opening_credit) as opening_credit, "+
+					"SUM(closing_debit) as closing_debit, SUM(closing_credit) as closing_credit").
+				Where("book_id = ? AND period = ? AND account_id IN (?)", bookID, period, cashAccountIDs).
+				Scan(&currentBalance)
+		}
+
+		openingCash := currentBalance.OpeningDebit - currentBalance.OpeningCredit
+		closingCash := currentBalance.ClosingDebit - currentBalance.ClosingCredit
+		actualIncrease := closingCash - openingCash
+		reconciled := math.Abs(actualIncrease-reportIncrease) < 0.01
+
 		c.JSON(http.StatusOK, gin.H{
 			"data": flowItems,
 			"summary": gin.H{
-				"operating_total":  categoryTotals["operating"],
-				"investing_total":  categoryTotals["investing"],
-				"financing_total":  categoryTotals["financing"],
-				"cash_increase":    categoryTotals["operating"] + categoryTotals["investing"] + categoryTotals["financing"],
+				"operating_total": categoryTotals["operating"],
+				"investing_total": categoryTotals["investing"],
+				"financing_total": categoryTotals["financing"],
+				"cash_increase":   reportIncrease,
+			},
+			"balance": gin.H{
+				"opening_cash":   openingCash,
+				"closing_cash":   closingCash,
+				"actual_increase": actualIncrease,
+				"reconciled":     reconciled,
+			},
+			"warnings": gin.H{
+				"untagged_count": len(untagged),
+				"untagged_items": untagged,
 			},
 			"period": period,
 		})

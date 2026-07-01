@@ -93,6 +93,63 @@
       <div v-if="activeTab === 'cash-flow' && reportData">
         <el-card shadow="never">
           <template #header><strong>现金流量表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
+
+          <!-- 期初/期末现金余额 -->
+          <div style="margin-bottom: 12px; padding: 10px 12px; background: #f0f9eb; border-radius: 4px; display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px">
+            <span>期初现金余额：<strong>{{ fmt(reportData.balance?.opening_cash) }}</strong></span>
+            <span>期末现金余额：<strong>{{ fmt(reportData.balance?.closing_cash) }}</strong></span>
+            <span>实际现金变动：<strong :style="{ color: (reportData.balance?.actual_increase || 0) >= 0 ? '#67C23A' : '#F56C6C' }">{{ fmt(reportData.balance?.actual_increase) }}</strong></span>
+          </div>
+
+          <!-- 勾稽校验警告 -->
+          <el-alert
+            v-if="reportData.balance && !reportData.balance.reconciled"
+            type="error"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 12px"
+          >
+            <template #title>
+              勾稽校验不通过：现金流量表净增加额（{{ fmt(reportData.summary?.cash_increase) }}）与实际现金变动（{{ fmt(reportData.balance?.actual_increase) }}）差异 {{ fmt(Math.abs((reportData.summary?.cash_increase || 0) - (reportData.balance?.actual_increase || 0))) }} 元，请检查是否有未标记的凭证。
+            </template>
+          </el-alert>
+
+          <!-- 未标记凭证警告 -->
+          <el-alert
+            v-if="reportData.warnings?.untagged_count > 0"
+            type="warning"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 12px"
+          >
+            <template #title>
+              <span>发现 <strong>{{ reportData.warnings.untagged_count }}</strong> 笔涉及现金科目但未标记现金流量的凭证</span>
+              <el-button type="warning" link size="small" @click="showUntagged = !showUntagged" style="margin-left: 8px">
+                {{ showUntagged ? '收起' : '查看详情' }}
+              </el-button>
+            </template>
+          </el-alert>
+
+          <!-- 未标记凭证明细 -->
+          <el-table
+            v-if="showUntagged && reportData.warnings?.untagged_items?.length"
+            :data="reportData.warnings.untagged_items"
+            border size="small" style="margin-bottom: 12px"
+            :header-cell-style="{ background: '#fdf6ec', color: '#E6A23C' }"
+          >
+            <el-table-column prop="voucher_date" label="日期" width="110" />
+            <el-table-column prop="voucher_no" label="凭证号" width="90" />
+            <el-table-column prop="account_code" label="科目编码" width="90" />
+            <el-table-column prop="account_name" label="科目名称" width="120" />
+            <el-table-column label="借方" width="110" align="right">
+              <template #default="{ row }">{{ row.debit ? fmt(row.debit) : '' }}</template>
+            </el-table-column>
+            <el-table-column label="贷方" width="110" align="right">
+              <template #default="{ row }">{{ row.credit ? fmt(row.credit) : '' }}</template>
+            </el-table-column>
+            <el-table-column prop="memo" label="摘要" min-width="150" show-overflow-tooltip />
+          </el-table>
+
           <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" row-key="item_code">
             <el-table-column prop="category" label="类别" width="100">
               <template #default="{ row }">
@@ -381,6 +438,7 @@ const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
 const activeTab = ref('income')
 const period = ref(new Date().toISOString().slice(0, 7))
 const reportData = ref(null)
+const showUntagged = ref(false)
 const balanceTableRef = ref(null)
 
 const expandRowKeys = ref([])
@@ -586,6 +644,7 @@ const loadReport = async () => {
   if (activeTab.value === 'charts') { loadChartData(); return }
   if (!currentBook.value || !period.value) return
   reportData.value = null
+  showUntagged.value = false
   try {
     const base = `/api/books/${currentBook.value}/reports`
     if (activeTab.value === 'income') {
