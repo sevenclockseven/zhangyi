@@ -994,7 +994,7 @@ func stockSummary(db *gorm.DB) gin.HandlerFunc {
 				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as out_qty,
 				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.amount ELSE 0 END) as out_amount,
 				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.quantity ELSE 0 END) -
-				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as quantity,
+				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as closing_qty,
 				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.amount ELSE 0 END) -
 				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.amount ELSE 0 END) as total_cost`).
 			Joins("JOIN goods g ON g.id = stock_flows.goods_id").
