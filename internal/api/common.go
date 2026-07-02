@@ -255,21 +255,27 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 	direction := matches[3]
 
 	switch funcName {
-	case "JE": // 本期发生额
+	case "JE": // 本期发生额（借方=借方合计，贷方=贷方合计）
 		var total float64
-		db.Model(&models.AccountBalance{}).
-			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
-			Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
-			Row().Scan(&total)
+		subQuery := db.Model(&models.Account{}).Select("id").Where("book_id = ? AND code LIKE ?", bookID, code+"%")
 		if direction == "credit" || direction == "贷" {
-			total = -total
+			db.Model(&models.AccountBalance{}).
+				Where("book_id = ? AND period = ? AND account_id IN (?)", bookID, period, subQuery).
+				Select("COALESCE(SUM(period_credit), 0)").
+				Row().Scan(&total)
+		} else {
+			db.Model(&models.AccountBalance{}).
+				Where("book_id = ? AND period = ? AND account_id IN (?)", bookID, period, subQuery).
+				Select("COALESCE(SUM(period_debit), 0)").
+				Row().Scan(&total)
 		}
 		return total
 
 	case "QM": // 期末余额
 		var total float64
+		subQuery := db.Model(&models.Account{}).Select("id").Where("book_id = ? AND code LIKE ?", bookID, code+"%")
 		db.Model(&models.AccountBalance{}).
-			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+			Where("book_id = ? AND period = ? AND account_id IN (?)", bookID, period, subQuery).
 			Select("COALESCE(SUM(closing_debit), 0) - COALESCE(SUM(closing_credit), 0)").
 			Row().Scan(&total)
 		if direction == "credit" || direction == "贷" {
@@ -279,8 +285,9 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 
 	case "QC": // 期初余额
 		var total float64
+		subQuery := db.Model(&models.Account{}).Select("id").Where("book_id = ? AND code LIKE ?", bookID, code+"%")
 		db.Model(&models.AccountBalance{}).
-			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
+			Where("book_id = ? AND period = ? AND account_id IN (?)", bookID, period, subQuery).
 			Select("COALESCE(SUM(opening_debit), 0) - COALESCE(SUM(opening_credit), 0)").
 			Row().Scan(&total)
 		if direction == "credit" || direction == "贷" {
@@ -289,15 +296,19 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 		return total
 
 	case "JL": // 本年累计发生额
-		// Get all periods up to current
 		yearPrefix := period[:4]
 		var total float64
-		db.Model(&models.AccountBalance{}).
-			Where("book_id = ? AND period LIKE ? AND account_code LIKE ?", bookID, yearPrefix+"%", code+"%").
-			Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
-			Row().Scan(&total)
+		subQuery := db.Model(&models.Account{}).Select("id").Where("book_id = ? AND code LIKE ?", bookID, code+"%")
 		if direction == "credit" || direction == "贷" {
-			total = -total
+			db.Model(&models.AccountBalance{}).
+				Where("book_id = ? AND period LIKE ? AND account_id IN (?)", bookID, yearPrefix+"%", subQuery).
+				Select("COALESCE(SUM(period_credit), 0)").
+				Row().Scan(&total)
+		} else {
+			db.Model(&models.AccountBalance{}).
+				Where("book_id = ? AND period LIKE ? AND account_id IN (?)", bookID, yearPrefix+"%", subQuery).
+				Select("COALESCE(SUM(period_debit), 0)").
+				Row().Scan(&total)
 		}
 		return total
 	}
