@@ -1295,14 +1295,16 @@ func monthlyTrend(db *gorm.DB) gin.HandlerFunc {
 			Amount      float64 `json:"value"`
 		}
 		var breakdown []ExpenseBreakdown
-		db.Model(&models.AccountBalance{}).
-			Select("accounts.name as account_name, SUM(account_balances.period_debit - account_balances.period_credit) as amount").
-			Joins("JOIN accounts ON accounts.id = account_balances.account_id").
-			Where("account_balances.book_id = ? AND account_balances.period LIKE ? AND accounts.code >= ? AND accounts.code <= ? AND accounts.is_active = ? AND accounts.level = 1",
-				bookID, year+"%", "5400", "5999", true).
-			Group("accounts.name").
-			Having("SUM(account_balances.period_debit - account_balances.period_credit) > 0").
-			Order("amount DESC").
+		db.Raw(`
+			SELECT COALESCE(parent.name, child.name) as account_name, SUM(ab.period_debit) as amount
+			FROM account_balances ab
+			JOIN accounts child ON child.id = ab.account_id
+			LEFT JOIN accounts parent ON parent.book_id = child.book_id AND parent.code = child.parent_code AND parent.level = 1
+			WHERE ab.book_id = ? AND ab.period LIKE ? AND child.code >= ? AND child.code <= ? AND child.is_active = ?
+			GROUP BY COALESCE(parent.name, child.name)
+			HAVING SUM(ab.period_debit) > 0
+			ORDER BY amount DESC
+		`, bookID, year+"%", "5400", "5999", true).
 			Find(&breakdown)
 
 		// 四舍五入
