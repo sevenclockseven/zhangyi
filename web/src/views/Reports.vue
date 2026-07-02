@@ -372,7 +372,7 @@
     </el-tabs>
 
     <!-- 图表分析 -->
-    <div v-if="activeTab === 'charts' && currentBook" style="margin-top: 12px">
+    <div v-show="activeTab === 'charts' && currentBook" style="margin-top: 12px">
       <el-card shadow="never">
         <template #header>
           <div style="display:flex;justify-content:space-between;align-items:center">
@@ -457,16 +457,13 @@ const loadChartData = async () => {
   try {
     const { data } = await reportApi.monthlyTrend(currentBook.value, chartYear.value)
     await nextTick()
-    // Re-init charts if DOM was destroyed and re-created by v-if
-    if (chartTrendRef.value && (!chartTrend || chartTrend.isDisposed())) {
-      chartTrend = echarts.init(chartTrendRef.value)
-    }
-    if (chartPieRef.value && (!chartPie || chartPie.isDisposed())) {
-      chartPie = echarts.init(chartPieRef.value)
-    }
-    if (chartProfitRef.value && (!chartProfit || chartProfit.isDisposed())) {
-      chartProfit = echarts.init(chartProfitRef.value)
-    }
+    // Dispose old instances and re-init to ensure clean state
+    if (chartTrend) { chartTrend.dispose(); chartTrend = null }
+    if (chartPie) { chartPie.dispose(); chartPie = null }
+    if (chartProfit) { chartProfit.dispose(); chartProfit = null }
+    if (chartTrendRef.value) chartTrend = echarts.init(chartTrendRef.value)
+    if (chartPieRef.value) chartPie = echarts.init(chartPieRef.value)
+    if (chartProfitRef.value) chartProfit = echarts.init(chartProfitRef.value)
     renderChartTrend(data)
     renderChartPie(data)
     renderChartProfit(data)
@@ -475,7 +472,7 @@ const loadChartData = async () => {
 
 const renderChartTrend = (d) => {
   if (!chartTrendRef.value || !d.months) return
-  if (!chartTrend || chartTrend.isDisposed()) chartTrend = echarts.init(chartTrendRef.value)
+  if (!chartTrend) chartTrend = echarts.init(chartTrendRef.value)
   const shortMonths = d.months.map(m => m.split('-')[1] + '月')
   chartTrend.setOption({
     tooltip: { trigger: 'axis' },
@@ -492,7 +489,7 @@ const renderChartTrend = (d) => {
 
 const renderChartPie = (d) => {
   if (!chartPieRef.value || !d.expense_breakdown || d.expense_breakdown.length === 0) return
-  if (!chartPie || chartPie.isDisposed()) chartPie = echarts.init(chartPieRef.value)
+  if (!chartPie) chartPie = echarts.init(chartPieRef.value)
   const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#b37feb', '#36cfc9']
   chartPie.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: {c}万 ({d}%)' },
@@ -512,7 +509,7 @@ const renderChartPie = (d) => {
 
 const renderChartProfit = (d) => {
   if (!chartProfitRef.value || !d.months) return
-  if (!chartProfit || chartProfit.isDisposed()) chartProfit = echarts.init(chartProfitRef.value)
+  if (!chartProfit) chartProfit = echarts.init(chartProfitRef.value)
   const shortMonths = d.months.map(m => m.split('-')[1] + '月')
   chartProfit.setOption({
     tooltip: { trigger: 'axis' },

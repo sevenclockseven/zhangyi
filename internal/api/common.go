@@ -238,7 +238,7 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
 			Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
 			Row().Scan(&total)
-		if direction == "credit" {
+		if direction == "credit" || direction == "贷" {
 			total = -total
 		}
 		return total
@@ -249,7 +249,7 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
 			Select("COALESCE(SUM(closing_debit), 0) - COALESCE(SUM(closing_credit), 0)").
 			Row().Scan(&total)
-		if direction == "credit" {
+		if direction == "credit" || direction == "贷" {
 			total = -total
 		}
 		return total
@@ -260,7 +260,7 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 			Where("book_id = ? AND period = ? AND account_code LIKE ?", bookID, period, code+"%").
 			Select("COALESCE(SUM(opening_debit), 0) - COALESCE(SUM(opening_credit), 0)").
 			Row().Scan(&total)
-		if direction == "credit" {
+		if direction == "credit" || direction == "贷" {
 			total = -total
 		}
 		return total
@@ -273,7 +273,7 @@ func evalFormula(db *gorm.DB, bookID uint, period string, formula string) float6
 			Where("book_id = ? AND period LIKE ? AND account_code LIKE ?", bookID, yearPrefix+"%", code+"%").
 			Select("COALESCE(SUM(period_debit), 0) - COALESCE(SUM(period_credit), 0)").
 			Row().Scan(&total)
-		if direction == "credit" {
+		if direction == "credit" || direction == "贷" {
 			total = -total
 		}
 		return total
