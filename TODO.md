@@ -320,6 +320,13 @@
   - 收付款: 收款/付款→审核(自动生成凭证)→作废
   - 库存报表: 按商品+仓库汇总, 入/出/结存数量+金额
   - Bug修复: generateOrderNumber跨表覆盖、void只允许草稿、成本凭证编号重复、科目查找不灵活
+- **v0.10.1** (2026-07-02): 报表数据修复
+  - 报表汇总: sumUp 累加父节点自身金额(不再覆盖)、updateAccountBalances 用 tx 避免事务外操作
+  - 现金流量表: vouchers.no → vouchers.number 修正列名
+- **v0.10.2** (2026-07-02): 前端Bug修复
+  - 图表分析: v-if 切换后 ECharts stale 引用 → 增加 isDisposed() 检查重新 init
+  - 费用统计: show-summary 自动合计树行导致重复 → 自定义 expenseSummary
+  - 进销存销售: 成本列显示原始浮点数 → fmtNum 格式化 + 新增毛利列
 
 ---
 
