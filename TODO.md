@@ -88,9 +88,9 @@
 - [x] balanced = true ✓
 
 ### 4.2 科目余额表
-- [ ] 树形结构正确 (父子关系)
-- [ ] 一级科目合计 = 子科目之和
-- [ ] 期末余额 = 期初 + 本期借 - 本期贷
+- [x] 树形结构正确 (父子关系)
+- [x] 一级科目合计 = 子科目之和
+- [x] 期末余额 = 期初 + 本期借 - 本期贷
 
 ### 4.3 资产负债表
 - [x] 资产合计 = 1,776,200 ✓
@@ -135,9 +135,9 @@
 - [x] 期初 + 本期借 - 本期贷 = 期末 ✓
 
 ### 4.9 自定义报表 (evalFormula)
-- [ ] JE('5001','借') = 300,000 (主营业务收入本期贷方)
-- [ ] QM('1002','借') = 1,540,200 (银行存款期末余额)
-- [ ] QC('3001','贷') = 1,000,000 (实收资本期初余额)
+- [x] JE('5001','贷') = 300,000 (主营业务收入本期贷方)
+- [x] QM('1002','借') = 1,540,200 (银行存款期末余额)
+- [x] QC('3001','贷') = 1,000,000 (实收资本期初余额)
 
 ### 4.10 图表分析 (monthlyTrend)
 - [x] 7月收入 = 302,000 ✓
@@ -150,9 +150,9 @@
 - [x] Income statement: 使用 PeriodCredit/PeriodDebit 替代 net
 
 ## 第六步：提交 + 打标签
-- [ ] git commit
-- [ ] git push
-- [ ] git tag v0.10.4
+- [x] git commit
+- [x] git push
+- [x] git tag v0.10.3
 
 ---
 
@@ -473,6 +473,17 @@
   - 图表分析: v-if 切换后 ECharts stale 引用 → 增加 isDisposed() 检查重新 init
   - 费用统计: show-summary 自动合计树行导致重复 → 自定义 expenseSummary
   - 进销存销售: 成本列显示原始浮点数 → fmtNum 格式化 + 新增毛利列
+- **v0.10.3** (2026-07-02): 报表数据修复 + 前端Bug修复
+  - 报表汇总: sumUp 累加父节点自身金额(不再覆盖)、updateAccountBalances 用 tx 避免事务外操作
+  - 现金流量表: vouchers.no → vouchers.number 修正列名
+  - evalFormula: JOIN accounts 表按 code 匹配(account_balances 无 account_code 列)
+  - JE/JL方向: 借方=SUM(period_debit)、贷方=SUM(period_credit)，不再用净额
+  - 资产负债表: contra-account(累计折旧)正确显示为负数
+  - 利润表: 使用 PeriodCredit/PeriodDebit 替代 net，结转后金额正确
+  - 月度趋势: 同利润表修复
+  - 费用构成饼图: LEFT JOIN 汇总子科目到一级 + 始终除以10000
+  - 库存汇总: GORM字段映射 closing_qty → ClosingQty
+  - 测试数据: 21笔凭证 + 进销存完整采购→销售周期
 
 ---
 
