@@ -968,36 +968,53 @@ func voidPayment(db *gorm.DB) gin.HandlerFunc {
 func stockSummary(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
+		keyword := c.Query("keyword")
 		var results []struct {
-			GoodsID     uint    `json:"goods_id"`
-			GoodsCode   string  `json:"goods_code"`
-			GoodsName   string  `json:"goods_name"`
-			Unit        string  `json:"unit"`
-			WarehouseID uint    `json:"warehouse_id"`
-			InQty       float64 `json:"in_qty"`
-			InAmount    float64 `json:"in_amount"`
-			OutQty      float64 `json:"out_qty"`
-			OutAmount   float64 `json:"out_amount"`
-			ClosingQty  float64 `json:"closing_qty"`
-			ClosingAmt  float64 `json:"closing_amt"`
+			GoodsID      uint    `json:"goods_id"`
+			Code         string  `json:"code"`
+			Name         string  `json:"name"`
+			Unit         string  `json:"unit"`
+			WarehouseID  uint    `json:"warehouse_id"`
+			WarehouseName string `json:"warehouse_name"`
+			InQty        float64 `json:"in_qty"`
+			InAmount     float64 `json:"in_amount"`
+			OutQty       float64 `json:"out_qty"`
+			OutAmount    float64 `json:"out_amount"`
+			ClosingQty   float64 `json:"quantity"`
+			UnitCost     float64 `json:"unit_cost"`
+			TotalCost    float64 `json:"total_cost"`
 		}
 
-		db.Model(&models.StockFlow{}).
-			Select(`stock_flows.goods_id, g.code as goods_code, g.name as goods_name, g.unit,
+		query := db.Model(&models.StockFlow{}).
+			Select(`stock_flows.goods_id, g.code, g.name, g.unit,
 				stock_flows.warehouse_id,
+				COALESCE(ai.name, '') as warehouse_name,
 				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.quantity ELSE 0 END) as in_qty,
 				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.amount ELSE 0 END) as in_amount,
 				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as out_qty,
 				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.amount ELSE 0 END) as out_amount,
 				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.quantity ELSE 0 END) -
-				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as closing_qty,
+				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as quantity,
 				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.amount ELSE 0 END) -
-				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.amount ELSE 0 END) as closing_amt`).
+				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.amount ELSE 0 END) as total_cost`).
 			Joins("JOIN goods g ON g.id = stock_flows.goods_id").
-			Where("stock_flows.book_id = ?", bookID).
-			Group("stock_flows.goods_id, stock_flows.warehouse_id").
+			Joins("LEFT JOIN aux_items ai ON ai.id = stock_flows.warehouse_id AND ai.type = 'warehouse'").
+			Where("stock_flows.book_id = ?", bookID)
+
+		if keyword != "" {
+			query = query.Where("g.code LIKE ? OR g.name LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+		}
+
+		query.Group("stock_flows.goods_id, stock_flows.warehouse_id").
 			Order("g.code").
 			Scan(&results)
+
+		// Calculate unit cost
+		for i := range results {
+			if results[i].ClosingQty > 0 {
+				results[i].UnitCost = results[i].TotalCost / results[i].ClosingQty
+			}
+		}
 
 		c.JSON(http.StatusOK, gin.H{"data": results})
 	}

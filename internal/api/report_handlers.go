@@ -177,18 +177,18 @@ func incomeStatement(db *gorm.DB) gin.HandlerFunc {
 
 			code := acct.Code
 			if code >= "5000" && code < "5400" {
-				// Revenue
+				// Revenue: use PeriodCredit (closing debit doesn't reduce revenue)
 				revenue = append(revenue, gin.H{
 					"code":   acct.Code,
 					"name":   acct.Name,
-					"amount": b.PeriodCredit - b.PeriodDebit,
+					"amount": b.PeriodCredit,
 				})
 			} else if code >= "5400" && code < "6000" {
-				// Expenses
+				// Expenses: use PeriodDebit (closing credit doesn't reduce expenses)
 				expenses = append(expenses, gin.H{
 					"code":   acct.Code,
 					"name":   acct.Name,
-					"amount": b.PeriodDebit - b.PeriodCredit,
+					"amount": b.PeriodDebit,
 				})
 			}
 		}
@@ -1273,11 +1273,11 @@ func monthlyTrend(db *gorm.DB) gin.HandlerFunc {
 
 			switch {
 			case code >= "5000" && code <= "5399":
-				// 收入类：贷方发生额 - 借方发生额
-				revenue[monthIdx] += r.PeriodCredit - r.PeriodDebit
+				// 收入类：贷方发生额（结转不影响原始发生额）
+				revenue[monthIdx] += r.PeriodCredit
 			case code >= "5400" && code <= "5999":
-				// 费用类：借方发生额 - 贷方发生额
-				expense[monthIdx] += r.PeriodDebit - r.PeriodCredit
+				// 费用类：借方发生额（结转不影响原始发生额）
+				expense[monthIdx] += r.PeriodDebit
 			}
 		}
 
