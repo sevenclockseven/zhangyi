@@ -205,6 +205,42 @@ export const assetApi = {
   exportAssets: (bookId) => http.get(`/api/books/${bookId}/assets/export`),
 }
 
+export const inventoryApi = {
+  // 商品
+  listGoods: (bookId, params) => http.get(`/api/books/${bookId}/goods`, { params }),
+  createGoods: (bookId, data) => http.post(`/api/books/${bookId}/goods`, data),
+  updateGoods: (bookId, gid, data) => http.put(`/api/books/${bookId}/goods/${gid}`, data),
+  deleteGoods: (bookId, gid) => http.delete(`/api/books/${bookId}/goods/${gid}`),
+  exportGoods: (bookId) => `/api/books/${bookId}/goods/export`,
+  importGoods: (bookId, data) => http.post(`/api/books/${bookId}/goods/import`, data),
+  // 采购单
+  listPurchases: (bookId, params) => http.get(`/api/books/${bookId}/purchases`, { params }),
+  getPurchase: (bookId, pid) => http.get(`/api/books/${bookId}/purchases/${pid}`),
+  createPurchase: (bookId, data) => http.post(`/api/books/${bookId}/purchases`, data),
+  postPurchase: (bookId, pid) => http.post(`/api/books/${bookId}/purchases/${pid}/post`),
+  voidPurchase: (bookId, pid) => http.post(`/api/books/${bookId}/purchases/${pid}/void`),
+  // 销售单
+  listSales: (bookId, params) => http.get(`/api/books/${bookId}/sales`, { params }),
+  getSales: (bookId, sid) => http.get(`/api/books/${bookId}/sales/${sid}`),
+  createSales: (bookId, data) => http.post(`/api/books/${bookId}/sales`, data),
+  postSales: (bookId, sid) => http.post(`/api/books/${bookId}/sales/${sid}/post`),
+  voidSales: (bookId, sid) => http.post(`/api/books/${bookId}/sales/${sid}/void`),
+  // 收付款单
+  listPayments: (bookId, params) => http.get(`/api/books/${bookId}/payments`, { params }),
+  getPayment: (bookId, payid) => http.get(`/api/books/${bookId}/payments/${payid}`),
+  createPayment: (bookId, data) => http.post(`/api/books/${bookId}/payments`, data),
+  postPayment: (bookId, payid) => http.post(`/api/books/${bookId}/payments/${payid}/post`),
+  voidPayment: (bookId, payid) => http.post(`/api/books/${bookId}/payments/${payid}/void`),
+  // 库存
+  stockSummary: (bookId, params) => http.get(`/api/books/${bookId}/inventory/summary`, { params }),
+  stockFlow: (bookId, params) => http.get(`/api/books/${bookId}/inventory/flow`, { params }),
+  lowStockAlert: (bookId) => http.get(`/api/books/${bookId}/inventory/alerts`),
+  // 报表
+  purchaseReport: (bookId, params) => http.get(`/api/books/${bookId}/reports/purchase`, { params }),
+  salesReport: (bookId, params) => http.get(`/api/books/${bookId}/reports/sales`, { params }),
+  marginReport: (bookId, params) => http.get(`/api/books/${bookId}/reports/margin`, { params }),
+}
+
 export const healthApi = {
   check: () => http.get('/api/health'),
 }

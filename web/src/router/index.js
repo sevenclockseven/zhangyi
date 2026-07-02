@@ -50,6 +50,12 @@ const routes = [
     meta: { title: '设备管理' }
   },
   {
+    path: '/inventory',
+    name: 'Inventory',
+    component: () => import('../views/Inventory.vue'),
+    meta: { title: '进销存' }
+  },
+  {
     path: '/opening-balance',
     name: 'OpeningBalance',
     component: () => import('../views/OpeningBalance.vue'),

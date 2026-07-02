@@ -136,6 +136,22 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			bookScoped.GET("/users", listBookUsers(db))
 		}
 
+		// 进销存只读接口
+		bookScoped.GET("/goods", listGoods(db))
+		bookScoped.GET("/goods/export", exportGoods(db))
+		bookScoped.GET("/purchases", listPurchases(db))
+		bookScoped.GET("/purchases/:pid", getPurchase(db))
+		bookScoped.GET("/sales", listSales(db))
+		bookScoped.GET("/sales/:sid", getSales(db))
+		bookScoped.GET("/payments", listPayments(db))
+		bookScoped.GET("/payments/:payid", getPayment(db))
+		bookScoped.GET("/inventory/summary", stockSummary(db))
+		bookScoped.GET("/inventory/flow", stockFlowList(db))
+		bookScoped.GET("/inventory/alerts", lowStockAlert(db))
+		bookScoped.GET("/reports/purchase", purchaseReport(db))
+		bookScoped.GET("/reports/sales", salesReport(db))
+		bookScoped.GET("/reports/margin", marginReport(db))
+
 		// 需要写入权限的接口
 		bookWritable := auth.Group("/books/:id")
 		bookWritable.Use(middleware.BookAccess(db))
@@ -187,16 +203,31 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			bookWritable.PUT("/reports/templates/:tid", updateReportTemplate(db))
 			bookWritable.DELETE("/reports/templates/:tid", deleteReportTemplate(db))
 
-			// 设备管理
-			bookWritable.POST("/assets/categories", createAssetCategory(db))
-			bookWritable.PUT("/assets/categories/:aid", updateAssetCategory(db))
-			bookWritable.DELETE("/assets/categories/:aid", deleteAssetCategory(db))
-			bookWritable.POST("/assets", createAssetCard(db))
-			bookWritable.PUT("/assets/:cardId", updateAssetCard(db))
-			bookWritable.DELETE("/assets/:cardId", deleteAssetCard(db))
-			bookWritable.POST("/assets/depreciation/run", runDepreciation(db))
-			bookWritable.PUT("/assets/:cardId/status", changeAssetStatus(db))
-			bookWritable.POST("/assets/import", importAssets(db))
+		// 设备管理
+		bookWritable.POST("/assets/categories", createAssetCategory(db))
+		bookWritable.PUT("/assets/categories/:aid", updateAssetCategory(db))
+		bookWritable.DELETE("/assets/categories/:aid", deleteAssetCategory(db))
+		bookWritable.POST("/assets", createAssetCard(db))
+		bookWritable.PUT("/assets/:cardId", updateAssetCard(db))
+		bookWritable.DELETE("/assets/:cardId", deleteAssetCard(db))
+		bookWritable.POST("/assets/depreciation/run", runDepreciation(db))
+		bookWritable.PUT("/assets/:cardId/status", changeAssetStatus(db))
+		bookWritable.POST("/assets/import", importAssets(db))
+
+		// 进销存
+		bookWritable.POST("/goods", createGoods(db))
+		bookWritable.PUT("/goods/:gid", updateGoods(db))
+		bookWritable.DELETE("/goods/:gid", deleteGoods(db))
+		bookWritable.POST("/goods/import", importGoods(db))
+		bookWritable.POST("/purchases", createPurchase(db))
+		bookWritable.POST("/purchases/:pid/post", postPurchase(db))
+		bookWritable.POST("/purchases/:pid/void", voidPurchase(db))
+		bookWritable.POST("/sales", createSales(db))
+		bookWritable.POST("/sales/:sid/post", postSales(db))
+		bookWritable.POST("/sales/:sid/void", voidSales(db))
+		bookWritable.POST("/payments", createPayment(db))
+		bookWritable.POST("/payments/:payid/post", postPayment(db))
+		bookWritable.POST("/payments/:payid/void", voidPayment(db))
 
 			// 辅助核算
 			bookWritable.POST("/aux/:type", createAuxItem(db))

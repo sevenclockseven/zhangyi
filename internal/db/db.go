@@ -86,5 +86,14 @@ func AllModels() []interface{} {
 		&models.AssetCard{},
 		&models.AssetTransaction{},
 		&models.AssetDepreciation{},
+		&models.Goods{},
+		&models.StockFlow{},
+		&models.PurchaseOrder{},
+		&models.PurchaseOrderItem{},
+		&models.SalesOrder{},
+		&models.SalesOrderItem{},
+		&models.PaymentRecord{},
+		&models.PaymentRecordDetail{},
+		&models.StockSnapshot{},
 	}
 }

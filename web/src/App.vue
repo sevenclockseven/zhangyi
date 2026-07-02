@@ -118,7 +118,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { bookApi, authApi } from './api'
 import { ElMessage } from 'element-plus'
-import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Fold, Expand, User, ArrowDown, Box, Tools } from '@element-plus/icons-vue'
+import { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Fold, Expand, User, ArrowDown, Box, Tools, ShoppingCart } from '@element-plus/icons-vue'
 import { useBookStore } from './stores/book'
 import { useMobile } from './composables/useMobile'
 
@@ -155,12 +155,13 @@ const defaultMenuConfig = [
   { index: '/ledger', label: '账簿查询', icon: 'List', visible: true },
   { index: '/reports', label: '报表中心', icon: 'DataAnalysis', visible: true },
   { index: '/assets', label: '设备管理', icon: 'Box', visible: true },
+  { index: '/inventory', label: '进销存管理', icon: 'ShoppingCart', visible: true },
   { index: '/opening-balance', label: '期初余额', icon: 'Coin', visible: true },
   { index: '/closing', label: '期末处理', icon: 'SwitchButton', visible: true },
   { index: '/settings', label: '系统设置', icon: 'Setting', visible: true },
 ]
 
-const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Box, Tools }
+const iconMap = { HomeFilled, Notebook, Memo, Document, List, DataAnalysis, Setting, SwitchButton, Coin, Box, Tools, ShoppingCart }
 
 const menuConfig = ref(defaultMenuConfig)
 const menuItems = computed(() =>
