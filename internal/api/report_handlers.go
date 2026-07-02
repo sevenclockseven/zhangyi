@@ -227,12 +227,12 @@ func accountBalanceReport(db *gorm.DB) gin.HandlerFunc {
 				sClosingDebit += ch["closing_debit"].(float64)
 				sClosingCredit += ch["closing_credit"].(float64)
 			}
-			(*node)["opening_debit"] = sOpeningDebit
-			(*node)["opening_credit"] = sOpeningCredit
-			(*node)["period_debit"] = sPeriodDebit
-			(*node)["period_credit"] = sPeriodCredit
-			(*node)["closing_debit"] = sClosingDebit
-			(*node)["closing_credit"] = sClosingCredit
+			(*node)["opening_debit"] = sOpeningDebit + (*node)["opening_debit"].(float64)
+			(*node)["opening_credit"] = sOpeningCredit + (*node)["opening_credit"].(float64)
+			(*node)["period_debit"] = sPeriodDebit + (*node)["period_debit"].(float64)
+			(*node)["period_credit"] = sPeriodCredit + (*node)["period_credit"].(float64)
+			(*node)["closing_debit"] = sClosingDebit + (*node)["closing_debit"].(float64)
+			(*node)["closing_credit"] = sClosingCredit + (*node)["closing_credit"].(float64)
 		}
 
 		for i := range roots {
@@ -704,7 +704,7 @@ func cashFlowStatement(db *gorm.DB) gin.HandlerFunc {
 		}
 		var untagged []UntaggedItem
 		db.Model(&models.VoucherItem{}).
-			Select("voucher_items.voucher_id, vouchers.date as voucher_date, vouchers.no as voucher_no, "+
+			Select("voucher_items.voucher_id, vouchers.date as voucher_date, vouchers.number as voucher_no, "+
 				"voucher_items.account_code, voucher_items.account_name, "+
 				"voucher_items.debit, voucher_items.credit, voucher_items.memo").
 			Joins("JOIN vouchers ON vouchers.id = voucher_items.voucher_id").

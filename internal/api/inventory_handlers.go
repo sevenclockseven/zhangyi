@@ -364,7 +364,7 @@ func postPurchase(db *gorm.DB) gin.HandlerFunc {
 		tx.Create(&vi2)
 
 		// Update account balances
-		updateAccountBalances(db, &voucher)
+		updateAccountBalances(tx, &voucher)
 
 		// 3. Update order status
 		tx.Model(&order).Updates(map[string]interface{}{
@@ -627,7 +627,7 @@ func postSales(db *gorm.DB) gin.HandlerFunc {
 		}
 		tx.Create(&vi1)
 		tx.Create(&vi2)
-		updateAccountBalances(db, &voucher1)
+		updateAccountBalances(tx, &voucher1)
 
 		// 3. Generate voucher 2: Cost (Debit Cost, Credit Inventory)
 		// Flexible cost account: try 6401 → 5401 → name match → code LIKE 5%/6%
@@ -686,7 +686,7 @@ func postSales(db *gorm.DB) gin.HandlerFunc {
 		}
 		tx.Create(&vi3)
 		tx.Create(&vi4)
-		updateAccountBalances(db, &voucher2)
+		updateAccountBalances(tx, &voucher2)
 
 		// 4. Update order status
 		tx.Model(&order).Updates(map[string]interface{}{
@@ -922,7 +922,7 @@ func postPayment(db *gorm.DB) gin.HandlerFunc {
 			tx.Create(&vi2)
 		}
 
-		updateAccountBalances(db, &voucher)
+		updateAccountBalances(tx, &voucher)
 
 		tx.Model(&record).Updates(map[string]interface{}{
 			"status":         "posted",
