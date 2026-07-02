@@ -101,16 +101,28 @@ func updateAccountBalances(db *gorm.DB, voucher *models.Voucher) error {
 	period := parts[0] + "-" + parts[1]
 
 	for _, item := range items {
+		accountID := item.AccountID
+		// If account_id is 0, resolve from account_code
+		if accountID == 0 && item.AccountCode != "" {
+			var acct models.Account
+			if err := db.Where("book_id = ? AND code = ?", voucher.BookID, item.AccountCode).First(&acct).Error; err == nil {
+				accountID = acct.ID
+			}
+		}
+		if accountID == 0 {
+			continue // skip items with unresolvable accounts
+		}
+
 		// Find or create balance record
 		var balance models.AccountBalance
 		result := db.Where("book_id = ? AND account_id = ? AND period = ? AND aux_key = ?",
-			voucher.BookID, item.AccountID, period, "").
+			voucher.BookID, accountID, period, "").
 			First(&balance)
 
 		if result.Error == gorm.ErrRecordNotFound {
 			balance = models.AccountBalance{
 				BookID:    voucher.BookID,
-				AccountID: item.AccountID,
+				AccountID: accountID,
 				Period:    period,
 				AuxKey:    "",
 			}
@@ -140,9 +152,20 @@ func reverseAccountBalances(db *gorm.DB, voucher *models.Voucher) error {
 	period := parts[0] + "-" + parts[1]
 
 	for _, item := range items {
+		accountID := item.AccountID
+		if accountID == 0 && item.AccountCode != "" {
+			var acct models.Account
+			if err := db.Where("book_id = ? AND code = ?", voucher.BookID, item.AccountCode).First(&acct).Error; err == nil {
+				accountID = acct.ID
+			}
+		}
+		if accountID == 0 {
+			continue
+		}
+
 		var balance models.AccountBalance
 		if err := db.Where("book_id = ? AND account_id = ? AND period = ? AND aux_key = ?",
-			voucher.BookID, item.AccountID, period, "").
+			voucher.BookID, accountID, period, "").
 			First(&balance).Error; err != nil {
 			continue
 		}

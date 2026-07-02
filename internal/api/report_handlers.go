@@ -33,8 +33,38 @@ func balanceSheet(db *gorm.DB) gin.HandlerFunc {
 		var accounts []models.Account
 		db.Where("book_id = ?", bookID).Find(&accounts)
 		accountMap := make(map[uint]models.Account)
+		codeToID := make(map[string]uint)
 		for _, a := range accounts {
 			accountMap[a.ID] = a
+			codeToID[a.Code] = a.ID
+		}
+
+		// Aggregate child balances to level-1 parents
+		// balanceAgg[accountID] = aggregated balance record
+		balanceAgg := make(map[uint]models.AccountBalance)
+		for _, b := range balances {
+			acct, ok := accountMap[b.AccountID]
+			if !ok {
+				continue
+			}
+			// Walk up to level-1 ancestor
+			targetID := b.AccountID
+			for acct.Level > 1 && acct.ParentCode != "" {
+				if parentID, ok := codeToID[acct.ParentCode]; ok {
+					targetID = parentID
+					acct = accountMap[parentID]
+				} else {
+					break
+				}
+			}
+			agg := balanceAgg[targetID]
+			agg.OpeningDebit += b.OpeningDebit
+			agg.OpeningCredit += b.OpeningCredit
+			agg.PeriodDebit += b.PeriodDebit
+			agg.PeriodCredit += b.PeriodCredit
+			agg.ClosingDebit += b.ClosingDebit
+			agg.ClosingCredit += b.ClosingCredit
+			balanceAgg[targetID] = agg
 		}
 
 		// Build balance sheet structure
@@ -42,20 +72,27 @@ func balanceSheet(db *gorm.DB) gin.HandlerFunc {
 		liabilities := []gin.H{}
 		equity := []gin.H{}
 
-		for _, b := range balances {
-			acct, ok := accountMap[b.AccountID]
-			if !ok {
+		for accountID, b := range balanceAgg {
+			acct, ok := accountMap[accountID]
+			if !ok || acct.Level != 1 {
 				continue
 			}
 
-			// Only level 1 accounts
-			if acct.Level != 1 {
-				continue
-			}
-
-			balance := b.ClosingDebit - b.ClosingCredit
-			if acct.Direction == "贷" {
+			code := acct.Code
+			var balance float64
+			switch {
+			case code >= "1000" && code < "2000":
+				// 资产类：始终用借-贷（累计折旧等贷方余额显示为负数）
+				balance = b.ClosingDebit - b.ClosingCredit
+			case code >= "2000" && code < "3000":
+				// 负债类：贷-借
 				balance = b.ClosingCredit - b.ClosingDebit
+			case code >= "3000" && code < "4000":
+				// 权益类：贷-借
+				balance = b.ClosingCredit - b.ClosingDebit
+			case code >= "4000" && code < "5000":
+				// 成本类：借-贷（列入资产）
+				balance = b.ClosingDebit - b.ClosingCredit
 			}
 
 			row := gin.H{
@@ -64,7 +101,6 @@ func balanceSheet(db *gorm.DB) gin.HandlerFunc {
 				"balance": balance,
 			}
 
-			code := acct.Code
 			switch {
 			case code >= "1000" && code < "2000":
 				assets = append(assets, row)
@@ -72,6 +108,8 @@ func balanceSheet(db *gorm.DB) gin.HandlerFunc {
 				liabilities = append(liabilities, row)
 			case code >= "3000" && code < "4000":
 				equity = append(equity, row)
+			case code >= "4000" && code < "5000":
+				assets = append(assets, row) // 成本类科目列入资产
 			}
 		}
 
@@ -100,15 +138,39 @@ func incomeStatement(db *gorm.DB) gin.HandlerFunc {
 		var accounts []models.Account
 		db.Where("book_id = ?", bookID).Find(&accounts)
 		accountMap := make(map[uint]models.Account)
+		codeToID := make(map[string]uint)
 		for _, a := range accounts {
 			accountMap[a.ID] = a
+			codeToID[a.Code] = a.ID
+		}
+
+		// Aggregate child balances to level-1 parents
+		balanceAgg := make(map[uint]models.AccountBalance)
+		for _, b := range balances {
+			acct, ok := accountMap[b.AccountID]
+			if !ok {
+				continue
+			}
+			targetID := b.AccountID
+			for acct.Level > 1 && acct.ParentCode != "" {
+				if parentID, ok := codeToID[acct.ParentCode]; ok {
+					targetID = parentID
+					acct = accountMap[parentID]
+				} else {
+					break
+				}
+			}
+			agg := balanceAgg[targetID]
+			agg.PeriodDebit += b.PeriodDebit
+			agg.PeriodCredit += b.PeriodCredit
+			balanceAgg[targetID] = agg
 		}
 
 		revenue := []gin.H{}
 		expenses := []gin.H{}
 
-		for _, b := range balances {
-			acct, ok := accountMap[b.AccountID]
+		for accountID, b := range balanceAgg {
+			acct, ok := accountMap[accountID]
 			if !ok || acct.Level != 1 {
 				continue
 			}
