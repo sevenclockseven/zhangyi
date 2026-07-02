@@ -48,7 +48,9 @@
         <el-table :data="purchaseList" border size="small" style="width: 100%">
           <el-table-column prop="order_no" label="单号" width="160" />
           <el-table-column prop="date" label="日期" width="110" />
-          <el-table-column prop="total_amount" label="金额" width="100" />
+          <el-table-column label="金额" width="100" align="right">
+            <template #default="{ row }">{{ fmtNum(row.total_amount) }}</template>
+          </el-table-column>
           <el-table-column prop="payment_term" label="付款方式" width="90">
             <template #default="{ row }">{{ row.payment_term === 'cash' ? '现结' : '赊账' }}</template>
           </el-table-column>
@@ -85,10 +87,18 @@
         <el-table :data="salesList" border size="small" style="width: 100%">
           <el-table-column prop="order_no" label="单号" width="160" />
           <el-table-column prop="date" label="日期" width="110" />
-          <el-table-column prop="total_amount" label="金额" width="100" />
-          <el-table-column prop="cost_amount" label="成本" width="100" />
-          <el-table-column prop="payment_term" label="付款方式" width="90">
-            <template #default="{ row }">{{ row.payment_term === 'cash' ? '现结' : '赊账' }}</template>
+          <el-table-column label="金额" width="100" align="right">
+            <template #default="{ row }">{{ fmtNum(row.total_amount) }}</template>
+          </el-table-column>
+          <el-table-column label="成本" width="100" align="right">
+            <template #default="{ row }">{{ row.cost_amount > 0 ? fmtNum(row.cost_amount) : '-' }}</template>
+          </el-table-column>
+          <el-table-column label="毛利" width="100" align="right">
+            <template #default="{ row }">
+              <span :style="{ color: (row.total_amount - row.cost_amount) >= 0 ? '#67C23A' : '#F56C6C' }">
+                {{ row.cost_amount > 0 ? fmtNum(row.total_amount - row.cost_amount) : '-' }}
+              </span>
+            </template>
           </el-table-column>
           <el-table-column prop="status" label="状态" width="80" align="center">
             <template #default="{ row }">
@@ -131,7 +141,9 @@
             </template>
           </el-table-column>
           <el-table-column prop="date" label="日期" width="110" />
-          <el-table-column prop="amount" label="金额" width="100" />
+          <el-table-column label="金额" width="100" align="right">
+            <template #default="{ row }">{{ fmtNum(row.amount) }}</template>
+          </el-table-column>
           <el-table-column prop="method" label="方式" width="80">
             <template #default="{ row }">{{ row.method === 'cash' ? '现金' : '银行' }}</template>
           </el-table-column>
@@ -163,8 +175,12 @@
           <el-table-column prop="name" label="名称" min-width="120" />
           <el-table-column prop="unit" label="单位" width="60" />
           <el-table-column prop="quantity" label="库存数量" width="100" />
-          <el-table-column prop="unit_cost" label="单位成本" width="100" />
-          <el-table-column prop="total_cost" label="库存金额" width="110" />
+          <el-table-column label="单位成本" width="100" align="right">
+            <template #default="{ row }">{{ fmtNum(row.unit_cost) }}</template>
+          </el-table-column>
+          <el-table-column label="库存金额" width="110" align="right">
+            <template #default="{ row }">{{ fmtNum(row.total_cost) }}</template>
+          </el-table-column>
           <el-table-column prop="warehouse_name" label="仓库" width="100" />
         </el-table>
       </el-tab-pane>
@@ -337,6 +353,11 @@ import { Plus, Delete } from '@element-plus/icons-vue'
 const { currentBookId: currentBook } = useBookStore()
 const { isMobile } = useMobile()
 const activeTab = ref('goods')
+
+const fmtNum = (v) => {
+  if (!v && v !== 0) return ''
+  return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 // ========== Goods ==========
 const goodsList = ref([])

@@ -177,7 +177,7 @@
       <div v-if="activeTab === 'expense' && reportData">
         <el-card shadow="never">
           <template #header><strong>费用统计表</strong><span style="float: right; color: #909399; font-size: 13px">期间：{{ period }}</span></template>
-          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary>
+          <el-table :data="reportData.data" border size="small" :max-height="tableMaxHeight" show-summary :summary-method="expenseSummary">
             <el-table-column prop="code" label="编码" width="100" />
             <el-table-column prop="name" label="费用项目" min-width="180" />
             <el-table-column prop="amount" label="本期金额" width="140" align="right">
@@ -457,6 +457,16 @@ const loadChartData = async () => {
   try {
     const { data } = await reportApi.monthlyTrend(currentBook.value, chartYear.value)
     await nextTick()
+    // Re-init charts if DOM was destroyed and re-created by v-if
+    if (chartTrendRef.value && (!chartTrend || chartTrend.isDisposed())) {
+      chartTrend = echarts.init(chartTrendRef.value)
+    }
+    if (chartPieRef.value && (!chartPie || chartPie.isDisposed())) {
+      chartPie = echarts.init(chartPieRef.value)
+    }
+    if (chartProfitRef.value && (!chartProfit || chartProfit.isDisposed())) {
+      chartProfit = echarts.init(chartProfitRef.value)
+    }
     renderChartTrend(data)
     renderChartPie(data)
     renderChartProfit(data)
@@ -465,7 +475,7 @@ const loadChartData = async () => {
 
 const renderChartTrend = (d) => {
   if (!chartTrendRef.value || !d.months) return
-  if (!chartTrend) chartTrend = echarts.init(chartTrendRef.value)
+  if (!chartTrend || chartTrend.isDisposed()) chartTrend = echarts.init(chartTrendRef.value)
   const shortMonths = d.months.map(m => m.split('-')[1] + '月')
   chartTrend.setOption({
     tooltip: { trigger: 'axis' },
@@ -482,7 +492,7 @@ const renderChartTrend = (d) => {
 
 const renderChartPie = (d) => {
   if (!chartPieRef.value || !d.expense_breakdown || d.expense_breakdown.length === 0) return
-  if (!chartPie) chartPie = echarts.init(chartPieRef.value)
+  if (!chartPie || chartPie.isDisposed()) chartPie = echarts.init(chartPieRef.value)
   const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#b37feb', '#36cfc9']
   chartPie.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: {c}万 ({d}%)' },
@@ -502,7 +512,7 @@ const renderChartPie = (d) => {
 
 const renderChartProfit = (d) => {
   if (!chartProfitRef.value || !d.months) return
-  if (!chartProfit) chartProfit = echarts.init(chartProfitRef.value)
+  if (!chartProfit || chartProfit.isDisposed()) chartProfit = echarts.init(chartProfitRef.value)
   const shortMonths = d.months.map(m => m.split('-')[1] + '月')
   chartProfit.setOption({
     tooltip: { trigger: 'axis' },
@@ -684,6 +694,19 @@ const incomeSummary = ({ columns, data }) => {
     if (i === 1) {
       const netRow = data.find(r => r.name === '四、净利润')
       sums[i] = fmt(netRow ? netRow.amount : 0)
+    }
+  })
+  return sums
+}
+
+const expenseSummary = ({ columns, data }) => {
+  const sums = []
+  columns.forEach((col, i) => {
+    if (i === 0) { sums[i] = '合计'; return }
+    if (i === 1) { sums[i] = ''; return }
+    if (i === 2) {
+      const total = data.reduce((s, r) => s + (r.amount || 0), 0)
+      sums[i] = fmt(total)
     }
   })
   return sums
