@@ -81,6 +81,7 @@ export const voucherApi = {
   batchReview: (bookId, ids) => http.post(`/api/books/${bookId}/vouchers/batch-review`, { ids }),
   batchPost: (bookId, ids) => http.post(`/api/books/${bookId}/vouchers/batch-post`, { ids }),
   exportUrl: (bookId) => `/api/books/${bookId}/vouchers/export`,
+  detectGaps: (bookId, period) => http.get(`/api/books/${bookId}/vouchers/gaps`, { params: { period } }),
 }
 
 export const voucherTemplateApi = {

@@ -46,9 +46,9 @@ type Account struct {
 // Voucher 凭证
 type Voucher struct {
 	ID          uint      `json:"id" gorm:"primaryKey"`
-	BookID      uint      `json:"book_id" gorm:"index;not null"`
+	BookID      uint      `json:"book_id" gorm:"index;not null;uniqueIndex:idx_voucher_number,priority:2"`
 	Date        string    `json:"date" gorm:"size:10;not null"` // YYYY-MM-DD
-	Number      string    `json:"number" gorm:"size:20;not null"`
+	Number      string    `json:"number" gorm:"size:20;not null;uniqueIndex:idx_voucher_number,priority:1"`
 	VoucherType string    `json:"voucher_type" gorm:"size:20;default:general"`
 	Status      string    `json:"status" gorm:"size:20;default:draft"`
 	TotalDebit  float64   `json:"total_debit" gorm:"type:decimal(14,2);default:0"`

@@ -106,6 +106,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			bookScoped.GET("/vouchers", listVouchers(db))
 			bookScoped.GET("/vouchers/:vid", getVoucher(db))
 			bookScoped.GET("/vouchers/export", exportVouchers(db))
+			bookScoped.GET("/vouchers/gaps", detectVoucherGaps(db))
 			bookScoped.GET("/voucher-templates", listVoucherTemplates(db))
 			bookScoped.GET("/ledger/journal", journal(db))
 			bookScoped.GET("/ledger/multi-column", multiColumnLedger(db))

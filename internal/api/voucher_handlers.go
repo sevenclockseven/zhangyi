@@ -554,3 +554,57 @@ func exportVouchers(db *gorm.DB) gin.HandlerFunc {
 		c.String(http.StatusOK, buf.String())
 	}
 }
+
+// detectVoucherGaps detects gaps in voucher numbering for a given period
+func detectVoucherGaps(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bookID := c.Param("id")
+		period := c.DefaultQuery("period", "")
+
+		if period == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请指定期间"})
+			return
+		}
+
+		// Query all voucher numbers for this period (both formats)
+		var numbers []string
+		db.Model(&models.Voucher{}).
+			Where("book_id = ? AND (number LIKE ? OR number LIKE ?)",
+				bookID, "记-"+period+"-%", "记-"+strings.ReplaceAll(period, "-", "")+"-%").
+			Pluck("number", &numbers)
+
+		// Extract sequence numbers
+		seen := make(map[int]bool)
+		maxSeq := 0
+		for _, num := range numbers {
+			idx := strings.LastIndex(num, "-")
+			if idx < 0 {
+				continue
+			}
+			seq := 0
+			fmt.Sscanf(num[idx+1:], "%d", &seq)
+			if seq > 0 {
+				seen[seq] = true
+				if seq > maxSeq {
+					maxSeq = seq
+				}
+			}
+		}
+
+		// Find gaps
+		var gaps []int
+		for i := 1; i <= maxSeq; i++ {
+			if !seen[i] {
+				gaps = append(gaps, i)
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"period":    period,
+			"total":     maxSeq,
+			"count":     len(numbers),
+			"gaps":      gaps,
+			"has_gaps":  len(gaps) > 0,
+		})
+	}
+}

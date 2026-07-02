@@ -25,6 +25,19 @@
       </div>
     </el-card>
 
+    <!-- Voucher gap warning -->
+    <el-alert
+      v-if="gapInfo && gapInfo.has_gaps"
+      type="warning"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 12px"
+    >
+      <template #title>
+        本月凭证号存在 <strong>{{ gapInfo.gaps.length }}</strong> 个断号：{{ gapInfo.gaps.map(g => String(g).padStart(3, '0')).join('、') }}，可能是凭证被删除导致。
+      </template>
+    </el-alert>
+
     <!-- Voucher list -->
     <div class="table-wrapper">
       <el-table :data="vouchers" stripe v-if="currentBook" style="width: 100%"
@@ -299,6 +312,9 @@ const filterDateRange = ref(null)
 const filterStatus = ref('')
 const filterKeyword = ref('')
 
+// Voucher gap detection
+const gapInfo = ref(null)
+
 const showEditor = ref(false)
 const editingVoucher = ref(null)
 const voucherForm = ref({ date: '', voucher_type: 'general', attachments: 0, items: [] })
@@ -350,7 +366,19 @@ const loadVouchers = async () => {
     if (filterKeyword.value) params.keyword = filterKeyword.value
     const { data } = await voucherApi.list(currentBook.value, params)
     vouchers.value = data.data || []
+    detectGaps()
   } catch (e) { console.error(e) }
+}
+
+const detectGaps = async () => {
+  if (!currentBook.value) return
+  // Detect gaps for current month
+  const now = new Date()
+  const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  try {
+    const { data } = await voucherApi.detectGaps(currentBook.value, period)
+    gapInfo.value = data
+  } catch (e) { gapInfo.value = null }
 }
 
 const loadAccounts = async () => {
