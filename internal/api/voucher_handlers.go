@@ -15,7 +15,6 @@ import (
 func listVouchers(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
-		var vouchers []models.Voucher
 		query := db.Where("book_id = ?", bookID)
 
 		if status := c.Query("status"); status != "" {
@@ -32,8 +31,24 @@ func listVouchers(db *gorm.DB) gin.HandlerFunc {
 			query = query.Where("number LIKE ? OR memo LIKE ? OR vouchers.id IN (?)", "%"+keyword+"%", "%"+keyword+"%", subQuery)
 		}
 
-		query.Preload("Items").Order("date DESC, number DESC").Find(&vouchers)
-		c.JSON(http.StatusOK, gin.H{"data": vouchers})
+		// Count total
+		var total int64
+		query.Model(&models.Voucher{}).Count(&total)
+
+		// Pagination
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+		if page < 1 {
+			page = 1
+		}
+		if pageSize < 1 || pageSize > 100 {
+			pageSize = 20
+		}
+		offset := (page - 1) * pageSize
+
+		var vouchers []models.Voucher
+		query.Preload("Items").Order("date DESC, number DESC").Offset(offset).Limit(pageSize).Find(&vouchers)
+		c.JSON(http.StatusOK, gin.H{"data": vouchers, "total": total})
 	}
 }
 

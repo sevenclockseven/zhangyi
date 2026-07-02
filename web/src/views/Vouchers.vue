@@ -12,16 +12,19 @@
     <!-- Filter bar -->
     <el-card shadow="never" style="margin-bottom: 12px" v-if="currentBook">
       <div :class="isMobile ? 'filter-mobile' : ''">
+        <el-select v-model="filterPeriod" placeholder="账期" clearable @change="onPeriodChange" :style="{ width: isMobile ? '100%' : '120px', marginBottom: isMobile ? '8px' : '0' }">
+          <el-option v-for="p in periodOptions" :key="p.value" :label="p.label" :value="p.value" />
+        </el-select>
         <el-date-picker v-model="filterDateRange" type="daterange" range-separator="至"
           start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD"
-          @change="loadVouchers()" :style="{ width: isMobile ? '100%' : '300px', marginBottom: isMobile ? '8px' : '0' }" />
-        <el-select v-model="filterStatus" placeholder="状态" clearable @change="loadVouchers()" :style="{ width: isMobile ? '100%' : '120px', marginBottom: isMobile ? '8px' : '0' }">
+          @change="onDateRangeChange" :style="{ width: isMobile ? '100%' : '300px', marginBottom: isMobile ? '8px' : '0' }" />
+        <el-select v-model="filterStatus" placeholder="状态" clearable @change="currentPage = 1; loadVouchers()" :style="{ width: isMobile ? '100%' : '120px', marginBottom: isMobile ? '8px' : '0' }">
           <el-option label="草稿" value="draft" />
           <el-option label="已审核" value="reviewed" />
           <el-option label="已记账" value="posted" />
           <el-option label="已作废" value="voided" />
         </el-select>
-        <el-input v-if="!isMobile" v-model="filterKeyword" placeholder="搜索凭证号/摘要" clearable @change="loadVouchers()" style="width: 200px" />
+        <el-input v-if="!isMobile" v-model="filterKeyword" placeholder="搜索凭证号/摘要" clearable @change="currentPage = 1; loadVouchers()" style="width: 200px" />
       </div>
     </el-card>
 
@@ -73,6 +76,19 @@
           </template>
         </el-table-column>
       </el-table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-wrapper" v-if="totalVouchers > 0" style="margin-top: 12px; display: flex; justify-content: flex-end;">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="totalVouchers"
+        layout="total, sizes, prev, pager, next"
+        @size-change="onPageSizeChange"
+        @current-change="onPageChange"
+      />
     </div>
 
     <!-- Batch actions -->
@@ -311,6 +327,25 @@ const auxLabelMap = {
 const filterDateRange = ref(null)
 const filterStatus = ref('')
 const filterKeyword = ref('')
+const filterPeriod = ref('')
+
+// Pagination
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalVouchers = ref(0)
+
+// Period options (last 12 months)
+const periodOptions = computed(() => {
+  const opts = []
+  const now = new Date()
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    opts.push({ label: `${y}-${m}`, value: `${y}-${m}` })
+  }
+  return opts
+})
 
 // Voucher gap detection
 const gapInfo = ref(null)
@@ -357,7 +392,7 @@ const buildAuxCache = () => {
 const loadVouchers = async () => {
   if (!currentBook.value) return
   try {
-    const params = {}
+    const params = { page: currentPage.value, page_size: pageSize.value }
     if (filterStatus.value) params.status = filterStatus.value
     if (filterDateRange.value) {
       params.date_from = filterDateRange.value[0]
@@ -366,8 +401,38 @@ const loadVouchers = async () => {
     if (filterKeyword.value) params.keyword = filterKeyword.value
     const { data } = await voucherApi.list(currentBook.value, params)
     vouchers.value = data.data || []
+    totalVouchers.value = data.total || 0
     detectGaps()
   } catch (e) { console.error(e) }
+}
+
+const onPeriodChange = (val) => {
+  if (val) {
+    const [y, m] = val.split('-')
+    const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate()
+    filterDateRange.value = [`${val}-01`, `${val}-${String(lastDay).padStart(2, '0')}`]
+  } else {
+    filterDateRange.value = null
+  }
+  currentPage.value = 1
+  loadVouchers()
+}
+
+const onDateRangeChange = (val) => {
+  filterPeriod.value = ''
+  currentPage.value = 1
+  loadVouchers()
+}
+
+const onPageSizeChange = (val) => {
+  pageSize.value = val
+  currentPage.value = 1
+  loadVouchers()
+}
+
+const onPageChange = (val) => {
+  currentPage.value = val
+  loadVouchers()
 }
 
 const detectGaps = async () => {
