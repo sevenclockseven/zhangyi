@@ -206,7 +206,7 @@ const renderCharts = () => {
         label: { show: false },
         emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
         data: d.expense_breakdown.map((item, i) => ({
-          value: item.value >= 10000 ? +(item.value / 10000).toFixed(2) : +item.value.toFixed(2),
+          value: +(item.value / 10000).toFixed(2),
           name: item.name,
           itemStyle: { color: colors[i % colors.length] }
         }))
