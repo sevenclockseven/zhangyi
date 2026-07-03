@@ -432,7 +432,9 @@ func voidPurchase(db *gorm.DB) gin.HandlerFunc {
 				tx.Create(&flow)
 			}
 
-			// 2. Create reversal voucher: DR 应付账款 / CR 库存商品
+			// 2. Red-letter reversal voucher: same direction, negative amounts
+			// Original: DR 库存商品 / CR 应付账款
+			// Reversal: DR 库存商品 (-amount) / CR 应付账款 (-amount)
 			if order.RefVoucherID > 0 {
 				var apAccount, invAccount models.Account
 				db.Where("book_id = ? AND code = ?", order.BookID, "2202").First(&apAccount)
@@ -446,21 +448,21 @@ func voidPurchase(db *gorm.DB) gin.HandlerFunc {
 					Status:      "posted",
 					TotalDebit:  order.TotalAmount,
 					TotalCredit: order.TotalAmount,
-					Memo:        fmt.Sprintf("采购冲销 %s", order.OrderNo),
+					Memo:        fmt.Sprintf("红字冲销 %s", order.OrderNo),
 					PreparedBy:  "system",
 					ReviewedBy:  "system",
 					PostedBy:    "system",
 				}
 				if err := tx.Create(&voucher).Error; err == nil {
 					tx.Create(&models.VoucherItem{
-						VoucherID: voucher.ID, LineNo: 1, AccountID: apAccount.ID,
-						AccountCode: apAccount.Code, AccountName: apAccount.Name,
-						Debit: order.TotalAmount, Memo: "应付账款冲销",
+						VoucherID: voucher.ID, LineNo: 1, AccountID: invAccount.ID,
+						AccountCode: invAccount.Code, AccountName: invAccount.Name,
+						Debit: -order.TotalAmount, Memo: "库存商品红字",
 					})
 					tx.Create(&models.VoucherItem{
-						VoucherID: voucher.ID, LineNo: 2, AccountID: invAccount.ID,
-						AccountCode: invAccount.Code, AccountName: invAccount.Name,
-						Credit: order.TotalAmount, Memo: "库存商品冲销",
+						VoucherID: voucher.ID, LineNo: 2, AccountID: apAccount.ID,
+						AccountCode: apAccount.Code, AccountName: apAccount.Name,
+						Credit: -order.TotalAmount, Memo: "应付账款红字",
 					})
 					updateAccountBalances(tx, &voucher)
 				}
@@ -814,8 +816,11 @@ func voidSales(db *gorm.DB) gin.HandlerFunc {
 				tx.Create(&flow)
 			}
 
-			// 2. Create reversal vouchers
-			// Reversal 1: DR 主营业务收入 / CR 应收账款
+			// 2. Red-letter reversal vouchers: same direction, negative amounts
+			// Original 1: DR 应收账款 / CR 主营业务收入
+			// Reversal 1: DR 应收账款 (-amount) / CR 主营业务收入 (-amount)
+			// Original 2: DR 主营业务成本 / CR 库存商品
+			// Reversal 2: DR 主营业务成本 (-cost) / CR 库存商品 (-cost)
 			var arAccount, revenueAccount, costAccount, invAccount models.Account
 			db.Where("book_id = ? AND code = ?", order.BookID, "1122").First(&arAccount)
 			db.Where("book_id = ? AND name LIKE ?", order.BookID, "%主营%收入%").First(&revenueAccount)
@@ -833,26 +838,25 @@ func voidSales(db *gorm.DB) gin.HandlerFunc {
 				Status:      "posted",
 				TotalDebit:  order.TotalAmount,
 				TotalCredit: order.TotalAmount,
-				Memo:        fmt.Sprintf("销售冲销(收入) %s", order.OrderNo),
+				Memo:        fmt.Sprintf("红字冲销(收入) %s", order.OrderNo),
 				PreparedBy:  "system",
 				ReviewedBy:  "system",
 				PostedBy:    "system",
 			}
 			if err := tx.Create(&voucher1).Error; err == nil {
 				tx.Create(&models.VoucherItem{
-					VoucherID: voucher1.ID, LineNo: 1, AccountID: revenueAccount.ID,
-					AccountCode: revenueAccount.Code, AccountName: revenueAccount.Name,
-					Debit: order.TotalAmount, Memo: "收入冲销",
+					VoucherID: voucher1.ID, LineNo: 1, AccountID: arAccount.ID,
+					AccountCode: arAccount.Code, AccountName: arAccount.Name,
+					Debit: -order.TotalAmount, Memo: "应收账款红字",
 				})
 				tx.Create(&models.VoucherItem{
-					VoucherID: voucher1.ID, LineNo: 2, AccountID: arAccount.ID,
-					AccountCode: arAccount.Code, AccountName: arAccount.Name,
-					Credit: order.TotalAmount, Memo: "应收账款冲销",
+					VoucherID: voucher1.ID, LineNo: 2, AccountID: revenueAccount.ID,
+					AccountCode: revenueAccount.Code, AccountName: revenueAccount.Name,
+					Credit: -order.TotalAmount, Memo: "收入红字",
 				})
 				updateAccountBalances(tx, &voucher1)
 			}
 
-			// Reversal 2: DR 库存商品 / CR 主营业务成本
 			voucher2 := models.Voucher{
 				BookID:      order.BookID,
 				Date:        time.Now().Format("2006-01-02"),
@@ -861,21 +865,21 @@ func voidSales(db *gorm.DB) gin.HandlerFunc {
 				Status:      "posted",
 				TotalDebit:  order.CostAmount,
 				TotalCredit: order.CostAmount,
-				Memo:        fmt.Sprintf("销售冲销(成本) %s", order.OrderNo),
+				Memo:        fmt.Sprintf("红字冲销(成本) %s", order.OrderNo),
 				PreparedBy:  "system",
 				ReviewedBy:  "system",
 				PostedBy:    "system",
 			}
 			if err := tx.Create(&voucher2).Error; err == nil {
 				tx.Create(&models.VoucherItem{
-					VoucherID: voucher2.ID, LineNo: 1, AccountID: invAccount.ID,
-					AccountCode: invAccount.Code, AccountName: invAccount.Name,
-					Debit: order.CostAmount, Memo: "库存商品冲回",
+					VoucherID: voucher2.ID, LineNo: 1, AccountID: costAccount.ID,
+					AccountCode: costAccount.Code, AccountName: costAccount.Name,
+					Debit: -order.CostAmount, Memo: "成本红字",
 				})
 				tx.Create(&models.VoucherItem{
-					VoucherID: voucher2.ID, LineNo: 2, AccountID: costAccount.ID,
-					AccountCode: costAccount.Code, AccountName: costAccount.Name,
-					Credit: order.CostAmount, Memo: "成本冲销",
+					VoucherID: voucher2.ID, LineNo: 2, AccountID: invAccount.ID,
+					AccountCode: invAccount.Code, AccountName: invAccount.Name,
+					Credit: -order.CostAmount, Memo: "库存商品红字",
 				})
 				updateAccountBalances(tx, &voucher2)
 			}
