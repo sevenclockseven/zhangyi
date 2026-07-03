@@ -343,7 +343,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { inventoryApi, auxApi } from '../api'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
@@ -587,6 +587,11 @@ onMounted(() => {
     loadAux()
     loadGoods()
   }
+})
+
+watch(currentBook, () => {
+  loadAux()
+  loadGoods()
 })
 </script>
 

@@ -269,14 +269,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, UploadFilled } from '@element-plus/icons-vue'
 import { assetApi, auxApi } from '../api'
+import { useBookStore } from '../stores/book'
 
 const route = useRoute()
-const bookId = route.query.book || route.params.id || 1
+const { currentBookId } = useBookStore()
+let bookId = currentBookId.value || 1
 
 const activeTab = ref('cards')
 const loading = ref(false)
@@ -619,13 +621,22 @@ async function handleImport() {
 }
 
 onMounted(() => {
+  loadAll()
+})
+
+watch(currentBookId, (val) => {
+  bookId = val || 1
+  loadAll()
+})
+
+function loadAll() {
   loadCards()
   loadCategories()
   loadDepartments()
   loadEmployees()
   loadSummary()
   loadTransactions()
-})
+}
 </script>
 
 <style scoped>
