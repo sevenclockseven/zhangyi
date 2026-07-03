@@ -10,7 +10,7 @@
         <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap">
           <el-input v-model="goodsFilter.keyword" placeholder="搜索编码/名称" style="width: 200px" clearable @keyup.enter="loadGoods" />
           <el-button type="primary" @click="loadGoods">查询</el-button>
-          <el-button type="success" @click="openGoodsDialog()"><el-icon><Plus /></el-icon>新增商品</el-button>
+          <el-button type="success" @click="openGoodsDialog()" v-if="canWrite"><el-icon><Plus /></el-icon>新增商品</el-button>
         </div>
         <el-table :data="goodsList" border size="small" style="width: 100%">
           <el-table-column prop="code" label="编码" width="100" />
@@ -26,8 +26,8 @@
           </el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" type="primary" link @click="openGoodsDialog(row)">编辑</el-button>
-              <el-button size="small" type="danger" link @click="deleteGoods(row)">删除</el-button>
+              <el-button size="small" type="primary" link @click="openGoodsDialog(row)" v-if="canWrite">编辑</el-button>
+              <el-button size="small" type="danger" link @click="deleteGoods(row)" v-if="canWrite">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -43,7 +43,7 @@
             <el-option label="已作废" value="voided" />
           </el-select>
           <el-button type="primary" @click="loadPurchases">查询</el-button>
-          <el-button type="success" @click="openPurchaseDialog()"><el-icon><Plus /></el-icon>新增采购单</el-button>
+          <el-button type="success" @click="openPurchaseDialog()" v-if="canWrite"><el-icon><Plus /></el-icon>新增采购单</el-button>
         </div>
         <el-table :data="purchaseList" border size="small" style="width: 100%">
           <el-table-column prop="order_no" label="单号" width="160" />
@@ -64,9 +64,9 @@
           <el-table-column prop="memo" label="备注" min-width="120" show-overflow-tooltip />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button v-if="row.status === 'draft'" size="small" type="success" link @click="postPurchase(row)">过账</el-button>
-              <el-button v-if="row.status === 'draft' || row.status === 'posted'" size="small" type="info" link @click="voidPurchase(row)">作废</el-button>
-              <el-button v-if="row.status === 'draft'" size="small" type="danger" link @click="deletePurchase(row)">删除</el-button>
+              <el-button v-if="row.status === 'draft' && canWrite" size="small" type="success" link @click="postPurchase(row)">过账</el-button>
+              <el-button v-if="(row.status === 'draft' || row.status === 'posted') && canWrite" size="small" type="info" link @click="voidPurchase(row)">作废</el-button>
+              <el-button v-if="row.status === 'draft' && canWrite" size="small" type="danger" link @click="deletePurchase(row)">删除</el-button>
               <el-button size="small" type="primary" link @click="viewPurchase(row)">查看</el-button>
             </template>
           </el-table-column>
@@ -83,7 +83,7 @@
             <el-option label="已作废" value="voided" />
           </el-select>
           <el-button type="primary" @click="loadSalesList">查询</el-button>
-          <el-button type="success" @click="openSalesDialog()"><el-icon><Plus /></el-icon>新增销售单</el-button>
+          <el-button type="success" @click="openSalesDialog()" v-if="canWrite"><el-icon><Plus /></el-icon>新增销售单</el-button>
         </div>
         <el-table :data="salesList" border size="small" style="width: 100%">
           <el-table-column prop="order_no" label="单号" width="160" />
@@ -111,9 +111,9 @@
           <el-table-column prop="memo" label="备注" min-width="120" show-overflow-tooltip />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button v-if="row.status === 'draft'" size="small" type="success" link @click="postSales(row)">过账</el-button>
-              <el-button v-if="row.status === 'draft' || row.status === 'posted'" size="small" type="info" link @click="voidSales(row)">作废</el-button>
-              <el-button v-if="row.status === 'draft'" size="small" type="danger" link @click="deleteSales(row)">删除</el-button>
+              <el-button v-if="row.status === 'draft' && canWrite" size="small" type="success" link @click="postSales(row)">过账</el-button>
+              <el-button v-if="(row.status === 'draft' || row.status === 'posted') && canWrite" size="small" type="info" link @click="voidSales(row)">作废</el-button>
+              <el-button v-if="row.status === 'draft' && canWrite" size="small" type="danger" link @click="deleteSales(row)">删除</el-button>
               <el-button size="small" type="primary" link @click="viewSales(row)">查看</el-button>
             </template>
           </el-table-column>
@@ -133,7 +133,7 @@
             <el-option label="已作废" value="voided" />
           </el-select>
           <el-button type="primary" @click="loadPayments">查询</el-button>
-          <el-button type="success" @click="openPaymentDialog()"><el-icon><Plus /></el-icon>新增收付款</el-button>
+          <el-button type="success" @click="openPaymentDialog()" v-if="canWrite"><el-icon><Plus /></el-icon>新增收付款</el-button>
         </div>
         <el-table :data="paymentList" border size="small" style="width: 100%">
           <el-table-column prop="record_no" label="单号" width="160" />
@@ -158,8 +158,8 @@
           </el-table-column>
           <el-table-column label="操作" width="160" fixed="right">
             <template #default="{ row }">
-              <el-button v-if="row.status === 'draft'" size="small" type="success" link @click="postPayment(row)">过账</el-button>
-              <el-button v-if="row.status === 'draft'" size="small" type="info" link @click="voidPayment(row)">作废</el-button>
+              <el-button v-if="row.status === 'draft' && canWrite" size="small" type="success" link @click="postPayment(row)">过账</el-button>
+              <el-button v-if="row.status === 'draft' && canWrite" size="small" type="info" link @click="voidPayment(row)">作废</el-button>
               <el-button size="small" type="primary" link @click="viewPayment(row)">查看</el-button>
             </template>
           </el-table-column>
@@ -184,6 +184,46 @@
             <template #default="{ row }">{{ fmtNum(row.total_cost) }}</template>
           </el-table-column>
           <el-table-column prop="warehouse_name" label="仓库" width="100" />
+        </el-table>
+      </el-tab-pane>
+
+      <el-tab-pane label="库存流水" name="flows">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap">
+          <el-input v-model="flowFilter.keyword" placeholder="商品编码/名称" style="width: 200px" clearable @keyup.enter="loadFlows" />
+          <el-select v-model="flowFilter.flow_type" placeholder="类型" clearable style="width: 130px" @change="loadFlows">
+            <el-option label="采购入库" value="purchase_in" />
+            <el-option label="销售出库" value="sales_out" />
+            <el-option label="采购冲销" value="purchase_out" />
+            <el-option label="销售冲销" value="sales_in" />
+            <el-option label="盘盈入库" value="adjust_in" />
+            <el-option label="盘亏出库" value="adjust_out" />
+          </el-select>
+          <el-button type="primary" @click="loadFlows">查询</el-button>
+        </div>
+        <el-table :data="flowList" border size="small" style="width: 100%">
+          <el-table-column prop="date" label="日期" width="100" />
+          <el-table-column label="商品" min-width="140">
+            <template #default="{ row }">{{ getGoodsName(row.goods_id) }}</template>
+          </el-table-column>
+          <el-table-column label="类型" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="flowTypeColor(row.flow_type)" size="small">{{ flowTypeLabel(row.flow_type) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="数量" width="90" align="right">
+            <template #default="{ row }">
+              <span :style="{ color: row.quantity < 0 ? '#F56C6C' : '' }">{{ row.quantity }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="单价" width="100" align="right">
+            <template #default="{ row }">{{ fmtNum(row.unit_price) }}</template>
+          </el-table-column>
+          <el-table-column label="金额" width="110" align="right">
+            <template #default="{ row }">
+              <span :style="{ color: row.amount < 0 ? '#F56C6C' : '' }">{{ fmtNum(row.amount) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="memo" label="摘要" min-width="160" />
         </el-table>
       </el-tab-pane>
     </el-tabs>
@@ -408,7 +448,7 @@ import { useMobile } from '../composables/useMobile'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 
-const { currentBookId: currentBook } = useBookStore()
+const { currentBookId: currentBook, canWrite } = useBookStore()
 const { isMobile } = useMobile()
 const activeTab = ref('goods')
 
@@ -528,6 +568,7 @@ const deletePurchase = async (row) => {
   loadPurchases()
 }
 const viewPurchase = async (row) => {
+  await loadAux()
   const { data } = await inventoryApi.getPurchase(currentBook.value, row.id)
   viewingPurchase.value = data.data || row
   showViewPurchase.value = true
@@ -584,6 +625,7 @@ const deleteSales = async (row) => {
   loadSalesList()
 }
 const viewSales = async (row) => {
+  await loadAux()
   const { data } = await inventoryApi.getSales(currentBook.value, row.id)
   viewingSales.value = data.data || row
   showViewSales.value = true
@@ -643,6 +685,32 @@ const loadStockSummary = async () => {
   stockSummary.value = data.data || []
 }
 
+// ========== Stock Flows ==========
+const flowList = ref([])
+const flowFilter = ref({ keyword: '', flow_type: '' })
+
+const loadFlows = async () => {
+  if (!currentBook.value) return
+  const { data } = await inventoryApi.stockFlow(currentBook.value, flowFilter.value)
+  flowList.value = data.data || []
+}
+
+const flowTypeLabel = (t) => ({
+  purchase_in: '采购入库', sales_out: '销售出库',
+  purchase_out: '采购冲销', sales_in: '销售冲销',
+  adjust_in: '盘盈入库', adjust_out: '盘亏出库',
+  transfer_in: '调拨入库', transfer_out: '调拨出库',
+  initial: '期初'
+}[t] || t)
+
+const flowTypeColor = (t) => ({
+  purchase_in: 'success', sales_out: 'warning',
+  purchase_out: 'danger', sales_in: 'danger',
+  adjust_in: 'success', adjust_out: 'warning',
+  transfer_in: '', transfer_out: '',
+  initial: 'info'
+}[t] || '')
+
 // ========== Counterparty (for payment dialog) ==========
 const suppliers = ref([])
 const customers = ref([])
@@ -667,10 +735,11 @@ const loadAux = async () => {
 
 const onTabChange = (tab) => {
   if (tab === 'goods') loadGoods()
-  else if (tab === 'purchases') loadPurchases()
-  else if (tab === 'sales') loadSalesList()
+  else if (tab === 'purchases') { loadAux(); loadPurchases() }
+  else if (tab === 'sales') { loadAux(); loadSalesList() }
   else if (tab === 'payments') loadPayments()
   else if (tab === 'stock') loadStockSummary()
+  else if (tab === 'flows') loadFlows()
 }
 
 onMounted(() => {

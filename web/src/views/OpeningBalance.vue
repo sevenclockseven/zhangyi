@@ -15,7 +15,7 @@
       />
 
       <div class="toolbar">
-        <el-button type="primary" size="small" @click="saveAll" :loading="saving" :disabled="!isBalanced">
+        <el-button type="primary" size="small" @click="saveAll" :loading="saving" :disabled="!isBalanced" v-if="canWrite">
           <el-icon><Check /></el-icon>保存
         </el-button>
         <el-button size="small" @click="exportData">
@@ -70,7 +70,7 @@ import { useMobile } from '../composables/useMobile'
 const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 260px)' : 'calc(100vh - 300px)')
 
-const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook, canWrite } = useBookStore()
 const balances = ref([])
 const saving = ref(false)
 

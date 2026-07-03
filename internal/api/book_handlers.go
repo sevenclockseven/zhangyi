@@ -13,10 +13,28 @@ import (
 
 func listBooks(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		role := c.GetString("role")
+		userID, _ := c.Get("user_id")
+
 		var books []models.AccountBook
-		if err := db.Order("created_at DESC").Find(&books).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+		if role == "admin" {
+			// 管理员看到所有账套
+			if err := db.Order("created_at DESC").Find(&books).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			// 普通用户只看到有权限的账套
+			var bookIDs []uint
+			db.Model(&models.BookUser{}).Where("user_id = ?", userID).Pluck("book_id", &bookIDs)
+			if len(bookIDs) == 0 {
+				c.JSON(http.StatusOK, gin.H{"data": []models.AccountBook{}})
+				return
+			}
+			if err := db.Where("id IN ?", bookIDs).Order("created_at DESC").Find(&books).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
 		}
 		c.JSON(http.StatusOK, gin.H{"data": books})
 	}

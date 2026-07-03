@@ -3,10 +3,10 @@
     <div class="page-header">
       <h2>科目管理</h2>
       <div class="header-actions">
-        <el-button @click="syncTemplate" :disabled="!currentBook" type="success" plain size="small">
+        <el-button @click="syncTemplate" :disabled="!currentBook" type="success" plain size="small" v-if="canWrite">
           <el-icon><Refresh /></el-icon>同步模板
         </el-button>
-        <el-button type="primary" @click="showAdd = true" :disabled="!currentBook" size="small">
+        <el-button type="primary" @click="showAdd = true" :disabled="!currentBook" size="small" v-if="canWrite">
           <el-icon><Plus /></el-icon>新增
         </el-button>
       </div>
@@ -61,7 +61,7 @@
           </el-descriptions-item>
           <el-descriptions-item label="辅助核算" :span="isMobile ? 1 : 2">{{ selectedAccount.aux_types || '无' }}</el-descriptions-item>
         </el-descriptions>
-        <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap">
+        <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap" v-if="canWrite">
           <el-button size="small" @click="editAccount(selectedAccount)">编辑</el-button>
           <el-button size="small" :type="selectedAccount.is_active ? 'warning' : 'success'" @click="toggleActive(selectedAccount)">
             {{ selectedAccount.is_active ? '停用' : '启用' }}
@@ -118,7 +118,7 @@ import { accountApi, bookApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { isMobile } = useMobile()
-const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook, canWrite } = useBookStore()
 const route = useRoute()
 const accounts = ref([])
 const accountTree = ref([])

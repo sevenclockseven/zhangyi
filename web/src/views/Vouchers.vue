@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>凭证管理</h2>
       <div class="header-actions">
-        <el-button type="primary" @click="showEditor = true" :disabled="!currentBook">
+        <el-button type="primary" @click="showEditor = true" :disabled="!currentBook" v-if="canWrite">
           <el-icon><Plus /></el-icon>新增凭证
         </el-button>
       </div>
@@ -65,14 +65,14 @@
         <el-table-column label="操作" :width="isMobile ? 150 : 220" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" link @click="viewVoucher(row)">查看</el-button>
-            <el-button size="small" type="warning" link @click="editVoucher(row)" v-if="row.status === 'draft'">编辑</el-button>
-            <el-button size="small" type="success" link @click="reviewVoucher(row)" v-if="row.status === 'draft'">审核</el-button>
-            <el-button size="small" type="success" link @click="postVoucher(row)" v-if="row.status === 'reviewed' || row.status === 'draft'">记账</el-button>
-            <el-button size="small" type="warning" link @click="unreviewVoucher(row)" v-if="row.status === 'reviewed'">反审核</el-button>
-            <el-button size="small" type="warning" link @click="unpostVoucher(row)" v-if="row.status === 'posted'">反记账</el-button>
-            <el-button size="small" type="danger" link @click="voidVoucher(row)" v-if="row.status === 'draft' || row.status === 'reviewed'">作废</el-button>
-            <el-button size="small" type="info" link @click="restoreVoucher(row)" v-if="row.status === 'voided'">恢复</el-button>
-            <el-button size="small" type="danger" link @click="deleteVoucher(row)" v-if="row.status === 'draft'">删除</el-button>
+            <el-button size="small" type="warning" link @click="editVoucher(row)" v-if="row.status === 'draft' && canWrite">编辑</el-button>
+            <el-button size="small" type="success" link @click="reviewVoucher(row)" v-if="row.status === 'draft' && canWrite">审核</el-button>
+            <el-button size="small" type="success" link @click="postVoucher(row)" v-if="(row.status === 'reviewed' || row.status === 'draft') && canWrite">记账</el-button>
+            <el-button size="small" type="warning" link @click="unreviewVoucher(row)" v-if="row.status === 'reviewed' && canWrite">反审核</el-button>
+            <el-button size="small" type="warning" link @click="unpostVoucher(row)" v-if="row.status === 'posted' && canWrite">反记账</el-button>
+            <el-button size="small" type="danger" link @click="voidVoucher(row)" v-if="(row.status === 'draft' || row.status === 'reviewed') && canWrite">作废</el-button>
+            <el-button size="small" type="info" link @click="restoreVoucher(row)" v-if="row.status === 'voided' && canWrite">恢复</el-button>
+            <el-button size="small" type="danger" link @click="deleteVoucher(row)" v-if="row.status === 'draft' && canWrite">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -93,8 +93,8 @@
 
     <!-- Batch actions -->
     <div class="batch-actions">
-      <el-button v-if="selectedVouchers.length > 0" @click="batchReview" :disabled="!canBatchReview">批量审核</el-button>
-      <el-button v-if="selectedVouchers.length > 0" @click="batchPost" :disabled="!canBatchPost">批量记账</el-button>
+      <el-button v-if="selectedVouchers.length > 0 && canWrite" @click="batchReview" :disabled="!canBatchReview">批量审核</el-button>
+      <el-button v-if="selectedVouchers.length > 0 && canWrite" @click="batchPost" :disabled="!canBatchPost">批量记账</el-button>
       <span v-if="selectedVouchers.length > 0" style="margin-left: 12px; color: #909399">已选 {{ selectedVouchers.length }} 条</span>
       <el-button style="margin-left: auto" size="small" @click="exportVouchers">
         <el-icon><Download /></el-icon>导出凭证
@@ -287,7 +287,7 @@ import { ArrowDown } from '@element-plus/icons-vue'
 const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 300px)' : 'calc(100vh - 350px)')
 
-const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook, canWrite } = useBookStore()
 const route = useRoute()
 const vouchers = ref([])
 const accounts = ref([])

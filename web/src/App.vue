@@ -125,7 +125,7 @@ import { useMobile } from './composables/useMobile'
 const route = useRoute()
 const router = useRouter()
 const { isMobile } = useMobile()
-const { currentBookId, books, setCurrentBook, setBooks } = useBookStore()
+const { currentBookId, books, setCurrentBook, setBooks, isAdmin, canWrite, canManageSystem, clearAuth, setPermissions, setUserRole } = useBookStore()
 
 const isLoginPage = computed(() => route.path === '/login')
 const currentUser = ref({})
@@ -204,7 +204,14 @@ if (typeof window !== 'undefined') {
 onMounted(() => {
   window.addEventListener('menu-config-changed', loadMenuConfig)
   const user = localStorage.getItem('user')
-  if (user) currentUser.value = JSON.parse(user)
+  if (user) {
+    const parsed = JSON.parse(user)
+    currentUser.value = parsed
+    // 同步 store 状态
+    setUserRole(parsed.role)
+    const perms = localStorage.getItem('book_permissions')
+    if (perms) setPermissions(JSON.parse(perms))
+  }
   loadMenuConfig()
   loadBooks()
 })
@@ -221,6 +228,7 @@ const handleCommand = async (cmd) => {
   if (cmd === 'logout') {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    clearAuth()
     setCurrentBook(null)
     router.push('/login')
   } else if (cmd === 'password') {

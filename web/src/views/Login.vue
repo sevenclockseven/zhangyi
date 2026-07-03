@@ -41,9 +41,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '../api'
+import { useBookStore } from '../stores/book'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const { setPermissions, setUserRole } = useBookStore()
 const loading = ref(false)
 const form = ref({ username: '', password: '' })
 
@@ -57,6 +59,9 @@ const handleLogin = async () => {
     const { data } = await authApi.login(form.value)
     localStorage.setItem('token', data.token)
     localStorage.setItem('user', JSON.stringify(data.user))
+    // 同步 store 状态
+    setPermissions(data.user.book_permissions)
+    setUserRole(data.user.role)
     ElMessage.success('登录成功')
     router.push('/')
   } catch (e) {

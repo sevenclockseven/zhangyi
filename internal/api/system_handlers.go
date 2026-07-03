@@ -431,6 +431,26 @@ func listOperationLogs(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+func cleanupOperationLogs(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		keepDays := 90
+		if d := c.Query("keep_days"); d != "" {
+			fmt.Sscanf(d, "%d", &keepDays)
+		}
+		if keepDays < 1 {
+			keepDays = 1
+		}
+
+		cutoff := time.Now().AddDate(0, 0, -keepDays)
+		result := db.Where("created_at < ?", cutoff).Delete(&models.OperationLog{})
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": fmt.Sprintf("已清理 %d 天前的日志，共删除 %d 条", keepDays, result.RowsAffected),
+			"deleted": result.RowsAffected,
+		})
+	}
+}
+
 // ===== Book Users (账套权限管理) =====
 
 func listBookUsers(db *gorm.DB) gin.HandlerFunc {

@@ -228,7 +228,7 @@
         </el-card>
       </el-tab-pane>
 
-      <el-tab-pane label="用户管理" name="users">
+      <el-tab-pane label="用户管理" name="users" v-if="isAdmin">
         <div style="margin-bottom: 12px">
           <el-button type="primary" size="small" @click="openUserAdd"><el-icon><Plus /></el-icon>新增用户</el-button>
         </div>
@@ -253,7 +253,7 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="账套权限" name="permissions">
+      <el-tab-pane label="账套权限" name="permissions" v-if="isAdmin">
         <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
           <span>选择账套：</span>
           <el-select v-model="permBookId" placeholder="请选择账套" @change="loadBookUsers" style="width: 250px">
@@ -282,12 +282,13 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="操作日志" name="logs">
-        <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
+      <el-tab-pane label="操作日志" name="logs" v-if="isAdmin">
+        <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
           <el-input v-model="logFilters.operator" placeholder="操作人" style="width: 120px" size="small" clearable />
           <el-input v-model="logFilters.module" placeholder="模块" style="width: 120px" size="small" clearable />
           <el-input v-model="logFilters.action" placeholder="操作" style="width: 120px" size="small" clearable />
           <el-button size="small" @click="loadLogs"><el-icon><Refresh /></el-icon>查询</el-button>
+          <el-button size="small" type="danger" @click="cleanupLogs"><el-icon><Delete /></el-icon>清理日志</el-button>
         </div>
         <div class="table-wrapper">
           <el-table :data="logs" border size="small" :max-height="tableMaxHeight">
@@ -310,7 +311,7 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="备份恢复" name="backup">
+      <el-tab-pane label="备份恢复" name="backup" v-if="isAdmin">
         <div style="margin-bottom: 12px">
           <el-button type="primary" size="small" @click="createBackup" :disabled="backupLoading">
             <el-icon><Download /></el-icon>立即备份
@@ -508,7 +509,7 @@ import { useMobile } from '../composables/useMobile'
 const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 320px)' : 'calc(100vh - 350px)')
 
-const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook, isAdmin } = useBookStore()
 const activeTab = ref('aux')
 const auxType = ref('customer')
 const auxItems = ref([])
@@ -912,6 +913,17 @@ const loadLogs = async () => {
     logs.value = data.data || []
     logTotal.value = data.total || 0
   } catch (e) { console.error(e) }
+}
+
+const cleanupLogs = async () => {
+  try {
+    await ElMessageBox.confirm('清理90天前的操作日志？此操作不可恢复。', '确认清理', { type: 'warning' })
+    const { data } = await systemApi.logs.cleanup(90)
+    ElMessage.success(data.message)
+    loadLogs()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.response?.data?.error || '清理失败')
+  }
 }
 
 // ===== Backup & Restore =====

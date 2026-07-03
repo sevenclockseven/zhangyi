@@ -162,18 +162,23 @@ func importGoods(db *gorm.DB) gin.HandlerFunc {
 func listPurchases(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
-		var orders []models.PurchaseOrder
-		query := db.Where("book_id = ?", bookID)
+		query := db.Model(&models.PurchaseOrder{}).
+			Joins("LEFT JOIN aux_items ai ON ai.id = purchase_orders.supplier_id AND ai.type = 'supplier'").
+			Where("purchase_orders.book_id = ?", bookID)
 		if status := c.Query("status"); status != "" {
-			query = query.Where("status = ?", status)
+			query = query.Where("purchase_orders.status = ?", status)
+		}
+		if keyword := c.Query("keyword"); keyword != "" {
+			query = query.Where("purchase_orders.order_no LIKE ? OR ai.name LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 		}
 		if dateFrom := c.Query("date_from"); dateFrom != "" {
-			query = query.Where("date >= ?", dateFrom)
+			query = query.Where("purchase_orders.date >= ?", dateFrom)
 		}
 		if dateTo := c.Query("date_to"); dateTo != "" {
-			query = query.Where("date <= ?", dateTo)
+			query = query.Where("purchase_orders.date <= ?", dateTo)
 		}
-		query.Order("date DESC, id DESC").Find(&orders)
+		var orders []models.PurchaseOrder
+		query.Order("purchase_orders.date DESC, purchase_orders.id DESC").Find(&orders)
 		c.JSON(http.StatusOK, gin.H{"data": orders})
 	}
 }
@@ -480,18 +485,23 @@ func voidPurchase(db *gorm.DB) gin.HandlerFunc {
 func listSales(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
-		var orders []models.SalesOrder
-		query := db.Where("book_id = ?", bookID)
+		query := db.Model(&models.SalesOrder{}).
+			Joins("LEFT JOIN aux_items ai ON ai.id = sales_orders.customer_id AND ai.type = 'customer'").
+			Where("sales_orders.book_id = ?", bookID)
 		if status := c.Query("status"); status != "" {
-			query = query.Where("status = ?", status)
+			query = query.Where("sales_orders.status = ?", status)
+		}
+		if keyword := c.Query("keyword"); keyword != "" {
+			query = query.Where("sales_orders.order_no LIKE ? OR ai.name LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 		}
 		if dateFrom := c.Query("date_from"); dateFrom != "" {
-			query = query.Where("date >= ?", dateFrom)
+			query = query.Where("sales_orders.date >= ?", dateFrom)
 		}
 		if dateTo := c.Query("date_to"); dateTo != "" {
-			query = query.Where("date <= ?", dateTo)
+			query = query.Where("sales_orders.date <= ?", dateTo)
 		}
-		query.Order("date DESC, id DESC").Find(&orders)
+		var orders []models.SalesOrder
+		query.Order("sales_orders.date DESC, sales_orders.id DESC").Find(&orders)
 		c.JSON(http.StatusOK, gin.H{"data": orders})
 	}
 }
@@ -1235,21 +1245,31 @@ func stockSummary(db *gorm.DB) gin.HandlerFunc {
 func stockFlowList(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bookID := c.Param("id")
-		var flows []models.StockFlow
-		query := db.Where("book_id = ?", bookID)
+		query := db.Model(&models.StockFlow{}).
+			Joins("LEFT JOIN goods g ON g.id = stock_flows.goods_id").
+			Where("stock_flows.book_id = ?", bookID)
+
 		if goodsID := c.Query("goods_id"); goodsID != "" {
-			query = query.Where("goods_id = ?", goodsID)
+			query = query.Where("stock_flows.goods_id = ?", goodsID)
 		}
 		if warehouseID := c.Query("warehouse_id"); warehouseID != "" {
-			query = query.Where("warehouse_id = ?", warehouseID)
+			query = query.Where("stock_flows.warehouse_id = ?", warehouseID)
+		}
+		if flowType := c.Query("flow_type"); flowType != "" {
+			query = query.Where("stock_flows.flow_type = ?", flowType)
+		}
+		if keyword := c.Query("keyword"); keyword != "" {
+			query = query.Where("g.code LIKE ? OR g.name LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 		}
 		if dateFrom := c.Query("date_from"); dateFrom != "" {
-			query = query.Where("date >= ?", dateFrom)
+			query = query.Where("stock_flows.date >= ?", dateFrom)
 		}
 		if dateTo := c.Query("date_to"); dateTo != "" {
-			query = query.Where("date <= ?", dateTo)
+			query = query.Where("stock_flows.date <= ?", dateTo)
 		}
-		query.Order("date DESC, id DESC").Find(&flows)
+
+		var flows []models.StockFlow
+		query.Order("stock_flows.date DESC, stock_flows.id DESC").Find(&flows)
 		c.JSON(http.StatusOK, gin.H{"data": flows})
 	}
 }

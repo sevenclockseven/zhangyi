@@ -33,7 +33,7 @@
           </div>
           <h3>损益结转</h3>
           <p>将所有损益类科目余额结转到"本年利润"，自动生成结转凭证</p>
-          <el-button type="primary" @click="doAutoTransfer" :loading="loading" :disabled="status.is_closed">
+          <el-button type="primary" @click="doAutoTransfer" :loading="loading" :disabled="status.is_closed" v-if="canWrite">
             执行损益结转
           </el-button>
         </el-card>
@@ -45,7 +45,7 @@
           </div>
           <h3>期末结账</h3>
           <p>锁定本期所有凭证，生成期末余额作为下期期初，开启下一会计期间</p>
-          <el-button type="success" @click="doClose" :loading="loading" :disabled="status.is_closed">
+          <el-button type="success" @click="doClose" :loading="loading" :disabled="status.is_closed" v-if="canWrite">
             执行期末结账
           </el-button>
         </el-card>
@@ -57,7 +57,7 @@
           </div>
           <h3>反结账</h3>
           <p>解锁已结账期间，可修改本期数据。需要先删除自动生成的结转凭证</p>
-          <el-button type="warning" @click="doUnclose" :loading="loading" :disabled="!status.is_closed">
+          <el-button type="warning" @click="doUnclose" :loading="loading" :disabled="!status.is_closed" v-if="canWrite">
             执行反结账
           </el-button>
         </el-card>
@@ -85,7 +85,7 @@ import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
 
 const { isMobile } = useMobile()
-const { currentBookId: currentBook, books, setCurrentBook } = useBookStore()
+const { currentBookId: currentBook, books, setCurrentBook, canWrite } = useBookStore()
 const loading = ref(false)
 const status = ref({
   current_period: '',

@@ -256,6 +256,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			auth.DELETE("/system/backups/:name", deleteBackup(db))
 			auth.POST("/system/backups/:name/restore", restoreBackup(db))
 			auth.GET("/system/logs", listOperationLogs(db))
+			auth.DELETE("/system/logs", cleanupOperationLogs(db))
 		}
 	}
 }

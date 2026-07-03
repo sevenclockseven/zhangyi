@@ -30,13 +30,24 @@ func loginHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// 查询用户的账套权限列表
+		bookPermissions := map[uint]string{}
+		if user.Role != "admin" {
+			var bookUsers []models.BookUser
+			db.Where("user_id = ?", user.ID).Find(&bookUsers)
+			for _, bu := range bookUsers {
+				bookPermissions[bu.BookID] = bu.Role
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"token": token,
 			"user": gin.H{
-				"id":        user.ID,
-				"username":  user.Username,
-				"real_name": user.RealName,
-				"role":      user.Role,
+				"id":              user.ID,
+			"username":        user.Username,
+			"real_name":       user.RealName,
+			"role":            user.Role,
+			"book_permissions": bookPermissions,
 			},
 		})
 	}

@@ -4,8 +4,8 @@
       <h2>设备管理</h2>
       <div style="display:flex;gap:8px">
         <el-button type="success" @click="handleExport">导出</el-button>
-        <el-button type="warning" @click="showImportDialog=true">导入</el-button>
-        <el-button type="primary" @click="showCardDialog=true">
+        <el-button type="warning" @click="showImportDialog=true" v-if="canWrite">导入</el-button>
+        <el-button type="primary" @click="showCardDialog=true" v-if="canWrite">
         <el-icon><Plus /></el-icon>新增资产
         </el-button>
       </div>
@@ -49,8 +49,8 @@
           <el-table-column label="责任人" width="80" prop="employee_name" />
           <el-table-column label="操作" width="160">
             <template #default="{ row }">
-              <el-button size="small" type="primary" link @click="editCard(row)">编辑</el-button>
-              <el-button size="small" type="danger" link @click="deleteCard(row)">删除</el-button>
+              <el-button size="small" type="primary" link @click="editCard(row)" v-if="canWrite">编辑</el-button>
+              <el-button size="small" type="danger" link @click="deleteCard(row)" v-if="canWrite">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -60,7 +60,7 @@
       <!-- ========== 分类管理 ========== -->
       <el-tab-pane label="资产分类" name="categories">
         <div style="margin-bottom: 12px">
-          <el-button type="primary" @click="showCatDialog = true">新增分类</el-button>
+          <el-button type="primary" @click="showCatDialog = true" v-if="canWrite">新增分类</el-button>
         </div>
         <el-table :data="categories" border size="small" style="width: 100%">
           <el-table-column prop="code" label="编码" width="100" />
@@ -75,8 +75,8 @@
           <el-table-column prop="memo" label="备注" min-width="150" />
           <el-table-column label="操作" width="120">
             <template #default="{ row }">
-              <el-button size="small" type="primary" link @click="editCategory(row)">编辑</el-button>
-              <el-button size="small" type="danger" link @click="deleteCategory(row)">删除</el-button>
+              <el-button size="small" type="primary" link @click="editCategory(row)" v-if="canWrite">编辑</el-button>
+              <el-button size="small" type="danger" link @click="deleteCategory(row)" v-if="canWrite">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -292,7 +292,7 @@ import { assetApi, auxApi, accountApi } from '../api'
 import { useBookStore } from '../stores/book'
 
 const route = useRoute()
-const { currentBookId } = useBookStore()
+const { currentBookId, canWrite } = useBookStore()
 let bookId = currentBookId.value || 1
 
 const activeTab = ref('cards')

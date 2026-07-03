@@ -163,6 +163,7 @@ export const systemApi = {
   },
   logs: {
     list: (params) => http.get('/api/system/logs', { params }),
+    cleanup: (keepDays) => http.delete('/api/system/logs', { params: { keep_days: keepDays } }),
   },
 }
 
