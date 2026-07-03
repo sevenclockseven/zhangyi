@@ -131,12 +131,13 @@ DB_DRIVER=postgres DB_DSN="host=localhost user=zhangyi password=*** dbname=zhang
 
 ## 📋 版本
 
-当前版本：v0.10.3
+当前版本：v0.10.4
 
 ## 📝 版本记录
 
 | 版本 | 日期 | 内容 |
 |------|------|------|
+| v0.10.4 | 2026-07-03 | 资产分类按账套隔离(book_id) + 折旧科目配置UI + 凭证管理分页 + 账期选择器 + 设备/进销存切换账套修复 + build-binary.yml Go版本修复 |
 | v0.10.3 | 2026-07-02 | 报表数据修复(evalFormula/JE方向/利润表PeriodCredit/PeriodDebit/资产负债表contra-account) + 费用构成饼图(子科目汇总+万单位) + 库存汇总修复(GORM字段映射) |
 | v0.10.2 | 2026-07-02 | 前端Bug修复(图表切换ECharts引用/费用统计合计行重复/进销存毛利列) |
 | v0.10.1 | 2026-07-02 | 报表数据修复(sumUp累加/现金流量表列名修正) |
