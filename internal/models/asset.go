@@ -5,6 +5,7 @@ import "time"
 // 资产分类
 type AssetCategory struct {
 	ID                   uint    `json:"id" gorm:"primaryKey"`
+	BookID               uint    `json:"book_id" gorm:"index;default:0"`
 	ParentID             *uint   `json:"parent_id" gorm:"index"`
 	Name                 string  `json:"name" gorm:"size:100;not null"`
 	Code                 string  `json:"code" gorm:"size:20"`

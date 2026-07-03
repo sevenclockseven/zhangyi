@@ -15,8 +15,9 @@ import (
 
 func listAssetCategories(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		var categories []models.AssetCategory
-		if err := db.Order("code").Find(&categories).Error; err != nil {
+		if err := db.Where("book_id = ?", bookID).Order("code").Find(&categories).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -26,6 +27,7 @@ func listAssetCategories(db *gorm.DB) gin.HandlerFunc {
 
 func createAssetCategory(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		var req struct {
 			Name                  string  `json:"name" binding:"required"`
 			Code                  string  `json:"code"`
@@ -43,6 +45,7 @@ func createAssetCategory(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		cat := models.AssetCategory{
+			BookID:                parseBookID(bookID),
 			Name:                  req.Name,
 			Code:                  req.Code,
 			ParentID:              req.ParentID,

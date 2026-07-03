@@ -220,6 +220,21 @@
           <el-input-number v-model="catForm.residual_value_rate" :min="0" :max="1" :precision="4" :step="0.01" style="width: 100%" />
           <span style="margin-left: 8px; color: #999">{{ ((catForm.residual_value_rate || 0.05) * 100).toFixed(0) }}%</span>
         </el-form-item>
+        <el-form-item label="固定资产科目">
+          <el-select v-model="catForm.book_account_id" placeholder="选择科目" clearable filterable style="width: 100%">
+            <el-option v-for="a in accounts.filter(a => a.code && a.code.startsWith('16'))" :key="a.id" :label="`${a.code} ${a.name}`" :value="a.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="累计折旧科目">
+          <el-select v-model="catForm.depreciation_account_id" placeholder="选择科目" clearable filterable style="width: 100%">
+            <el-option v-for="a in accounts.filter(a => a.code && a.code.startsWith('1602'))" :key="a.id" :label="`${a.code} ${a.name}`" :value="a.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="折旧费用科目">
+          <el-select v-model="catForm.expense_account_id" placeholder="选择科目" clearable filterable style="width: 100%">
+            <el-option v-for="a in accounts.filter(a => a.code && (a.code.startsWith('5602.04') || a.code.startsWith('4101.01') || a.code.startsWith('6602.04')))" :key="a.id" :label="`${a.code} ${a.name}`" :value="a.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="catForm.memo" type="textarea" :rows="2" />
         </el-form-item>
@@ -273,7 +288,7 @@ import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, UploadFilled } from '@element-plus/icons-vue'
-import { assetApi, auxApi } from '../api'
+import { assetApi, auxApi, accountApi } from '../api'
 import { useBookStore } from '../stores/book'
 
 const route = useRoute()
@@ -289,6 +304,7 @@ const cards = ref([])
 const categories = ref([])
 const departments = ref([])
 const employees = ref([])
+const accounts = ref([])
 const depResults = ref([])
 const depPeriod = ref(new Date().toISOString().slice(0, 7))
 const depTotal = ref(0)
@@ -306,7 +322,8 @@ const cardForm = reactive({
 const showCatDialog = ref(false)
 const catForm = reactive({
   id: null, name: '', code: '', useful_life_months: 60,
-  residual_value_rate: 0.05, memo: ''
+  residual_value_rate: 0.05, memo: '',
+  book_account_id: null, depreciation_account_id: null, expense_account_id: null
 })
 
 const transactions = ref([])
@@ -359,6 +376,13 @@ async function loadEmployees() {
     const { data } = await auxApi.list(bookId, { type: 'employee' })
     employees.value = (data.data || []).filter(e => e.is_active !== false)
   } catch { employees.value = [] }
+}
+
+async function loadAccounts() {
+  try {
+    const { data } = await accountApi.list(bookId)
+    accounts.value = (data.data || []).filter(a => a.is_active !== false)
+  } catch { accounts.value = [] }
 }
 
 function onDeptChange(id) {
@@ -634,6 +658,7 @@ function loadAll() {
   loadCategories()
   loadDepartments()
   loadEmployees()
+  loadAccounts()
   loadSummary()
   loadTransactions()
 }
