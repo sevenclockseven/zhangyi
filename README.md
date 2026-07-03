@@ -131,12 +131,13 @@ DB_DRIVER=postgres DB_DSN="host=localhost user=zhangyi password=*** dbname=zhang
 
 ## 📋 版本
 
-当前版本：v0.10.5
+当前版本：v0.10.6
 
 ## 📝 版本记录
 
 | 版本 | 日期 | 内容 |
 |------|------|------|
+| v0.10.6 | 2026-07-03 | 权限系统修复：登录返回book_permissions；listBooks按book_users过滤账套可见性；修复c.GetInt类型不匹配导致普通用户看不到账套；前端book store新增isAdmin/canWrite权限控制；所有页面写操作按钮加v-if权限守卫；系统设置管理tab仅admin可见；对抗性审查修复：listBooks显式类型断言、DB错误检查、App.vue onMounted try-catch、日志清理上限 |
 | v0.10.5 | 2026-07-03 | 数据安全+逻辑修正+数据隔离：凭证操作事务化(postVoucher/unpostVoucher/batchPost)；voidPayment改为红字冲销；voidSales冲销流水用成本价；库存报表纳入冲销流水类型；凭证/资产分类book_id隔离；updateVoucher借贷平衡校验；批量操作使用实际用户名 |
 | v0.10.4 | 2026-07-03 | 资产分类按账套隔离(book_id) + 折旧科目配置UI + 凭证管理分页 + 账期选择器 + 设备/进销存切换账套修复 + build-binary.yml Go版本修复 |
 | v0.10.3 | 2026-07-02 | 报表数据修复(evalFormula/JE方向/利润表PeriodCredit/PeriodDebit/资产负债表contra-account) + 费用构成饼图(子科目汇总+万单位) + 库存汇总修复(GORM字段映射) |

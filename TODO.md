@@ -1,3 +1,23 @@
+# 权限系统修复 (v0.10.6, 2026-07-03)
+
+## 完成内容
+- [x] 登录接口返回 book_permissions (book_id → role 映射)
+- [x] listBooks 按 book_users 过滤普通用户可见账套
+- [x] 修复 c.GetInt("user_id") 类型不匹配 (uint → interface{} → 静默返回0)
+- [x] 前端 book store 新增 isAdmin/canWrite/bookPermissions 状态管理
+- [x] 所有页面写操作按钮加 v-if="canWrite" 权限守卫
+- [x] 系统设置中 用户管理/账套权限/操作日志/备份恢复 仅 admin 可见
+- [x] canWrite 识别 full/writable 两种可写角色
+- [x] Login/App 登录后同步 store 权限状态
+
+## 对抗性审查修复
+- [x] listBooks: c.GetInt → 显式类型断言 userID.(uint)
+- [x] auth_handlers: book_users 查询加 error 检查
+- [x] App.vue onMounted: JSON.parse 加 try-catch
+- [x] cleanupOperationLogs: 加上限 3650 天
+
+---
+
 # 🔧 全面数据清理 + 报表验证 (2026-07-02)
 
 ## 第一步：清理所有模块数据

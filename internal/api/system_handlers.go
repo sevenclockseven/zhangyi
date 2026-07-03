@@ -440,6 +440,9 @@ func cleanupOperationLogs(db *gorm.DB) gin.HandlerFunc {
 		if keepDays < 1 {
 			keepDays = 1
 		}
+		if keepDays > 3650 {
+			keepDays = 3650
+		}
 
 		cutoff := time.Now().AddDate(0, 0, -keepDays)
 		result := db.Where("created_at < ?", cutoff).Delete(&models.OperationLog{})

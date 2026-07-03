@@ -203,15 +203,16 @@ if (typeof window !== 'undefined') {
 
 onMounted(() => {
   window.addEventListener('menu-config-changed', loadMenuConfig)
-  const user = localStorage.getItem('user')
-  if (user) {
-    const parsed = JSON.parse(user)
-    currentUser.value = parsed
-    // 同步 store 状态
-    setUserRole(parsed.role)
-    const perms = localStorage.getItem('book_permissions')
-    if (perms) setPermissions(JSON.parse(perms))
-  }
+  try {
+    const user = localStorage.getItem('user')
+    if (user) {
+      const parsed = JSON.parse(user)
+      currentUser.value = parsed
+      setUserRole(parsed.role)
+      const perms = localStorage.getItem('book_permissions')
+      if (perms) setPermissions(JSON.parse(perms))
+    }
+  } catch {}
   loadMenuConfig()
   loadBooks()
 })

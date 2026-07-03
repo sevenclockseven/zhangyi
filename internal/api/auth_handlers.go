@@ -34,7 +34,10 @@ func loginHandler(db *gorm.DB) gin.HandlerFunc {
 		bookPermissions := map[uint]string{}
 		if user.Role != "admin" {
 			var bookUsers []models.BookUser
-			db.Where("user_id = ?", user.ID).Find(&bookUsers)
+			if err := db.Where("user_id = ?", user.ID).Find(&bookUsers).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "查询账套权限失败"})
+				return
+			}
 			for _, bu := range bookUsers {
 				bookPermissions[bu.BookID] = bu.Role
 			}
@@ -44,10 +47,10 @@ func loginHandler(db *gorm.DB) gin.HandlerFunc {
 			"token": token,
 			"user": gin.H{
 				"id":              user.ID,
-			"username":        user.Username,
-			"real_name":       user.RealName,
-			"role":            user.Role,
-			"book_permissions": bookPermissions,
+				"username":        user.Username,
+				"real_name":       user.RealName,
+				"role":            user.Role,
+				"book_permissions": bookPermissions,
 			},
 		})
 	}
