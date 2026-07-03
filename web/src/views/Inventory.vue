@@ -62,10 +62,11 @@
             </template>
           </el-table-column>
           <el-table-column prop="memo" label="备注" min-width="120" show-overflow-tooltip />
-          <el-table-column label="操作" width="160" fixed="right">
+          <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button v-if="row.status === 'draft'" size="small" type="success" link @click="postPurchase(row)">过账</el-button>
               <el-button v-if="row.status === 'draft'" size="small" type="info" link @click="voidPurchase(row)">作废</el-button>
+              <el-button v-if="row.status === 'draft'" size="small" type="danger" link @click="deletePurchase(row)">删除</el-button>
               <el-button size="small" type="primary" link @click="viewPurchase(row)">查看</el-button>
             </template>
           </el-table-column>
@@ -108,10 +109,11 @@
             </template>
           </el-table-column>
           <el-table-column prop="memo" label="备注" min-width="120" show-overflow-tooltip />
-          <el-table-column label="操作" width="160" fixed="right">
+          <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button v-if="row.status === 'draft'" size="small" type="success" link @click="postSales(row)">过账</el-button>
               <el-button v-if="row.status === 'draft'" size="small" type="info" link @click="voidSales(row)">作废</el-button>
+              <el-button v-if="row.status === 'draft'" size="small" type="danger" link @click="deleteSales(row)">删除</el-button>
               <el-button size="small" type="primary" link @click="viewSales(row)">查看</el-button>
             </template>
           </el-table-column>
@@ -339,6 +341,62 @@
         <el-button type="primary" @click="savePayment">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 查看采购单 -->
+    <el-dialog v-model="showViewPurchase" title="采购单详情" :width="isMobile ? '95%' : '700px'">
+      <div v-if="viewingPurchase">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="单号">{{ viewingPurchase.order_no }}</el-descriptions-item>
+          <el-descriptions-item label="日期">{{ viewingPurchase.date }}</el-descriptions-item>
+          <el-descriptions-item label="供应商">{{ getAuxName('supplier', viewingPurchase.supplier_id) }}</el-descriptions-item>
+          <el-descriptions-item label="仓库">{{ getAuxName('warehouse', viewingPurchase.warehouse_id) }}</el-descriptions-item>
+          <el-descriptions-item label="状态"><el-tag :type="viewingPurchase.status === 'posted' ? 'success' : viewingPurchase.status === 'voided' ? 'info' : 'warning'" size="small">{{ statusLabel(viewingPurchase.status) }}</el-tag></el-descriptions-item>
+          <el-descriptions-item label="金额">{{ fmtNum(viewingPurchase.total_amount) }}</el-descriptions-item>
+          <el-descriptions-item label="备注" :span="2">{{ viewingPurchase.memo || '-' }}</el-descriptions-item>
+        </el-descriptions>
+        <el-table :data="viewingPurchase.items || []" stripe size="small" style="margin-top: 12px">
+          <el-table-column prop="goods_id" label="商品" min-width="120">
+            <template #default="{ row }">{{ getGoodsName(row.goods_id) }}</template>
+          </el-table-column>
+          <el-table-column prop="quantity" label="数量" width="80" />
+          <el-table-column prop="unit_price" label="单价" width="100">
+            <template #default="{ row }">{{ fmtNum(row.unit_price) }}</template>
+          </el-table-column>
+          <el-table-column label="金额" width="100">
+            <template #default="{ row }">{{ fmtNum(row.quantity * row.unit_price) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
+    <!-- 查看销售单 -->
+    <el-dialog v-model="showViewSales" title="销售单详情" :width="isMobile ? '95%' : '700px'">
+      <div v-if="viewingSales">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="单号">{{ viewingSales.order_no }}</el-descriptions-item>
+          <el-descriptions-item label="日期">{{ viewingSales.date }}</el-descriptions-item>
+          <el-descriptions-item label="客户">{{ getAuxName('customer', viewingSales.customer_id) }}</el-descriptions-item>
+          <el-descriptions-item label="仓库">{{ getAuxName('warehouse', viewingSales.warehouse_id) }}</el-descriptions-item>
+          <el-descriptions-item label="状态"><el-tag :type="viewingSales.status === 'posted' ? 'success' : viewingSales.status === 'voided' ? 'info' : 'warning'" size="small">{{ statusLabel(viewingSales.status) }}</el-tag></el-descriptions-item>
+          <el-descriptions-item label="金额">{{ fmtNum(viewingSales.total_amount) }}</el-descriptions-item>
+          <el-descriptions-item label="成本">{{ fmtNum(viewingSales.cost_amount) }}</el-descriptions-item>
+          <el-descriptions-item label="毛利">{{ fmtNum(viewingSales.total_amount - viewingSales.cost_amount) }}</el-descriptions-item>
+          <el-descriptions-item label="备注" :span="2">{{ viewingSales.memo || '-' }}</el-descriptions-item>
+        </el-descriptions>
+        <el-table :data="viewingSales.items || []" stripe size="small" style="margin-top: 12px">
+          <el-table-column prop="goods_id" label="商品" min-width="120">
+            <template #default="{ row }">{{ getGoodsName(row.goods_id) }}</template>
+          </el-table-column>
+          <el-table-column prop="quantity" label="数量" width="80" />
+          <el-table-column prop="unit_price" label="单价" width="100">
+            <template #default="{ row }">{{ fmtNum(row.unit_price) }}</template>
+          </el-table-column>
+          <el-table-column label="金额" width="100">
+            <template #default="{ row }">{{ fmtNum(row.quantity * row.unit_price) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -371,6 +429,23 @@ const loadGoods = async () => {
   const { data } = await inventoryApi.listGoods(currentBook.value, goodsFilter.value)
   goodsList.value = data.data || []
 }
+
+// ========== View Dialogs ==========
+const showViewPurchase = ref(false)
+const viewingPurchase = ref(null)
+const showViewSales = ref(false)
+const viewingSales = ref(null)
+
+const getAuxName = (type, id) => {
+  const list = type === 'supplier' ? suppliers.value : type === 'customer' ? customers.value : warehouses.value
+  const item = list.find(i => i.id === id)
+  return item ? item.name : '-'
+}
+const getGoodsName = (id) => {
+  const g = goodsList.value.find(g => g.id === id)
+  return g ? `${g.code} ${g.name}` : '-'
+}
+const statusLabel = (s) => ({ draft: '草稿', posted: '已过账', voided: '已作废' }[s] || s)
 const openGoodsDialog = (row) => {
   editingGoods.value = row || null
   if (row) {
@@ -446,8 +521,16 @@ const voidPurchase = async (row) => {
   ElMessage.success('已作废')
   loadPurchases()
 }
-const viewPurchase = (row) => {
-  ElMessage.info(`查看采购单 ${row.order_no}`)
+const deletePurchase = async (row) => {
+  await ElMessageBox.confirm(`确定删除"${row.order_no}"？`, '确认')
+  await inventoryApi.deletePurchase(currentBook.value, row.id)
+  ElMessage.success('已删除')
+  loadPurchases()
+}
+const viewPurchase = async (row) => {
+  const { data } = await inventoryApi.getPurchase(currentBook.value, row.id)
+  viewingPurchase.value = data.data || row
+  showViewPurchase.value = true
 }
 
 // ========== Sales ==========
@@ -494,8 +577,16 @@ const voidSales = async (row) => {
   ElMessage.success('已作废')
   loadSalesList()
 }
-const viewSales = (row) => {
-  ElMessage.info(`查看销售单 ${row.order_no}`)
+const deleteSales = async (row) => {
+  await ElMessageBox.confirm(`确定删除"${row.order_no}"？`, '确认')
+  await inventoryApi.deleteSales(currentBook.value, row.id)
+  ElMessage.success('已删除')
+  loadSalesList()
+}
+const viewSales = async (row) => {
+  const { data } = await inventoryApi.getSales(currentBook.value, row.id)
+  viewingSales.value = data.data || row
+  showViewSales.value = true
 }
 
 // ========== Payments ==========

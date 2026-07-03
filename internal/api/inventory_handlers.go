@@ -378,11 +378,31 @@ func postPurchase(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-func voidPurchase(db *gorm.DB) gin.HandlerFunc {
+func deletePurchase(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		pid := c.Param("pid")
 		var order models.PurchaseOrder
 		if err := db.First(&order, pid).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "采购单不存在"})
+			return
+		}
+		if order.Status != "draft" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "只能删除草稿状态的采购单"})
+			return
+		}
+		tx := db.Begin()
+		tx.Where("purchase_order_id = ?", order.ID).Delete(&models.PurchaseOrderItem{})
+		tx.Delete(&order)
+		tx.Commit()
+		c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
+	}
+}
+
+func voidPurchase(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		pid := c.Param("pid")
+		var order models.PurchaseOrder
+		if err := db.Preload("Items").First(&order, pid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "采购单不存在"})
 			return
 		}
@@ -394,16 +414,55 @@ func voidPurchase(db *gorm.DB) gin.HandlerFunc {
 		tx := db.Begin()
 
 		if order.Status == "posted" {
-			// Reverse stock flows
-			tx.Where("ref_type = ? AND ref_id = ?", "purchase", order.ID).Delete(&models.StockFlow{})
+			// 1. Create reversal stock flows (negative quantities)
+			for _, item := range order.Items {
+				flow := models.StockFlow{
+					BookID:      order.BookID,
+					GoodsID:     item.GoodsID,
+					WarehouseID: order.WarehouseID,
+					FlowType:    "purchase_out",
+					Quantity:    -item.Quantity,
+					UnitPrice:   item.UnitPrice,
+					Amount:      -(item.Quantity * item.UnitPrice),
+					RefType:     "purchase_void",
+					RefID:       order.ID,
+					Date:        time.Now().Format("2006-01-02"),
+					Memo:        fmt.Sprintf("采购冲销 %s", order.OrderNo),
+				}
+				tx.Create(&flow)
+			}
 
-			// Reverse voucher
+			// 2. Create reversal voucher: DR 应付账款 / CR 库存商品
 			if order.RefVoucherID > 0 {
-				var voucher models.Voucher
-				if err := tx.First(&voucher, order.RefVoucherID).Error; err == nil {
-					// Delete voucher items and update account balances
-					tx.Where("voucher_id = ?", voucher.ID).Delete(&models.VoucherItem{})
-					tx.Delete(&voucher)
+				var apAccount, invAccount models.Account
+				db.Where("book_id = ? AND code = ?", order.BookID, "2202").First(&apAccount)
+				db.Where("book_id = ? AND code = ?", order.BookID, "1405").First(&invAccount)
+
+				voucher := models.Voucher{
+					BookID:      order.BookID,
+					Date:        time.Now().Format("2006-01-02"),
+					Number:      generateVoucherNumber(tx, order.BookID, time.Now().Format("2006-01-02")),
+					VoucherType: "purchase_void",
+					Status:      "posted",
+					TotalDebit:  order.TotalAmount,
+					TotalCredit: order.TotalAmount,
+					Memo:        fmt.Sprintf("采购冲销 %s", order.OrderNo),
+					PreparedBy:  "system",
+					ReviewedBy:  "system",
+					PostedBy:    "system",
+				}
+				if err := tx.Create(&voucher).Error; err == nil {
+					tx.Create(&models.VoucherItem{
+						VoucherID: voucher.ID, LineNo: 1, AccountID: apAccount.ID,
+						AccountCode: apAccount.Code, AccountName: apAccount.Name,
+						Debit: order.TotalAmount, Memo: "应付账款冲销",
+					})
+					tx.Create(&models.VoucherItem{
+						VoucherID: voucher.ID, LineNo: 2, AccountID: invAccount.ID,
+						AccountCode: invAccount.Code, AccountName: invAccount.Name,
+						Credit: order.TotalAmount, Memo: "库存商品冲销",
+					})
+					updateAccountBalances(tx, &voucher)
 				}
 			}
 		}
@@ -701,11 +760,31 @@ func postSales(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-func voidSales(db *gorm.DB) gin.HandlerFunc {
+func deleteSales(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sid := c.Param("sid")
 		var order models.SalesOrder
 		if err := db.First(&order, sid).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "销售单不存在"})
+			return
+		}
+		if order.Status != "draft" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "只能删除草稿状态的销售单"})
+			return
+		}
+		tx := db.Begin()
+		tx.Where("sales_order_id = ?", order.ID).Delete(&models.SalesOrderItem{})
+		tx.Delete(&order)
+		tx.Commit()
+		c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
+	}
+}
+
+func voidSales(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sid := c.Param("sid")
+		var order models.SalesOrder
+		if err := db.Preload("Items").First(&order, sid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "销售单不存在"})
 			return
 		}
@@ -717,19 +796,88 @@ func voidSales(db *gorm.DB) gin.HandlerFunc {
 		tx := db.Begin()
 
 		if order.Status == "posted" {
-			// Reverse stock flows
-			tx.Where("ref_type = ? AND ref_id = ?", "sales", order.ID).Delete(&models.StockFlow{})
-
-			// Reverse vouchers (revenue + cost)
-			if order.RefVoucherIDs != "" {
-				var voucherIDs []uint
-				fmt.Sscanf(order.RefVoucherIDs, "[%d,%d]", &voucherIDs)
-				for _, vid := range voucherIDs {
-					if vid > 0 {
-						tx.Where("voucher_id = ?", vid).Delete(&models.VoucherItem{})
-						tx.Delete(&models.Voucher{}, vid)
-					}
+			// 1. Create reversal stock flows (negative quantities)
+			for _, item := range order.Items {
+				flow := models.StockFlow{
+					BookID:      order.BookID,
+					GoodsID:     item.GoodsID,
+					WarehouseID: order.WarehouseID,
+					FlowType:    "sales_in",
+					Quantity:    -item.Quantity,
+					UnitPrice:   item.UnitPrice,
+					Amount:      -(item.Quantity * item.UnitPrice),
+					RefType:     "sales_void",
+					RefID:       order.ID,
+					Date:        time.Now().Format("2006-01-02"),
+					Memo:        fmt.Sprintf("销售冲销 %s", order.OrderNo),
 				}
+				tx.Create(&flow)
+			}
+
+			// 2. Create reversal vouchers
+			// Reversal 1: DR 主营业务收入 / CR 应收账款
+			var arAccount, revenueAccount, costAccount, invAccount models.Account
+			db.Where("book_id = ? AND code = ?", order.BookID, "1122").First(&arAccount)
+			db.Where("book_id = ? AND name LIKE ?", order.BookID, "%主营%收入%").First(&revenueAccount)
+			db.Where("book_id = ? AND code = ?", order.BookID, "5401").First(&costAccount)
+			if costAccount.ID == 0 {
+				db.Where("book_id = ? AND name LIKE ?", order.BookID, "%主营%成本%").First(&costAccount)
+			}
+			db.Where("book_id = ? AND code = ?", order.BookID, "1405").First(&invAccount)
+
+			voucher1 := models.Voucher{
+				BookID:      order.BookID,
+				Date:        time.Now().Format("2006-01-02"),
+				Number:      generateVoucherNumber(tx, order.BookID, time.Now().Format("2006-01-02")),
+				VoucherType: "sales_void",
+				Status:      "posted",
+				TotalDebit:  order.TotalAmount,
+				TotalCredit: order.TotalAmount,
+				Memo:        fmt.Sprintf("销售冲销(收入) %s", order.OrderNo),
+				PreparedBy:  "system",
+				ReviewedBy:  "system",
+				PostedBy:    "system",
+			}
+			if err := tx.Create(&voucher1).Error; err == nil {
+				tx.Create(&models.VoucherItem{
+					VoucherID: voucher1.ID, LineNo: 1, AccountID: revenueAccount.ID,
+					AccountCode: revenueAccount.Code, AccountName: revenueAccount.Name,
+					Debit: order.TotalAmount, Memo: "收入冲销",
+				})
+				tx.Create(&models.VoucherItem{
+					VoucherID: voucher1.ID, LineNo: 2, AccountID: arAccount.ID,
+					AccountCode: arAccount.Code, AccountName: arAccount.Name,
+					Credit: order.TotalAmount, Memo: "应收账款冲销",
+				})
+				updateAccountBalances(tx, &voucher1)
+			}
+
+			// Reversal 2: DR 库存商品 / CR 主营业务成本
+			voucher2 := models.Voucher{
+				BookID:      order.BookID,
+				Date:        time.Now().Format("2006-01-02"),
+				Number:      generateVoucherNumber(tx, order.BookID, time.Now().Format("2006-01-02")),
+				VoucherType: "sales_cost_void",
+				Status:      "posted",
+				TotalDebit:  order.CostAmount,
+				TotalCredit: order.CostAmount,
+				Memo:        fmt.Sprintf("销售冲销(成本) %s", order.OrderNo),
+				PreparedBy:  "system",
+				ReviewedBy:  "system",
+				PostedBy:    "system",
+			}
+			if err := tx.Create(&voucher2).Error; err == nil {
+				tx.Create(&models.VoucherItem{
+					VoucherID: voucher2.ID, LineNo: 1, AccountID: invAccount.ID,
+					AccountCode: invAccount.Code, AccountName: invAccount.Name,
+					Debit: order.CostAmount, Memo: "库存商品冲回",
+				})
+				tx.Create(&models.VoucherItem{
+					VoucherID: voucher2.ID, LineNo: 2, AccountID: costAccount.ID,
+					AccountCode: costAccount.Code, AccountName: costAccount.Name,
+					Credit: order.CostAmount, Memo: "成本冲销",
+				})
+				updateAccountBalances(tx, &voucher2)
 			}
 		}
 

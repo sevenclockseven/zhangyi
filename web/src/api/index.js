@@ -219,12 +219,14 @@ export const inventoryApi = {
   createPurchase: (bookId, data) => http.post(`/api/books/${bookId}/purchases`, data),
   postPurchase: (bookId, pid) => http.post(`/api/books/${bookId}/purchases/${pid}/post`),
   voidPurchase: (bookId, pid) => http.post(`/api/books/${bookId}/purchases/${pid}/void`),
+  deletePurchase: (bookId, pid) => http.delete(`/api/books/${bookId}/purchases/${pid}`),
   // 销售单
   listSales: (bookId, params) => http.get(`/api/books/${bookId}/sales`, { params }),
   getSales: (bookId, sid) => http.get(`/api/books/${bookId}/sales/${sid}`),
   createSales: (bookId, data) => http.post(`/api/books/${bookId}/sales`, data),
   postSales: (bookId, sid) => http.post(`/api/books/${bookId}/sales/${sid}/post`),
   voidSales: (bookId, sid) => http.post(`/api/books/${bookId}/sales/${sid}/void`),
+  deleteSales: (bookId, sid) => http.delete(`/api/books/${bookId}/sales/${sid}`),
   // 收付款单
   listPayments: (bookId, params) => http.get(`/api/books/${bookId}/payments`, { params }),
   getPayment: (bookId, payid) => http.get(`/api/books/${bookId}/payments/${payid}`),
