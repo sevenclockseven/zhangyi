@@ -65,7 +65,7 @@
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button v-if="row.status === 'draft'" size="small" type="success" link @click="postPurchase(row)">过账</el-button>
-              <el-button v-if="row.status === 'draft'" size="small" type="info" link @click="voidPurchase(row)">作废</el-button>
+              <el-button v-if="row.status === 'draft' || row.status === 'posted'" size="small" type="info" link @click="voidPurchase(row)">作废</el-button>
               <el-button v-if="row.status === 'draft'" size="small" type="danger" link @click="deletePurchase(row)">删除</el-button>
               <el-button size="small" type="primary" link @click="viewPurchase(row)">查看</el-button>
             </template>
@@ -112,7 +112,7 @@
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button v-if="row.status === 'draft'" size="small" type="success" link @click="postSales(row)">过账</el-button>
-              <el-button v-if="row.status === 'draft'" size="small" type="info" link @click="voidSales(row)">作废</el-button>
+              <el-button v-if="row.status === 'draft' || row.status === 'posted'" size="small" type="info" link @click="voidSales(row)">作废</el-button>
               <el-button v-if="row.status === 'draft'" size="small" type="danger" link @click="deleteSales(row)">删除</el-button>
               <el-button size="small" type="primary" link @click="viewSales(row)">查看</el-button>
             </template>

@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -164,9 +165,10 @@ func createVoucher(db *gorm.DB) gin.HandlerFunc {
 
 func getVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		vid := c.Param("vid")
 		var voucher models.Voucher
-		if err := db.Preload("Items").First(&voucher, vid).Error; err != nil {
+		if err := db.Where("book_id = ?", bookID).Preload("Items").First(&voucher, vid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
 			return
 		}
@@ -176,9 +178,10 @@ func getVoucher(db *gorm.DB) gin.HandlerFunc {
 
 func updateVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		vid := c.Param("vid")
 		var voucher models.Voucher
-		if err := db.First(&voucher, vid).Error; err != nil {
+		if err := db.Where("book_id = ?", bookID).First(&voucher, vid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
 			return
 		}
@@ -227,13 +230,27 @@ func updateVoucher(db *gorm.DB) gin.HandlerFunc {
 		if req.VoucherType != "" {
 			tx.Model(&voucher).Update("voucher_type", req.VoucherType)
 		}
-		tx.Model(&voucher).Update("attachments", req.Attachments)
+		if req.Attachments > 0 {
+			tx.Model(&voucher).Update("attachments", req.Attachments)
+		}
 		if req.Memo != "" {
 			tx.Model(&voucher).Update("memo", req.Memo)
 		}
 
 		// Update items if provided
 		if len(req.Items) > 0 {
+			// Balance check
+			var totalDebit, totalCredit float64
+			for _, item := range req.Items {
+				totalDebit += item.Debit
+				totalCredit += item.Credit
+			}
+			if math.Abs(totalDebit-totalCredit) > 0.01 {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{"error": "借贷不平衡"})
+				return
+			}
+
 			// Delete old items
 			if err := tx.Where("voucher_id = ?", voucher.ID).Delete(&models.VoucherItem{}).Error; err != nil {
 				tx.Rollback()
@@ -241,10 +258,7 @@ func updateVoucher(db *gorm.DB) gin.HandlerFunc {
 				return
 			}
 
-			var totalDebit, totalCredit float64
 			for i, item := range req.Items {
-				totalDebit += item.Debit
-				totalCredit += item.Credit
 				vi := models.VoucherItem{
 					VoucherID:        voucher.ID,
 					LineNo:           i + 1,
@@ -292,9 +306,10 @@ func updateVoucher(db *gorm.DB) gin.HandlerFunc {
 
 func deleteVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		vid := c.Param("vid")
 		var voucher models.Voucher
-		if err := db.First(&voucher, vid).Error; err != nil {
+		if err := db.Where("book_id = ?", bookID).First(&voucher, vid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
 			return
 		}
@@ -322,9 +337,10 @@ func deleteVoucher(db *gorm.DB) gin.HandlerFunc {
 
 func reviewVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		vid := c.Param("vid")
 		var voucher models.Voucher
-		if err := db.First(&voucher, vid).Error; err != nil {
+		if err := db.Where("book_id = ?", bookID).First(&voucher, vid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
 			return
 		}
@@ -346,9 +362,10 @@ func reviewVoucher(db *gorm.DB) gin.HandlerFunc {
 
 func unreviewVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		vid := c.Param("vid")
 		var voucher models.Voucher
-		if err := db.First(&voucher, vid).Error; err != nil {
+		if err := db.Where("book_id = ?", bookID).First(&voucher, vid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
 			return
 		}
@@ -369,9 +386,10 @@ func unreviewVoucher(db *gorm.DB) gin.HandlerFunc {
 
 func postVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		vid := c.Param("vid")
 		var voucher models.Voucher
-		if err := db.First(&voucher, vid).Error; err != nil {
+		if err := db.Where("book_id = ?", bookID).First(&voucher, vid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
 			return
 		}
@@ -380,28 +398,39 @@ func postVoucher(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update account balances
-		if err := updateAccountBalances(db, &voucher); err != nil {
+		tx := db.Begin()
+		defer func() {
+			if r := recover(); r != nil {
+				tx.Rollback()
+			}
+		}()
+
+		if err := updateAccountBalances(tx, &voucher); err != nil {
+			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "更新科目余额失败: " + err.Error()})
 			return
 		}
 
-		if err := db.Model(&voucher).Updates(map[string]interface{}{
+		if err := tx.Model(&voucher).Updates(map[string]interface{}{
 			"status":    "posted",
 			"posted_by": c.GetString("username"),
 		}).Error; err != nil {
+			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
+		tx.Commit()
 		c.JSON(http.StatusOK, gin.H{"message": "记账成功"})
 	}
 }
 
 func unpostVoucher(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		bookID := c.Param("id")
 		vid := c.Param("vid")
 		var voucher models.Voucher
-		if err := db.First(&voucher, vid).Error; err != nil {
+		if err := db.Where("book_id = ?", bookID).First(&voucher, vid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "凭证不存在"})
 			return
 		}
@@ -410,19 +439,29 @@ func unpostVoucher(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Reverse account balances
-		if err := reverseAccountBalances(db, &voucher); err != nil {
+		tx := db.Begin()
+		defer func() {
+			if r := recover(); r != nil {
+				tx.Rollback()
+			}
+		}()
+
+		if err := reverseAccountBalances(tx, &voucher); err != nil {
+			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "冲销科目余额失败: " + err.Error()})
 			return
 		}
 
-		if err := db.Model(&voucher).Updates(map[string]interface{}{
+		if err := tx.Model(&voucher).Updates(map[string]interface{}{
 			"status":    "reviewed",
 			"posted_by": "",
 		}).Error; err != nil {
+			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
+		tx.Commit()
 		c.JSON(http.StatusOK, gin.H{"message": "反记账成功"})
 	}
 }
@@ -440,7 +479,7 @@ func batchReview(db *gorm.DB) gin.HandlerFunc {
 
 		result := db.Model(&models.Voucher{}).
 			Where("book_id = ? AND id IN ? AND status = ?", bookID, req.IDs, "draft").
-			Updates(map[string]interface{}{"status": "reviewed", "reviewed_by": "admin"})
+			Updates(map[string]interface{}{"status": "reviewed", "reviewed_by": c.GetString("username")})
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": fmt.Sprintf("批量审核成功，共 %d 条", result.RowsAffected),
@@ -462,14 +501,17 @@ func batchPost(db *gorm.DB) gin.HandlerFunc {
 		var vouchers []models.Voucher
 		db.Where("book_id = ? AND id IN ? AND status = ?", bookID, req.IDs, "reviewed").Find(&vouchers)
 
+		tx := db.Begin()
+		username := c.GetString("username")
 		count := 0
 		for _, v := range vouchers {
-			if err := updateAccountBalances(db, &v); err != nil {
+			if err := updateAccountBalances(tx, &v); err != nil {
 				continue
 			}
-			db.Model(&v).Updates(map[string]interface{}{"status": "posted", "posted_by": "admin"})
+			tx.Model(&v).Updates(map[string]interface{}{"status": "posted", "posted_by": username})
 			count++
 		}
+		tx.Commit()
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": fmt.Sprintf("批量记账成功，共 %d 条", count),
@@ -499,10 +541,13 @@ func voidVoucher(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		if err := db.Model(&voucher).Update("status", "voided").Error; err != nil {
+		tx := db.Begin()
+		if err := tx.Model(&voucher).Update("status", "voided").Error; err != nil {
+			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		tx.Commit()
 
 		c.JSON(http.StatusOK, gin.H{"message": "凭证已作废", "data": voucher})
 	}

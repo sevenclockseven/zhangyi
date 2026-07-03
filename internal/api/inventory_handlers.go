@@ -426,7 +426,7 @@ func voidPurchase(db *gorm.DB) gin.HandlerFunc {
 					Amount:      -(item.Quantity * item.UnitPrice),
 					RefType:     "purchase_void",
 					RefID:       order.ID,
-					Date:        time.Now().Format("2006-01-02"),
+					Date:        order.Date,
 					Memo:        fmt.Sprintf("采购冲销 %s", order.OrderNo),
 				}
 				tx.Create(&flow)
@@ -442,8 +442,8 @@ func voidPurchase(db *gorm.DB) gin.HandlerFunc {
 
 				voucher := models.Voucher{
 					BookID:      order.BookID,
-					Date:        time.Now().Format("2006-01-02"),
-					Number:      generateVoucherNumber(tx, order.BookID, time.Now().Format("2006-01-02")),
+					Date:        order.Date,
+					Number:      generateVoucherNumber(tx, order.BookID, order.Date),
 					VoucherType: "purchase_void",
 					Status:      "posted",
 					TotalDebit:  order.TotalAmount,
@@ -798,19 +798,24 @@ func voidSales(db *gorm.DB) gin.HandlerFunc {
 		tx := db.Begin()
 
 		if order.Status == "posted" {
-			// 1. Create reversal stock flows (negative quantities)
+			// 1. Create reversal stock flows (negative quantities, using COST price from original)
 			for _, item := range order.Items {
+				costPrice := item.CostPrice
+				if costPrice == 0 {
+					costPrice = calcWeightedAvgCost(db, order.BookID, item.GoodsID, order.WarehouseID)
+				}
+				costAmount := item.Quantity * costPrice
 				flow := models.StockFlow{
 					BookID:      order.BookID,
 					GoodsID:     item.GoodsID,
 					WarehouseID: order.WarehouseID,
 					FlowType:    "sales_in",
 					Quantity:    -item.Quantity,
-					UnitPrice:   item.UnitPrice,
-					Amount:      -(item.Quantity * item.UnitPrice),
+					UnitPrice:   costPrice,
+					Amount:      -costAmount,
 					RefType:     "sales_void",
 					RefID:       order.ID,
-					Date:        time.Now().Format("2006-01-02"),
+					Date:        order.Date,
 					Memo:        fmt.Sprintf("销售冲销 %s", order.OrderNo),
 				}
 				tx.Create(&flow)
@@ -832,8 +837,8 @@ func voidSales(db *gorm.DB) gin.HandlerFunc {
 
 			voucher1 := models.Voucher{
 				BookID:      order.BookID,
-				Date:        time.Now().Format("2006-01-02"),
-				Number:      generateVoucherNumber(tx, order.BookID, time.Now().Format("2006-01-02")),
+				Date:        order.Date,
+				Number:      generateVoucherNumber(tx, order.BookID, order.Date),
 				VoucherType: "sales_void",
 				Status:      "posted",
 				TotalDebit:  order.TotalAmount,
@@ -859,8 +864,8 @@ func voidSales(db *gorm.DB) gin.HandlerFunc {
 
 			voucher2 := models.Voucher{
 				BookID:      order.BookID,
-				Date:        time.Now().Format("2006-01-02"),
-				Number:      generateVoucherNumber(tx, order.BookID, time.Now().Format("2006-01-02")),
+				Date:        order.Date,
+				Number:      generateVoucherNumber(tx, order.BookID, order.Date),
 				VoucherType: "sales_cost_void",
 				Status:      "posted",
 				TotalDebit:  order.CostAmount,
@@ -1102,10 +1107,65 @@ func voidPayment(db *gorm.DB) gin.HandlerFunc {
 		tx := db.Begin()
 
 		if record.Status == "posted" {
-			// Reverse voucher
+			// Reverse original voucher balances
 			if record.RefVoucherID > 0 {
-				tx.Where("voucher_id = ?", record.RefVoucherID).Delete(&models.VoucherItem{})
-				tx.Delete(&models.Voucher{}, record.RefVoucherID)
+				var origVoucher models.Voucher
+				if err := tx.First(&origVoucher, record.RefVoucherID).Error; err == nil {
+					reverseAccountBalances(tx, &origVoucher)
+					tx.Model(&origVoucher).Update("status", "voided")
+				}
+			}
+
+			// Red-letter reversal voucher: same direction, negative amounts
+			var bankAccount, arAccount, apAccount models.Account
+			tx.Where("book_id = ? AND code = ?", record.BookID, "1002").First(&bankAccount)
+			tx.Where("book_id = ? AND code = ?", record.BookID, "1122").First(&arAccount)
+			tx.Where("book_id = ? AND code = ?", record.BookID, "2202").First(&apAccount)
+
+			voucher := models.Voucher{
+				BookID:      record.BookID,
+				Date:        record.Date,
+				Number:      generateVoucherNumber(tx, record.BookID, record.Date),
+				VoucherType: record.Type + "_void",
+				Status:      "posted",
+				TotalDebit:  record.Amount,
+				TotalCredit: record.Amount,
+				Memo:        fmt.Sprintf("红字冲销 %s", record.RecordNo),
+				PreparedBy:  "system",
+				ReviewedBy:  "system",
+				PostedBy:    "system",
+			}
+			if err := tx.Create(&voucher).Error; err == nil {
+				if record.Type == "receipt" {
+					// Original: DR 银行存款 / CR 应收账款
+					// Reversal: DR 银行存款 (-amount) / CR 应收账款 (-amount)
+					tx.Create(&models.VoucherItem{
+						VoucherID: voucher.ID, LineNo: 1, AccountID: bankAccount.ID,
+						AccountCode: bankAccount.Code, AccountName: bankAccount.Name,
+						Debit: -record.Amount, Memo: "银行存款红字",
+					})
+					tx.Create(&models.VoucherItem{
+						VoucherID: voucher.ID, LineNo: 2, AccountID: arAccount.ID,
+						AccountCode: arAccount.Code, AccountName: arAccount.Name,
+						Credit: -record.Amount, Memo: "应收账款红字",
+						AuxCustomerID: &record.CounterpartyID,
+					})
+				} else {
+					// Original: DR 应付账款 / CR 银行存款
+					// Reversal: DR 应付账款 (-amount) / CR 银行存款 (-amount)
+					tx.Create(&models.VoucherItem{
+						VoucherID: voucher.ID, LineNo: 1, AccountID: apAccount.ID,
+						AccountCode: apAccount.Code, AccountName: apAccount.Name,
+						Debit: -record.Amount, Memo: "应付账款红字",
+						AuxSupplierID: &record.CounterpartyID,
+					})
+					tx.Create(&models.VoucherItem{
+						VoucherID: voucher.ID, LineNo: 2, AccountID: bankAccount.ID,
+						AccountCode: bankAccount.Code, AccountName: bankAccount.Name,
+						Credit: -record.Amount, Memo: "银行存款红字",
+					})
+				}
+				updateAccountBalances(tx, &voucher)
 			}
 		}
 
@@ -1141,14 +1201,14 @@ func stockSummary(db *gorm.DB) gin.HandlerFunc {
 			Select(`stock_flows.goods_id, g.code, g.name, g.unit,
 				stock_flows.warehouse_id,
 				COALESCE(ai.name, '') as warehouse_name,
-				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.quantity ELSE 0 END) as in_qty,
-				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.amount ELSE 0 END) as in_amount,
-				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as out_qty,
-				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.amount ELSE 0 END) as out_amount,
-				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.quantity ELSE 0 END) -
-				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as closing_qty,
-				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.amount ELSE 0 END) -
-				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.amount ELSE 0 END) as total_cost`).
+				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial','sales_in') THEN stock_flows.quantity ELSE 0 END) as in_qty,
+				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial','sales_in') THEN stock_flows.amount ELSE 0 END) as in_amount,
+				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out','purchase_out') THEN stock_flows.quantity ELSE 0 END) as out_qty,
+				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out','purchase_out') THEN stock_flows.amount ELSE 0 END) as out_amount,
+				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial','sales_in') THEN stock_flows.quantity ELSE 0 END) -
+				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out','purchase_out') THEN stock_flows.quantity ELSE 0 END) as closing_qty,
+				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial','sales_in') THEN stock_flows.amount ELSE 0 END) -
+				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out','purchase_out') THEN stock_flows.amount ELSE 0 END) as total_cost`).
 			Joins("JOIN goods g ON g.id = stock_flows.goods_id").
 			Joins("LEFT JOIN aux_items ai ON ai.id = stock_flows.warehouse_id AND ai.type = 'warehouse'").
 			Where("stock_flows.book_id = ?", bookID)
@@ -1210,8 +1270,8 @@ func lowStockAlert(db *gorm.DB) gin.HandlerFunc {
 		var results []StockResult
 		db.Model(&models.StockFlow{}).
 			Select(`stock_flows.goods_id, g.code as goods_code, g.name as goods_name, g.unit, g.min_stock,
-				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN stock_flows.quantity ELSE 0 END) -
-				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out') THEN stock_flows.quantity ELSE 0 END) as closing_qty`).
+				SUM(CASE WHEN stock_flows.flow_type IN ('purchase_in','transfer_in','adjust_in','initial','sales_in') THEN stock_flows.quantity ELSE 0 END) -
+				SUM(CASE WHEN stock_flows.flow_type IN ('sales_out','transfer_out','adjust_out','purchase_out') THEN stock_flows.quantity ELSE 0 END) as closing_qty`).
 			Joins("JOIN goods g ON g.id = stock_flows.goods_id").
 			Where("stock_flows.book_id = ? AND g.min_stock > 0", bookID).
 			Group("stock_flows.goods_id").
@@ -1378,10 +1438,10 @@ func calcWeightedAvgCost(db *gorm.DB, bookID uint, goodsID uint, warehouseID uin
 	}
 	var result CostResult
 	db.Model(&models.StockFlow{}).
-		Select(`SUM(CASE WHEN flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN quantity ELSE 0 END) as total_in,
-			SUM(CASE WHEN flow_type IN ('purchase_in','transfer_in','adjust_in','initial') THEN amount ELSE 0 END) as total_in_amt,
-			SUM(CASE WHEN flow_type IN ('sales_out','transfer_out','adjust_out') THEN quantity ELSE 0 END) as total_out,
-			SUM(CASE WHEN flow_type IN ('sales_out','transfer_out','adjust_out') THEN amount ELSE 0 END) as total_out_amt`).
+		Select(`SUM(CASE WHEN flow_type IN ('purchase_in','transfer_in','adjust_in','initial','sales_in') THEN quantity ELSE 0 END) as total_in,
+			SUM(CASE WHEN flow_type IN ('purchase_in','transfer_in','adjust_in','initial','sales_in') THEN amount ELSE 0 END) as total_in_amt,
+			SUM(CASE WHEN flow_type IN ('sales_out','transfer_out','adjust_out','purchase_out') THEN quantity ELSE 0 END) as total_out,
+			SUM(CASE WHEN flow_type IN ('sales_out','transfer_out','adjust_out','purchase_out') THEN amount ELSE 0 END) as total_out_amt`).
 		Where("book_id = ? AND goods_id = ? AND warehouse_id = ?", bookID, goodsID, warehouseID).
 		Scan(&result)
 

@@ -485,6 +485,17 @@
   - 库存汇总: GORM字段映射 closing_qty → ClosingQty
   - 测试数据: 21笔凭证 + 进销存完整采购→销售周期
 
+### v0.10.5: 数据安全+逻辑修正+数据隔离
+- [x] 事务化: postVoucher/unpostVoucher/batchPost 全部包裹 DB.Transaction
+- [x] voidPayment: 从删除凭证改为红字冲销(同方向负金额)+反向余额
+- [x] voidSales: 冲销流水改用成本价(从 item.CostPrice 读取)而非售价
+- [x] 冲销流水可见性: stockSummary/lowStock/calcCost 的 flow_type IN 加入 purchase_out,sales_in
+- [x] 凭证 book_id 过滤: 7个单记录 handler 全部加 book_id 条件
+- [x] updateVoucher: 新增借贷平衡校验 + 附件数仅在提供时更新
+- [x] 资产分类参数修正: updateAssetCategory/deleteAssetCategory 参数名 aid + book_id 过滤
+- [x] batchReview/batchPost: 使用实际用户名替代硬编码 "admin"
+- [x] 红字凭证日期: 采购/销售/收付款冲销凭证使用原单日期
+
 ---
 
 # 设备管理 + 数据库兼容 (2026-06-29)

@@ -76,9 +76,10 @@ func createAssetCategory(db *gorm.DB) gin.HandlerFunc {
 
 func updateAssetCategory(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.Param("id")
+		bookID := c.Param("id")
+		aid := c.Param("aid")
 		var cat models.AssetCategory
-		if err := db.First(&cat, id).Error; err != nil {
+		if err := db.Where("id = ? AND book_id = ?", aid, bookID).First(&cat).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "分类不存在"})
 			return
 		}
@@ -97,14 +98,20 @@ func updateAssetCategory(db *gorm.DB) gin.HandlerFunc {
 
 func deleteAssetCategory(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.Param("id")
+		bookID := c.Param("id")
+		aid := c.Param("aid")
+		var cat models.AssetCategory
+		if err := db.Where("id = ? AND book_id = ?", aid, bookID).First(&cat).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "分类不存在"})
+			return
+		}
 		var count int64
-		db.Model(&models.AssetCard{}).Where("category_id = ?", id).Count(&count)
+		db.Model(&models.AssetCard{}).Where("category_id = ?", aid).Count(&count)
 		if count > 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "该分类下有资产卡片，无法删除"})
 			return
 		}
-		if err := db.Delete(&models.AssetCategory{}, id).Error; err != nil {
+		if err := db.Delete(&cat).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
