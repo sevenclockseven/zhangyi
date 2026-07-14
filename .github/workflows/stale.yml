@@ -1,0 +1,28 @@
+name: Stale Issues
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          stale-issue-message: '此 issue 已 30 天无活动，标记为 stale。'
+          close-issue-message: '此 issue 已 7 天无活动，自动关闭。如有新信息请重新打开。'
+          stale-pr-message: '此 PR 已 30 天无活动，标记为 stale。'
+          close-pr-message: '此 PR 已 7 天无活动，自动关闭。'
+          days-before-stale: 30
+          days-before-close: 7
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          exempt-issue-labels: 'pinned,security,bug'
+          exempt-pr-labels: 'pinned,security'
+          exempt-all-milestones: true
