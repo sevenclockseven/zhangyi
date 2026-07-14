@@ -40,4 +40,6 @@ app.use(createPinia())
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
-app.mount('#app')
+router.isReady().then(() => {
+  app.mount('#app')
+})

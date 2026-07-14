@@ -366,14 +366,14 @@ async function loadCategories() {
 
 async function loadDepartments() {
   try {
-    const { data } = await auxApi.list(bookId, { type: 'department' })
+    const { data } = await auxApi.list(bookId, 'department')
     departments.value = (data.data || []).filter(d => d.is_active !== false)
   } catch { departments.value = [] }
 }
 
 async function loadEmployees() {
   try {
-    const { data } = await auxApi.list(bookId, { type: 'employee' })
+    const { data } = await auxApi.list(bookId, 'employee')
     employees.value = (data.data || []).filter(e => e.is_active !== false)
   } catch { employees.value = [] }
 }

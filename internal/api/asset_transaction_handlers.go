@@ -84,11 +84,11 @@ func listAssetTransactions(db *gorm.DB) gin.HandlerFunc {
 				SELECT t.* FROM asset_transactions t
 				JOIN asset_cards a ON t.card_id = a.id
 				WHERE a.book_id = ?
-				ORDER BY t.created_at DESC
+				ORDER BY t.created DESC
 				LIMIT 200
 			`, bookID).Scan(&transactions)
 		} else {
-			db.Where("card_id = ?", cardID).Order("created_at DESC").Find(&transactions)
+			db.Where("card_id = ?", cardID).Order("created desc").Find(&transactions)
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": transactions})
@@ -103,7 +103,7 @@ func listAllAssetTransactions(db *gorm.DB) gin.HandlerFunc {
 			SELECT t.* FROM asset_transactions t
 			JOIN asset_cards a ON t.card_id = a.id
 			WHERE a.book_id = ?
-			ORDER BY t.created_at DESC
+			ORDER BY t.created DESC
 			LIMIT 200
 		`, bookID).Scan(&transactions)
 		c.JSON(http.StatusOK, gin.H{"data": transactions})
