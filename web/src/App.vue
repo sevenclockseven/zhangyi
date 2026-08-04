@@ -25,7 +25,7 @@
         </svg>
         <div class="logo-text" v-show="!isMobile || sidebarOpen">
           <h2>易记</h2>
-          <span>代理记账系统</span>
+          <span>记账系统</span>
         </div>
       </div>
       <el-menu
@@ -114,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { bookApi, authApi } from './api'
 import { ElMessage } from 'element-plus'
@@ -141,6 +141,18 @@ const loadBooks = async () => {
     setBooks(data.data || [])
   } catch {}
 }
+
+// When navigating from login to main, reload books (token now available)
+let lastIsLoginPage = isLoginPage.value
+watch(
+  () => route.path,
+  () => {
+    if (lastIsLoginPage && !isLoginPage.value) {
+      loadBooks()
+    }
+    lastIsLoginPage = isLoginPage.value
+  }
+)
 
 const onBookChange = (val) => {
   setCurrentBook(val)

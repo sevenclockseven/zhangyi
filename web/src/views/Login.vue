@@ -20,7 +20,7 @@
           <polyline points="81,86 87,92 99,78" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <h1>易记</h1>
-        <p>代理记账系统</p>
+        <p>记账系统</p>
       </div>
       <el-form :model="form" @submit.prevent="handleLogin" label-width="0">
         <el-form-item>
