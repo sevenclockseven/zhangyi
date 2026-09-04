@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -21,7 +22,7 @@ import (
 )
 
 // 校验备份文件名
-var backupNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+\.sql\.gz$`)
+var backupNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+\.(sql|db)\.gz$`)
 
 func validateBackupName(name string) bool {
 	return backupNameRegex.MatchString(name)
@@ -57,7 +58,7 @@ func listBackups(db *gorm.DB) gin.HandlerFunc {
 
 		backups := []gin.H{}
 		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql.gz") {
+			if e.IsDir() || (!strings.HasSuffix(e.Name(), ".sql.gz") && !strings.HasSuffix(e.Name(), ".db.gz")) {
 				continue
 			}
 			info, _ := e.Info()
@@ -130,98 +131,37 @@ func createBackup(db *gorm.DB) gin.HandlerFunc {
 
 // backupSQLite performs an online backup of SQLite database to a gzipped file
 func backupSQLite(srcPath, dstPath string) error {
-	// Open source database in read-only mode
-	srcDB, err := sql.Open("sqlite", srcPath+"?mode=ro")
+	// Open source database
+	srcDB, err := sql.Open("sqlite", srcPath)
 	if err != nil {
 		return fmt.Errorf("打开源数据库失败: %w", err)
 	}
 	defer srcDB.Close()
 
-	// Verify source is accessible
-	if err := srcDB.Ping(); err != nil {
-		return fmt.Errorf("源数据库不可访问: %w", err)
+	// VACUUM INTO creates a clean binary copy (no WAL, no fragmentation)
+	vacuumSQL := fmt.Sprintf("VACUUM INTO '%s'", dstPath)
+	if _, err := srcDB.Exec(vacuumSQL); err != nil {
+		return fmt.Errorf("VACUUM INTO 失败: %w", err)
 	}
 
-	// Create destination file
+	// Gzip the copied file
+	sqliteData, err := os.ReadFile(dstPath)
+	if err != nil {
+		return fmt.Errorf("读取备份文件失败: %w", err)
+	}
+	os.Remove(dstPath)
+
 	dstFile, err := os.Create(dstPath)
 	if err != nil {
-		return fmt.Errorf("创建目标文件失败: %w", err)
+		return fmt.Errorf("创建备份文件失败: %w", err)
 	}
 	defer dstFile.Close()
 
 	gzWriter := gzip.NewWriter(dstFile)
 	defer gzWriter.Close()
 
-	// Use SQLite backup API via VACUUM INTO piping
-	// Since we can't use backup API directly through database/sql,
-	// we'll use .dump equivalent by exporting SQL
-	rows, err := srcDB.Query("SELECT sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-	if err != nil {
-		return fmt.Errorf("查询表结构失败: %w", err)
-	}
-	defer rows.Close()
-
-	var sqlStmts []string
-	for rows.Next() {
-		var sqlStr string
-		if err := rows.Scan(&sqlStr); err != nil {
-			continue
-		}
-		sqlStmts = append(sqlStmts, sqlStr+";")
-	}
-
-	// Export data from each table
-	tableRows, err := srcDB.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-	if err != nil {
-		return fmt.Errorf("查询表名失败: %w", err)
-	}
-	defer tableRows.Close()
-
-	for tableRows.Next() {
-		var tableName string
-		if err := tableRows.Scan(&tableName); err != nil {
-			continue
-		}
-		dataRows, err := srcDB.Query(fmt.Sprintf("SELECT * FROM [%s]", tableName))
-		if err != nil {
-			continue
-		}
-		cols, _ := dataRows.Columns()
-		for dataRows.Next() {
-			values := make([]interface{}, len(cols))
-			valuePtrs := make([]interface{}, len(cols))
-			for i := range values {
-				valuePtrs[i] = &values[i]
-			}
-			if err := dataRows.Scan(valuePtrs...); err != nil {
-				continue
-			}
-			var rowVals []string
-			for _, v := range values {
-				if v == nil {
-					rowVals = append(rowVals, "NULL")
-				} else {
-					switch val := v.(type) {
-					case []byte:
-						rowVals = append(rowVals, fmt.Sprintf("X'%x'", val))
-					case string:
-						escaped := strings.ReplaceAll(val, "'", "''")
-						rowVals = append(rowVals, "'"+escaped+"'")
-					default:
-						rowVals = append(rowVals, fmt.Sprintf("%v", val))
-					}
-				}
-			}
-			sqlStmts = append(sqlStmts, fmt.Sprintf("INSERT INTO [%s] VALUES(%s);", tableName, strings.Join(rowVals, ",")))
-		}
-		dataRows.Close()
-	}
-
-	// Write all SQL to gzip
-	for _, stmt := range sqlStmts {
-		if _, err := io.WriteString(gzWriter, stmt+"\n"); err != nil {
-			return fmt.Errorf("写入备份失败: %w", err)
-		}
+	if _, err := gzWriter.Write(sqliteData); err != nil {
+		return fmt.Errorf("写入备份失败: %w", err)
 	}
 
 	return nil
@@ -298,7 +238,7 @@ func restoreBackup(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// 恢复前备份
-		preRestoreName := fmt.Sprintf("pre_restore_%s.sql.gz", time.Now().Format("2006-01-02_150405"))
+		preRestoreName := fmt.Sprintf("pre_restore_%s.db.gz", time.Now().Format("2006-01-02_150405"))
 		preRestorePath := filepath.Join(backupDir, preRestoreName)
 
 		if dbDriver == "postgres" {
@@ -313,9 +253,8 @@ func restoreBackup(db *gorm.DB) gin.HandlerFunc {
 			gzipCmd.Wait()
 			gzipFile.Close()
 		} else {
-			// SQLite pre-restore backup using Go-native method
+			// SQLite pre-restore backup using VACUUM INTO
 			if err := backupSQLite(dbPath, preRestorePath); err != nil {
-				// Non-fatal, continue with restore
 				fmt.Printf("Warning: pre-restore backup failed: %v\n", err)
 			}
 		}
@@ -333,54 +272,105 @@ func restoreBackup(db *gorm.DB) gin.HandlerFunc {
 			}
 			gunzipCmd.Wait()
 		} else {
-			// SQLite restore using Go-native method
-			if err := restoreSQLite(dbPath, path); err != nil {
+			// SQLite: detect backup format and restore
+			tempDBPath := dbPath + ".restore_tmp"
+			if err := restoreSQLite(dbPath, path, tempDBPath); err != nil {
+				os.Remove(tempDBPath)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "恢复失败: " + err.Error()})
 				return
 			}
+
+			// Close GORM connection pool so it releases file locks
+			sqlDB, _ := db.DB()
+			if sqlDB != nil {
+				sqlDB.Close()
+			}
+
+			// Remove old DB files
+			os.Remove(dbPath)
+			os.Remove(dbPath + "-wal")
+			os.Remove(dbPath + "-shm")
+
+			// Rename restored temp DB to actual DB path
+			if err := os.Rename(tempDBPath, dbPath); err != nil {
+				// Try copy as fallback (cross-device rename)
+				input, _ := os.ReadFile(tempDBPath)
+				os.WriteFile(dbPath, input, 0644)
+				os.Remove(tempDBPath)
+			}
+
+			// Reopen GORM connection
+			gormDB2, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+				DisableForeignKeyConstraintWhenMigrating: true,
+			})
+			if err == nil {
+				*db = *gormDB2
+			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "恢复成功，请重启服务", "pre_restore_backup": preRestoreName})
+		c.JSON(http.StatusOK, gin.H{"message": "恢复成功，数据已生效", "pre_restore_backup": preRestoreName})
 	}
 }
 
-// restoreSQLite restores a SQLite database from a gzipped SQL dump
-func restoreSQLite(dbPath, dumpPath string) error {
-	// Open gzip file
+// restoreSQLite restores a SQLite database from a gzipped backup.
+// Supports both new binary format (.sqlite.gz from VACUUM INTO) and legacy SQL dump (.sql.gz).
+// Restores into tempDBPath, caller is responsible for swapping files.
+func restoreSQLite(currentDBPath, dumpPath, tempDBPath string) error {
+	// Detect format: try gzip first, check if it's raw SQLite or SQL dump
 	f, err := os.Open(dumpPath)
 	if err != nil {
 		return fmt.Errorf("打开备份文件失败: %w", err)
 	}
 	defer f.Close()
 
+	// Read compressed data
 	gzReader, err := gzip.NewReader(f)
 	if err != nil {
 		return fmt.Errorf("解压备份文件失败: %w", err)
 	}
 	defer gzReader.Close()
 
-	// Open target database
-	targetDB, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		return fmt.Errorf("打开目标数据库失败: %w", err)
-	}
-	defer targetDB.Close()
-
-	// Read and execute SQL statements
-	sqlData, err := io.ReadAll(gzReader)
+	compressedData, err := io.ReadAll(gzReader)
 	if err != nil {
 		return fmt.Errorf("读取备份文件失败: %w", err)
 	}
 
-	// Split by semicolons and execute
-	statements := strings.Split(string(sqlData), ";")
-	for _, stmt := range statements {
-		stmt = strings.TrimSpace(stmt)
-		if stmt == "" {
+	// Check if it's a binary SQLite file (starts with "SQLite format 3\000")
+	if len(compressedData) > 16 && string(compressedData[:16]) == "SQLite format 3\x00" {
+		// Binary SQLite backup — write directly to temp path
+		if err := os.WriteFile(tempDBPath, compressedData, 0644); err != nil {
+			return fmt.Errorf("写入恢复文件失败: %w", err)
+		}
+		return nil
+	}
+
+	// Legacy SQL dump format — execute into temp DB
+	tempDB, err := sql.Open("sqlite", tempDBPath)
+	if err != nil {
+		return fmt.Errorf("创建临时数据库失败: %w", err)
+	}
+	defer tempDB.Close()
+
+	// Regex to match unquoted datetime values like: 2026-07-22 22:10:39.461760003 +0800 +0800
+	reDatetime := regexp.MustCompile(`,(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[^,)]*?)([,)])`)
+
+	// Execute SQL statements line by line
+	lines := strings.Split(string(compressedData), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
 			continue
 		}
-		if _, err := targetDB.Exec(stmt); err != nil {
-			// Skip errors for non-critical statements
+		line = strings.TrimRight(line, ";")
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Fix unquoted datetime values in INSERT statements
+		if strings.HasPrefix(strings.ToUpper(line), "INSERT") {
+			line = reDatetime.ReplaceAllString(line, ",'$1'$2")
+		}
+		if _, err := tempDB.Exec(line); err != nil {
 			fmt.Printf("Warning: execute SQL failed: %v\n", err)
 		}
 	}
