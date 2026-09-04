@@ -352,7 +352,9 @@ func restoreSQLite(currentDBPath, dumpPath, tempDBPath string) error {
 	defer tempDB.Close()
 
 	// Regex to match unquoted datetime values like: 2026-07-22 22:10:39.461760003 +0800 +0800
-	reDatetime := regexp.MustCompile(`,(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[^,)]*?)([,)])`)
+	// or: 0001-01-01 00:00:00 +0000 UTC
+	// Convert to SQLite-compatible format: '2026-07-22 22:10:39'
+	reDatetime := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:\s+[+-]\d{4}){1,2}(?:\s+UTC)?`)
 
 	// Execute SQL statements line by line
 	lines := strings.Split(string(compressedData), "\n")
@@ -368,7 +370,7 @@ func restoreSQLite(currentDBPath, dumpPath, tempDBPath string) error {
 		}
 		// Fix unquoted datetime values in INSERT statements
 		if strings.HasPrefix(strings.ToUpper(line), "INSERT") {
-			line = reDatetime.ReplaceAllString(line, ",'$1'$2")
+			line = reDatetime.ReplaceAllString(line, "'$1 $2'")
 		}
 		if _, err := tempDB.Exec(line); err != nil {
 			fmt.Printf("Warning: execute SQL failed: %v\n", err)
