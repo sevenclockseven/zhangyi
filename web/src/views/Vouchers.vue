@@ -102,7 +102,7 @@
     </div>
 
     <!-- Voucher Editor Dialog -->
-    <el-dialog v-model="showEditor" :title="editingVoucher ? '编辑凭证' : '新增凭证'" :width="isMobile ? '98%' : '900px'" :close-on-click-modal="false" fullscreen>
+    <el-dialog v-model="showEditor" :title="editingVoucher ? '编辑凭证' : '新增凭证'" :width="isMobile ? '98%' : '900px'" :close-on-click-modal="false" fullscreen @close="currentVoucherIndex = -1">
       <el-form :model="voucherForm" :label-width="isMobile ? '60px' : '80px'" size="small">
         <el-row :gutter="12">
           <el-col :xs="24" :sm="8">
@@ -177,10 +177,10 @@
               <el-input-number v-model="row.credit" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="calcTotal" @keydown.enter.prevent="focusNext($index, 'next-row')" :ref="el => setFieldRef($index, 'credit', el)" />
             </template>
           </el-table-column>
-          <el-table-column label="" width="40">
+          <el-table-column label="" width="70">
             <template #default="{ $index }">
-              <el-button size="small" type="danger" link @click="removeItem($index)" :disabled="voucherForm.items.length <= 2">
-                <el-icon><Delete /></el-icon>
+              <el-button class="delete-row-btn" size="small" type="danger" link @click="removeItem($index)" :disabled="voucherForm.items.length <= 2">
+                <el-icon><Delete /></el-icon><span class="delete-row-text">删除</span>
               </el-button>
             </template>
           </el-table-column>
@@ -204,31 +204,51 @@
 
       <template #footer>
         <div class="editor-footer">
-          <el-button @click="showEditor = false">取消</el-button>
-          <el-button @click="showSaveAsTemplate = true" :disabled="totalDebit === 0">存为模板</el-button>
-          <el-dropdown @command="loadFromTemplate" v-if="templates.length > 0">
-            <el-button>从模板加载 <el-icon><ArrowDown /></el-icon></el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item v-for="t in templates" :key="t.id" :command="t">
-                  {{ t.category ? t.category + '/' : '' }}{{ t.name }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          <el-button type="primary" @click="saveVoucher" :disabled="totalDebit !== totalCredit || totalDebit === 0">
-            {{ editingVoucher ? '保存' : '保存' }}
-          </el-button>
-          <el-button type="success" @click="saveAndNew" v-if="!editingVoucher" :disabled="totalDebit !== totalCredit || totalDebit === 0">
-            保存并新增
-          </el-button>
+          <div class="editor-nav" v-if="editingVoucher">
+            <el-button size="small" :disabled="!canNavigatePrev" @click="navigateVoucher(-1)">
+              <el-icon><ArrowLeft /></el-icon> 上一张
+            </el-button>
+            <span class="nav-info" v-if="currentVoucherIndex >= 0">{{ currentVoucherIndex + 1 }} / {{ vouchers.length }}</span>
+            <el-button size="small" :disabled="!canNavigateNext" @click="navigateVoucher(1)">
+              下一张 <el-icon><ArrowRight /></el-icon>
+            </el-button>
+          </div>
+          <div class="editor-actions">
+            <el-button @click="showEditor = false">取消</el-button>
+            <el-button @click="showSaveAsTemplate = true" :disabled="totalDebit === 0">存为模板</el-button>
+            <el-dropdown @command="loadFromTemplate" v-if="templates.length > 0">
+              <el-button>从模板加载 <el-icon><ArrowDown /></el-icon></el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-for="t in templates" :key="t.id" :command="t">
+                    {{ t.category ? t.category + '/' : '' }}{{ t.name }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <el-button type="primary" @click="saveVoucher" :disabled="totalDebit !== totalCredit || totalDebit === 0">
+              {{ editingVoucher ? '保存' : '保存' }}
+            </el-button>
+            <el-button type="success" @click="saveAndNew" v-if="!editingVoucher" :disabled="totalDebit !== totalCredit || totalDebit === 0">
+              保存并新增
+            </el-button>
+          </div>
         </div>
       </template>
     </el-dialog>
 
     <!-- View Voucher Dialog -->
-    <el-dialog v-model="showViewer" title="凭证详情" :width="isMobile ? '98%' : '800px'">
+    <el-dialog v-model="showViewer" title="凭证详情" :width="isMobile ? '98%' : '800px'" @close="currentVoucherIndex = -1">
       <div v-if="viewingVoucher">
+        <div class="voucher-nav">
+          <el-button size="small" :disabled="!canNavigatePrev" @click="navigateVoucher(-1)">
+            <el-icon><ArrowLeft /></el-icon> 上一张
+          </el-button>
+          <span class="nav-info" v-if="currentVoucherIndex >= 0">{{ currentVoucherIndex + 1 }} / {{ vouchers.length }}</span>
+          <el-button size="small" :disabled="!canNavigateNext" @click="navigateVoucher(1)">
+            下一张 <el-icon><ArrowRight /></el-icon>
+          </el-button>
+        </div>
         <el-descriptions :column="isMobile ? 1 : 3" border size="small">
           <el-descriptions-item label="凭证字号">{{ viewingVoucher.number }}</el-descriptions-item>
           <el-descriptions-item label="日期">{{ viewingVoucher.date }}</el-descriptions-item>
@@ -282,7 +302,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useBookStore } from '../stores/book'
 import { useMobile } from '../composables/useMobile'
 import { useRoute } from 'vue-router'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 
 const { isMobile } = useMobile()
 const tableMaxHeight = computed(() => isMobile.value ? 'calc(100vh - 300px)' : 'calc(100vh - 350px)')
@@ -356,6 +376,55 @@ const voucherForm = ref({ date: '', voucher_type: 'general', attachments: 0, ite
 
 const showViewer = ref(false)
 const viewingVoucher = ref(null)
+
+// Voucher navigation
+const currentVoucherIndex = ref(-1)
+
+const canNavigatePrev = computed(() => currentVoucherIndex.value > 0)
+const canNavigateNext = computed(() => currentVoucherIndex.value >= 0 && currentVoucherIndex.value < vouchers.value.length - 1)
+
+const navigateVoucher = async (direction) => {
+  const newIndex = currentVoucherIndex.value + direction
+  if (newIndex < 0 || newIndex >= vouchers.value.length) return
+  const row = vouchers.value[newIndex]
+  if (showEditor.value && editingVoucher.value) {
+    try {
+      await ElMessageBox.confirm('当前凭证有未保存的修改，确定切换？', '提示', { type: 'warning' })
+    } catch { return }
+  }
+  currentVoucherIndex.value = newIndex
+  if (showViewer.value) {
+    try {
+      const { data } = await voucherApi.get(currentBook.value, row.id)
+      viewingVoucher.value = data.data
+    } catch (e) { ElMessage.error('加载失败') }
+  } else if (showEditor.value) {
+    try {
+      const { data } = await voucherApi.get(currentBook.value, row.id)
+      editingVoucher.value = data.data
+      voucherForm.value = {
+        date: data.data.date,
+        voucher_type: data.data.voucher_type || 'general',
+        attachments: data.data.attachments || 0,
+        items: data.data.items.map(i => ({
+          account_id: i.account_id, account_code: i.account_code, account_name: i.account_name,
+          debit: i.debit, credit: i.credit, memo: i.memo,
+          aux_customer_id: i.aux_customer_id || null,
+          aux_supplier_id: i.aux_supplier_id || null,
+          aux_department_id: i.aux_department_id || null,
+          aux_project_id: i.aux_project_id || null,
+          aux_employee_id: i.aux_employee_id || null,
+          aux_warehouse_id: i.aux_warehouse_id || null,
+          aux_bank_account_id: i.aux_bank_account_id || null,
+          cash_flow_id: i.cash_flow_id || null,
+          aux_fixed_asset_id: i.aux_fixed_asset_id || null,
+          aux_vat_detail_id: i.aux_vat_detail_id || null,
+          aux_cost_object_id: i.aux_cost_object_id || null
+        }))
+      }
+    } catch (e) { ElMessage.error('加载失败') }
+  }
+}
 
 const totalDebit = computed(() => voucherForm.value.items.reduce((s, i) => s + (i.debit || 0), 0))
 const totalCredit = computed(() => voucherForm.value.items.reduce((s, i) => s + (i.credit || 0), 0))
@@ -459,6 +528,7 @@ const viewVoucher = async (row) => {
   try {
     const { data } = await voucherApi.get(currentBook.value, row.id)
     viewingVoucher.value = data.data
+    currentVoucherIndex.value = vouchers.value.findIndex(v => v.id === row.id)
     showViewer.value = true
   } catch (e) { ElMessage.error('加载失败') }
 }
@@ -487,6 +557,7 @@ const editVoucher = async (row) => {
         aux_cost_object_id: i.aux_cost_object_id || null
       }))
     }
+    currentVoucherIndex.value = vouchers.value.findIndex(v => v.id === row.id)
     showEditor.value = true
   } catch (e) { ElMessage.error('加载失败') }
 }
@@ -662,8 +733,14 @@ const saveAndNew = async () => {
 
 const resetForm = () => {
   editingVoucher.value = null
+  let defaultDate = new Date().toISOString().slice(0, 10)
+  if (filterPeriod.value) {
+    const [y, m] = filterPeriod.value.split('-')
+    const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate()
+    defaultDate = `${filterPeriod.value}-${String(lastDay).padStart(2, '0')}`
+  }
   voucherForm.value = {
-    date: new Date().toISOString().slice(0, 10),
+    date: defaultDate,
     voucher_type: 'general', attachments: 0,
     items: [newItem(), newItem()]
   }
@@ -820,9 +897,45 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.editor-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voucher-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.nav-info {
+  font-size: 13px;
+  color: #606266;
+  min-width: 60px;
+  text-align: center;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .text-danger { color: #f56c6c; font-weight: bold; }
+
+.delete-row-btn { display: inline-flex; align-items: center; gap: 2px; }
+.delete-row-text { display: none; font-size: 12px; }
+.delete-row-btn:hover .delete-row-text { display: inline; }
 
 @media (max-width: 767px) {
   .page-header {
